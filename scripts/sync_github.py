@@ -4,10 +4,11 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path, PurePosixPath
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from urllib.parse import quote
 
 import yaml
@@ -210,7 +211,7 @@ def download_readme(repository, sha):
         return "# README\n\n此提交没有 GitHub 可识别的 README。\n"
 
 
-def sync_one(key, item, repo, force=False):
+def sync_one(key, item, repo, force=False, registry=None):
     if not re.fullmatch(SLUG, key):
         raise ValueError(f"非法快照 ID：{key}")
     repository = repo["nameWithOwner"]
@@ -241,8 +242,28 @@ def sync_one(key, item, repo, force=False):
         if hits:
             label, line = hits[0]
             raise ValueError(f"{key}/{name}:{line}: 疑似凭据 ({label})")
-    for name, content in files.items():
-        write_text(directory / name, content)
+    directory.parent.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(dir=directory.parent, prefix=f".{key}-") as temporary:
+        staged = Path(temporary)
+        backup = staged.with_name(staged.name + ".previous")
+        for name, content in files.items():
+            write_text(staged / name, content)
+
+        if directory.exists():
+            directory.replace(backup)
+        try:
+            staged.replace(directory)
+            if registry is not None and item.get("snapshot_commit") != sha:
+                updated = {**registry["repos"], key: {**item, "snapshot_commit": sha}}
+                write_registry({**registry, "repos": updated})
+        except (OSError, ValueError):
+            if directory.exists():
+                directory.replace(staged)
+            if backup.exists():
+                backup.replace(directory)
+            raise
+        if backup.exists():
+            shutil.rmtree(backup, ignore_errors=True)
     item["snapshot_commit"] = sha
     print(f"已同步 {key} {sha[:12]}", flush=True)
 
@@ -308,7 +329,12 @@ def main():
         parser.error("--force 仅用于 --sync")
     if args.json and not args.check_drift:
         parser.error("--json 仅用于 --check-drift")
+    lock = None
     try:
+        if not args.check_drift:
+            lock_path = ROOT / ".snapshot-sync.lock"
+            with lock_path.open("x"):
+                lock = lock_path
         registry = {"owner": None, "repos": {}}
         if REGISTRY.exists():
             registry = load_yaml(REGISTRY)
@@ -345,10 +371,7 @@ def main():
                 repo = repos.get(item["repo"].casefold())
                 if repo is None or not repo["defaultBranchRef"]:
                     raise ValueError(f"{key}: 当前公开清单中没有可同步的默认分支")
-                previous = item.get("snapshot_commit")
-                sync_one(key, item, repo, force=args.force)
-                if item.get("snapshot_commit") != previous:
-                    write_registry(registry)
+                sync_one(key, item, repo, force=args.force, registry=registry)
             except (OSError, ValueError) as error:
                 print(f"ERROR {redact_secrets(str(error))}", file=sys.stderr, flush=True)
                 failed = True
@@ -356,6 +379,9 @@ def main():
     except (OSError, ValueError) as error:
         print(f"ERROR {redact_secrets(str(error))}", file=sys.stderr)
         return 1
+    finally:
+        if lock is not None:
+            lock.unlink()
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-24T13:55:13.836611Z",
+  "generated_at": "2026-11-24T15:22:18.804183Z",
   "counts": {
     "projects": 6,
     "topics": 4,
@@ -56,7 +56,7 @@
       "title": "TS-0001 · Bootloader 收完 BIN 后未进入 APP",
       "type": "troubleshooting",
       "updated": "2026-11-24",
-      "route": "/troubleshooting/TS-0001-bootloader-update-phase/",
+      "route": "/troubleshooting/ts-0001-bootloader-update-phase/",
       "description": "按接收、外部 Flash 暂存、EEPROM 提交、内部搬运与向量跳转定位 F407 更新失败阶段。"
     },
     {
@@ -64,7 +64,7 @@
       "title": "TS-0002 · 手表首帧或正常采集延迟",
       "type": "troubleshooting",
       "updated": "2026-11-24",
-      "route": "/troubleshooting/TS-0002-watch-startup-latency/",
+      "route": "/troubleshooting/ts-0002-watch-startup-latency/",
       "description": "对照供电、首帧提交、DMA、传感器就绪、RTC/蓝牙结束及校准状态定位冷启动耗时。"
     },
     {
@@ -72,7 +72,7 @@
       "title": "TS-0003 · 以太网插线后仍无 IP",
       "type": "troubleshooting",
       "updated": "2026-11-24",
-      "route": "/troubleshooting/TS-0003-ethernet-link-without-ip/",
+      "route": "/troubleshooting/ts-0003-ethernet-link-without-ip/",
       "description": "从编译时 DHCP 选项、PHY 链路和 netif 状态定位 STM32 以太网不可达的层级。"
     },
     {
@@ -80,7 +80,7 @@
       "title": "TS-0004 · K230 无目标、超时与电机回执",
       "type": "troubleshooting",
       "updated": "2026-11-24",
-      "route": "/troubleshooting/TS-0004-k230-vision-timeout/",
+      "route": "/troubleshooting/ts-0004-k230-vision-timeout/",
       "description": "分别记录视觉有效性、UART0 新帧、目标毫度与 Emm_V5 回执，定位平衡机构无动作或回中。"
     },
     {
@@ -88,7 +88,7 @@
       "title": "ADR-0001 · 镜像先暂存再提交",
       "type": "adr",
       "updated": "2026-11-24",
-      "route": "/adr/ADR-0001-stage-image-before-boot/",
+      "route": "/adr/adr-0001-stage-image-before-boot/",
       "description": "F407 更新 APP 在外部 Flash 保存完整镜像，并用 EEPROM 更新标记把接收阶段与启动搬运阶段连接起来。"
     },
     {
@@ -96,7 +96,7 @@
       "title": "ADR-0002 · 传感器总线交由单任务访问",
       "type": "adr",
       "updated": "2026-11-24",
-      "route": "/adr/ADR-0002-assign-sensor-bus-owner/",
+      "route": "/adr/adr-0002-assign-sensor-bus-owner/",
       "description": "飞控与手表都将共享传感器总线收敛到一个任务，并为低频器件保留分频采样。"
     },
     {
@@ -104,7 +104,7 @@
       "title": "ADR-0003 · 运行 lwIP 的 OS 模式",
       "type": "adr",
       "updated": "2026-11-24",
-      "route": "/adr/ADR-0003-run-lwip-in-rtos-mode/",
+      "route": "/adr/adr-0003-run-lwip-in-rtos-mode/",
       "description": "当前 STM32F407 以太网工程由 FreeRTOS 管理网络与触摸线程，lwIP 使用 TCP/IP 核心上下文。"
     },
     {

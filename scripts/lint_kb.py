@@ -9,6 +9,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
 import yaml
+from markdown_it import MarkdownIt
 
 ROOT = Path(__file__).resolve().parents[1]
 SECTIONS = {
@@ -37,6 +38,7 @@ VISUAL_FIELDS = {
     "troubleshooting": ("phases", "root_cause", "located_by"),
 }
 TROUBLESHOOTING_SECTIONS = ("错误原因与触发机理", "定位过程与关键证据", "具体排查流程")
+MARKDOWN = MarkdownIt("commonmark")
 READING_TRACKS_PATH = "wiki/reading_tracks.yaml"
 ENUMS = {
     "visibility": {"public", "private"},
@@ -87,7 +89,7 @@ class Note:
 
     @property
     def route(self):
-        return "/" + self.path.relative_to("wiki").with_suffix("").as_posix() + "/"
+        return "/" + self.path.relative_to("wiki").with_suffix("").as_posix().lower() + "/"
 
 
 def load_yaml(path):
@@ -303,6 +305,23 @@ def check_image(note, target):
     return path.is_relative_to(ROOT / "wiki") and path.is_file()
 
 
+def resolve_wiki_asset(note, target):
+    target = target.split("#", 1)[0]
+    wiki = ROOT / "wiki"
+    assets = (wiki / "assets").resolve()
+    for candidate in (ROOT / note.path.parent / target, wiki / target, assets / target):
+        path = candidate.resolve()
+        if path.is_relative_to(assets) and path.name != ".gitkeep" and path.is_file():
+            return path.relative_to(assets).as_posix()
+    if Path(target).name == target and target != ".gitkeep":
+        matches = [path for path in assets.rglob("*") if path.name == target and path.is_file()]
+        if len(matches) > 1:
+            raise ValueError(f"图片名称不唯一，请使用 assets/ 下的完整相对路径 {target}")
+        if matches and matches[0].resolve().is_relative_to(assets):
+            return matches[0].relative_to(assets).as_posix()
+    raise ValueError(f"图片不存在于 wiki/assets {target}")
+
+
 def check_links(notes):
     errors = []
     topics_used = set()
@@ -310,14 +329,13 @@ def check_links(notes):
         meta = note.meta
         references = []
         for match in wikilinks(note.body):
-            target = match["target"].split("#", 1)[0]
-            if match["embed"] and Path(target).suffix:
-                candidates = [ROOT / note.path.parent / target, ROOT / "wiki" / target]
-                if "/" not in target:
-                    candidates.extend((ROOT / "wiki" / "assets").rglob(target))
-                if not any(path.resolve().is_relative_to(ROOT / "wiki") and path.is_file() for path in candidates):
-                    errors.append(f"{note.path}: 图片不存在 {target}")
+            if match["embed"]:
+                try:
+                    resolve_wiki_asset(note, match["target"])
+                except ValueError as error:
+                    errors.append(f"{note.path}: {error}")
                 continue
+            target = match["target"].split("#", 1)[0]
             if not target or match["label"] is None or "#" in match["target"] or "/" in target:
                 errors.append(f"{note.path}: 使用 [[id|显示文本]] 链接页面 ({match['target']})")
             references.append((target, None))
@@ -373,14 +391,20 @@ def check_registry(notes, repos):
     for key, item in repos.items():
         snapshot = item.get("snapshot_commit")
         synced = item.get("synced_commit")
-        if item.get("tier") in {"core", "active"} and synced:
-            note = notes.get(key)
-            if note is None or note.meta.get("draft") is not False or note.meta.get("type") != "project":
-                errors.append(f"registry.yaml: {key} 缺少对应的公开项目档案")
-        if item.get("available") is not True or item.get("tier") == "ignore" or not snapshot:
-            continue
         directory = ROOT / "raw" / "snapshots" / key
         relative = directory.relative_to(ROOT)
+        note = notes.get(key)
+        if item.get("available") is not True or item.get("visibility") != "public":
+            if note is not None and note.meta.get("type") == "project" and note.meta.get("draft") is False:
+                errors.append(f"{note.path}: {item['repo']} 已不在公开清单，请复核公开项目档案")
+            if snapshot or directory.exists():
+                errors.append(f"{relative}: {item['repo']} 已不在公开清单，请复核快照及 registry.yaml 的 snapshot_commit")
+            continue
+        if item.get("tier") in {"core", "active"} and synced:
+            if note is None or note.meta.get("draft") is not False or note.meta.get("type") != "project":
+                errors.append(f"registry.yaml: {key} 缺少对应的公开项目档案")
+        if item.get("tier") == "ignore" or not snapshot:
+            continue
         for name in SNAPSHOT_FILES:
             if not (directory / name).is_file():
                 errors.append(f"{relative / name}: 缺少快照文件")
@@ -447,9 +471,11 @@ def check_mermaid(note):
 def check_troubleshooting_sections(note):
     if note.meta.get("type") != "troubleshooting" or note.meta.get("draft") is not False:
         return
-    # Keep a block removal from exposing an inline ## as a heading.
-    body = BLOCKS.sub("    ", NOTES.sub("    ", note.body))
-    headings = re.findall(r"^ {0,3}##[ \t]+(.+?)(?:[ \t]+#+)?[ \t]*$", body, re.M)
+    tokens = MARKDOWN.parse(NOTES.sub("    ", note.body))
+    headings = {
+        content.content for heading, content in zip(tokens, tokens[1:])
+        if heading.type == "heading_open" and heading.tag == "h2" and heading.level == 0
+    }
     for heading in TROUBLESHOOTING_SECTIONS:
         if heading not in headings:
             yield f"{note.path}: 公开排障页缺少二级标题「{heading}」"

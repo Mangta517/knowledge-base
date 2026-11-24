@@ -143,6 +143,44 @@ class LintTests(TemporaryWorkspace):
         errors, _ = lint.check_registry(notes, {})
         self.assertTrue(any("项目未登记" in error for error in errors))
 
+    def test_source_removed_from_public_inventory_blocks_publication(self):
+        self.snapshot()
+        self.repos["demo"]["available"] = False
+        notes = {"demo": self.project}
+        registry = {"owner": "owner", "repos": self.repos}
+        errors, warnings = lint.check_content(notes, registry)
+        self.assertEqual(warnings, [])
+        self.assertEqual(len(errors), 2)
+        self.assertIn(str(self.project.path), errors[0])
+        self.assertIn(str(Path("raw/snapshots/demo")), errors[1])
+        with (patch.object(lint, "load_notes", return_value=(notes, [])),
+              patch.object(lint, "load_yaml", return_value=registry),
+              contextlib.redirect_stdout(io.StringIO())):
+            self.assertEqual(lint.main(), 1)
+        with (patch.object(indexes, "load_notes", return_value=(notes, [])),
+              patch.object(indexes, "load_yaml", return_value=registry),
+              patch.object(sys, "argv", ["build_indexes.py"]),
+              contextlib.redirect_stderr(io.StringIO())):
+            self.assertEqual(indexes.main(), 1)
+        self.assertFalse((self.root / "data/catalog.json").exists())
+
+    def test_embedded_asset_resolves_nested_path_for_catalog(self):
+        self.write("wiki/assets/boards/front-panel.svg", "<svg/>")
+        notes = {"demo": self.project}
+        self.project.body = "![[front-panel.svg|面板]] ![[../assets/boards/front-panel.svg]]"
+        self.assertEqual(lint.check_links(notes), ([], []))
+        catalog, _, _ = indexes.build_data(notes, "owner")
+        self.assertEqual(catalog["projects"][0]["assets"], {
+            "front-panel.svg": "boards/front-panel.svg",
+            "../assets/boards/front-panel.svg": "boards/front-panel.svg",
+        })
+        self.write("wiki/assets/other/front-panel.svg", "<svg/>")
+        errors, _ = lint.check_links(notes)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("图片名称不唯一", errors[0])
+        self.project.body = "![[assets/boards/front-panel.svg]]"
+        self.assertEqual(lint.check_links(notes), ([], []))
+
     def test_source_links_validate_refs_and_tree_paths(self):
         self.snapshot()
         repo = "https://github.com/OWNER/Demo"
@@ -255,6 +293,7 @@ class TroubleshootingTests(unittest.TestCase):
     def test_core_sections_require_visible_second_level_headings(self):
         self.note.body = (
             "### 错误原因与触发机理\n\n"
+            "<pre class=\"source\">\n\n## 错误原因与触发机理\n\n</pre>\n\n"
             "<!--\n## 错误原因与触发机理\n-->\n\n"
             "<!-- 备注 -->## 错误原因与触发机理\n\n"
             "```markdown\n## 定位过程与关键证据\n```\n\n"
@@ -334,6 +373,48 @@ class SyncTests(TemporaryWorkspace):
         self.head = {"sha": SHA, "commit": {"tree": {"sha": NEW_SHA}, "committer": {"date": "2026-11-24"}}}
         self.enterContext(patch.object(sync, "head", return_value=self.head))
 
+    def test_failed_snapshot_update_preserves_old_files_and_registry(self):
+        sync.write_registry(self.registry)
+        before = {
+            self.write(f"raw/snapshots/demo/{name}", f"旧版 {name}"): f"旧版 {name}"
+            for name in lint.SNAPSHOT_FILES
+        }
+        registry_before = sync.REGISTRY.read_bytes()
+        self.head["sha"] = NEW_SHA
+        write_text = sync.write_text
+        replace = Path.replace
+
+        def fail_write(path, content):
+            if path.name == "readme.md":
+                self.assertTrue((path.parent / "tree.txt").exists())
+                raise OSError("README 写入失败")
+            write_text(path, content)
+
+        def fail_swap(path, destination):
+            if destination.name == "demo" and not path.name.endswith(".previous"):
+                raise OSError("快照目录替换失败")
+            return replace(path, destination)
+
+        with (patch.object(sync, "tree_paths", return_value=["main.c"]),
+              patch.object(sync, "download_readme", return_value="# README")):
+            with patch.object(sync, "write_text", side_effect=fail_write):
+                with self.assertRaisesRegex(OSError, "README 写入失败"):
+                    sync.sync_one("demo", self.item, self.remote, registry=self.registry)
+            self.assertEqual({path: path.read_text(encoding="utf-8") for path in before}, before)
+
+            with patch.object(Path, "replace", fail_swap):
+                with self.assertRaisesRegex(OSError, "快照目录替换失败"):
+                    sync.sync_one("demo", self.item, self.remote, registry=self.registry)
+            self.assertEqual({path: path.read_text(encoding="utf-8") for path in before}, before)
+
+            with patch.object(sync, "write_registry", side_effect=OSError("登记写入失败")):
+                with self.assertRaisesRegex(OSError, "登记写入失败"):
+                    sync.sync_one("demo", self.item, self.remote, registry=self.registry)
+        self.assertEqual({path: path.read_text(encoding="utf-8") for path in before}, before)
+        self.assertEqual(sync.REGISTRY.read_bytes(), registry_before)
+        self.assertEqual(self.item["snapshot_commit"], SHA)
+        self.assertEqual([path.name for path in (self.root / "raw/snapshots").iterdir()], ["demo"])
+
     def test_incremental_sync_skips_complete_snapshot_and_repairs_missing_file(self):
         for name in lint.SNAPSHOT_FILES:
             self.write(f"raw/snapshots/demo/{name}", json.dumps({"commit": SHA}))
@@ -408,6 +489,7 @@ class CurrentRepositoryTests(unittest.TestCase):
         })
         self.assertEqual(catalog["reading_tracks"], tracks)
         self.assertEqual(catalog["link_map"], {key: note.route for key, note in published.items()})
+        self.assertTrue(all(route == route.lower() for route in catalog["link_map"].values()))
         self.assertEqual(set(graph), {"nodes", "edges"})
         self.assertEqual(set(stats), {"counts", "by_tier", "by_domain", "by_tech_stack", "by_language", "recent_updates"})
         self.assertEqual({node["id"]: node["route"] for node in graph["nodes"]}, catalog["link_map"])

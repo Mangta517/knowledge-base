@@ -10,7 +10,7 @@ from datetime import date, datetime, timezone
 from lint_kb import (
     BLOCKS, COMMENT, COMMON, FIELDS, INLINE_CODE, NOTES, OUTPUT_KEYS, RELATED_TYPES, ROOT, SECTIONS, SHA, WIKILINK,
     VISUAL_FIELDS, check_content, load_notes, load_reading_tracks, load_yaml, mermaid_blocks, redact_secrets,
-    source_links, visible_markup, wikilinks,
+    resolve_wiki_asset, source_links, visible_markup, wikilinks,
 )
 
 JSON_PATHS = ["data/catalog.json", "data/graph.json", "data/stats.json"]
@@ -93,8 +93,11 @@ def build_data(notes, owner, reading_tracks=()):
         catalog[keys[kind]].append(item)
         catalog["link_map"][source] = note.route
         for match in wikilinks(note.body):
-            if not match["embed"]:
-                edges.add((source, match["target"], "wikilink"))
+            target = match["target"]
+            if match["embed"]:
+                item.setdefault("assets", {})[target] = resolve_wiki_asset(note, target)
+                continue
+            edges.add((source, target, "wikilink"))
         for key in RELATED_TYPES:
             edges.update((source, target, "frontmatter") for target in meta.get(key, ()))
     edges = sorted(edge for edge in edges if edge[0] != edge[1] and edge[1] in notes)
@@ -138,7 +141,7 @@ def build_data(notes, owner, reading_tracks=()):
 
 
 def public_link(note):
-    return "." + note.route.lower()
+    return "." + note.route
 
 
 def corpus_body(note, notes):

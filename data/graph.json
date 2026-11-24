@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-11-24T13:55:13.836611Z",
+  "generated_at": "2026-11-24T15:22:18.804183Z",
   "nodes": [
     {
       "id": "ADR-0001-stage-image-before-boot",
       "title": "ADR-0001 · 镜像先暂存再提交",
       "type": "adr",
-      "route": "/adr/ADR-0001-stage-image-before-boot/",
+      "route": "/adr/adr-0001-stage-image-before-boot/",
       "group": "adr",
       "degree": 3
     },
@@ -13,7 +13,7 @@
       "id": "ADR-0002-assign-sensor-bus-owner",
       "title": "ADR-0002 · 传感器总线交由单任务访问",
       "type": "adr",
-      "route": "/adr/ADR-0002-assign-sensor-bus-owner/",
+      "route": "/adr/adr-0002-assign-sensor-bus-owner/",
       "group": "adr",
       "degree": 4
     },
@@ -21,7 +21,7 @@
       "id": "ADR-0003-run-lwip-in-rtos-mode",
       "title": "ADR-0003 · 运行 lwIP 的 OS 模式",
       "type": "adr",
-      "route": "/adr/ADR-0003-run-lwip-in-rtos-mode/",
+      "route": "/adr/adr-0003-run-lwip-in-rtos-mode/",
       "group": "adr",
       "degree": 4
     },
@@ -29,7 +29,7 @@
       "id": "TS-0001-bootloader-update-phase",
       "title": "TS-0001 · Bootloader 收完 BIN 后未进入 APP",
       "type": "troubleshooting",
-      "route": "/troubleshooting/TS-0001-bootloader-update-phase/",
+      "route": "/troubleshooting/ts-0001-bootloader-update-phase/",
       "group": "troubleshooting",
       "degree": 4
     },
@@ -37,7 +37,7 @@
       "id": "TS-0002-watch-startup-latency",
       "title": "TS-0002 · 手表首帧或正常采集延迟",
       "type": "troubleshooting",
-      "route": "/troubleshooting/TS-0002-watch-startup-latency/",
+      "route": "/troubleshooting/ts-0002-watch-startup-latency/",
       "group": "troubleshooting",
       "degree": 3
     },
@@ -45,7 +45,7 @@
       "id": "TS-0003-ethernet-link-without-ip",
       "title": "TS-0003 · 以太网插线后仍无 IP",
       "type": "troubleshooting",
-      "route": "/troubleshooting/TS-0003-ethernet-link-without-ip/",
+      "route": "/troubleshooting/ts-0003-ethernet-link-without-ip/",
       "group": "troubleshooting",
       "degree": 4
     },
@@ -53,7 +53,7 @@
       "id": "TS-0004-k230-vision-timeout",
       "title": "TS-0004 · K230 无目标、超时与电机回执",
       "type": "troubleshooting",
-      "route": "/troubleshooting/TS-0004-k230-vision-timeout/",
+      "route": "/troubleshooting/ts-0004-k230-vision-timeout/",
       "group": "troubleshooting",
       "degree": 4
     },

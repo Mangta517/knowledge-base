@@ -163,7 +163,7 @@ function buildMermaidFigure(rawSource) {
   ].join('\n');
 }
 
-function transformBody(body, linkMap, hasHumanNotesHint) {
+function transformBody(body, linkMap, hasHumanNotesHint, assets = {}) {
   let text = stripOrPreserveHumanNotes(body, hasHumanNotesHint);
   text = convertCallouts(text);
 
@@ -202,8 +202,12 @@ function transformBody(body, linkMap, hasHumanNotesHint) {
           // Convert Obsidian wikilinks [[id|label]] or [[id]]
           let chunk = part.replace(/(!)?\[\[([^\]\n|]+)(?:\|([^\]\n]+))?\]\]/g, (full, embed, target, label) => {
             if (embed) {
-              const assetName = target.replace(/^assets\//, '');
-              return `![${label || assetName}](${withBase(`/wiki-assets/${assetName}`)})`;
+              if (!Object.hasOwn(assets, target)) {
+                return full;
+              }
+              const assetPath = assets[target];
+              const assetUrl = assetPath.split('/').map(encodeURIComponent).join('/');
+              return `![${label || path.posix.basename(assetPath)}](<${withBase(`/wiki-assets/${assetUrl}`)}>)`;
             }
             const cleanTarget = target.trim();
             const route = linkMap[cleanTarget];
@@ -359,7 +363,7 @@ function main() {
       const srcPath = path.join(REPO_ROOT, item.source_path);
       const raw = fs.readFileSync(srcPath, 'utf-8');
       const { body } = splitFrontmatter(raw);
-      const transformed = transformBody(body, catalog.link_map || {}, item.has_human_notes);
+      const transformed = transformBody(body, catalog.link_map || {}, item.has_human_notes, item.assets);
       const frontmatter = buildStarlightFrontmatter(item, idx + 1);
       const incoming = Array.from(incomingMap.get(item.id) || []).sort();
       const backlinks = buildBacklinksSection(incoming, allById);
