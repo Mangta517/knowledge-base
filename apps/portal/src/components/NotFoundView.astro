@@ -1,0 +1,164 @@
+---
+import { getSiteBase, loadKbData, withBase, withDocRoute } from '../lib/kb-data';
+
+const { catalog } = loadKbData();
+const base = getSiteBase();
+
+// Map lowercase canonical path (without base) -> full target href (with base & lowercase)
+const routeAliases: Record<string, string> = {
+  '/graph': withBase('/graph/'),
+  '/graph/': withBase('/graph/'),
+};
+
+for (const route of Object.values(catalog.link_map || {})) {
+  const target = withDocRoute(route);
+  const lowerClean = route.toLowerCase().replace(/\/+$/, '');
+  routeAliases[lowerClean] = target;
+  routeAliases[`${lowerClean}/`] = target;
+}
+
+// Also allow direct lookup by page ID (e.g. /ADR-0001-stage-image-before-boot or /watch)
+for (const [id, route] of Object.entries(catalog.link_map || {})) {
+  const target = withDocRoute(route);
+  routeAliases[`/${id.toLowerCase()}`] = target;
+  routeAliases[`/${id.toLowerCase()}/`] = target;
+}
+
+const coreProjects = catalog.projects.filter((p) => p.tier === 'core');
+---
+
+<div
+  class="kb-notfound not-content"
+  data-base={base}
+  data-aliases={JSON.stringify(routeAliases)}
+>
+  <p class="kb-nf-status" data-nf-status>未找到对应页面，可能输入了错误的地址或链接已变更。</p>
+  <div class="kb-nf-actions">
+    <a class="kb-nf-btn kb-nf-btn--primary" href={withBase('/')}>返回知识库总览</a>
+    <a class="kb-nf-btn" href={withBase('/graph/')}>打开知识关系图谱</a>
+    <button type="button" class="kb-nf-btn" data-nf-search>搜索全部文档</button>
+  </div>
+
+  {coreProjects.length > 0 && (
+    <div class="kb-nf-Quick">
+      <h2>核心项目档案直达</h2>
+      <ul>
+        {coreProjects.map((p) => (
+          <li>
+            <a href={withDocRoute(p.route)}>{p.title}</a>
+            <span> · {p.description}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
+</div>
+
+<script>
+  const box = document.querySelector<HTMLElement>('.kb-notfound[data-aliases]');
+  if (box) {
+    const base = box.dataset.base || '';
+    const aliases: Record<string, string> = JSON.parse(box.dataset.aliases || '{}');
+    let relPath = decodeURIComponent(window.location.pathname);
+
+    if (base && relPath.toLowerCase().startsWith(base.toLowerCase())) {
+      relPath = relPath.slice(base.length) || '/';
+    }
+
+    const key = relPath.toLowerCase();
+    const candidate = Object.hasOwn(aliases, key) ? aliases[key] : undefined;
+    if (
+      typeof candidate === 'string' &&
+      candidate.startsWith('/') &&
+      !candidate.startsWith('//') &&
+      candidate !== window.location.pathname
+    ) {
+      const status = box.querySelector<HTMLElement>('[data-nf-status]');
+      if (status) {
+        status.textContent = '检测到大小写或短路径别名，正在自动跳转至目标文档…';
+      }
+      window.location.replace(`${candidate}${window.location.search}${window.location.hash}`);
+    }
+
+    box.querySelector<HTMLButtonElement>('[data-nf-search]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelector<HTMLButtonElement>('site-search button[data-open-modal]')?.click();
+    });
+  }
+</script>
+
+<style>
+  .kb-notfound {
+    max-width: 46rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+
+  .kb-nf-status {
+    margin: 0;
+    color: var(--sl-color-gray-2);
+    font-size: 1rem;
+    line-height: 1.65;
+  }
+
+  .kb-nf-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  .kb-nf-btn {
+    padding: 0.42rem 0.85rem;
+    border: 1px solid var(--kb-border);
+    border-radius: 0.45rem;
+    background: var(--kb-surface);
+    color: var(--sl-color-white);
+    font: inherit;
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .kb-nf-btn--primary {
+    border-color: var(--sl-color-accent);
+    background: var(--sl-color-accent-low);
+    color: var(--sl-color-accent-high);
+  }
+
+  .kb-nf-btn:hover {
+    border-color: var(--kb-accent);
+    color: var(--kb-accent);
+  }
+
+  .kb-nf-Quick {
+    margin-top: 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--kb-border);
+  }
+
+  .kb-nf-Quick h2 {
+    margin: 0 0 0.6rem;
+    font-size: var(--sl-text-lg);
+  }
+
+  .kb-nf-Quick ul {
+    margin: 0;
+    padding-left: 1.15rem;
+    display: grid;
+    gap: 0.45rem;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-sm);
+  }
+
+  .kb-nf-Quick a {
+    color: var(--kb-accent);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .kb-nf-Quick a:hover {
+    text-decoration: underline;
+  }
+</style>

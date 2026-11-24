@@ -1,0 +1,136 @@
+---
+import DefaultTableOfContents from '@astrojs/starlight/components/TableOfContents.astro';
+import {
+  TYPE_SHORT_LABELS,
+  loadKbData,
+  normalizeDocKey,
+  withBase,
+  withDocRoute,
+} from '../lib/kb-data';
+
+const entryId = Astro.locals.starlightRoute?.entry?.id || '';
+const { byRouteKey, neighborsById } = loadKbData();
+const doc = byRouteKey.get(normalizeDocKey(entryId));
+const neighbors = doc ? neighborsById.get(doc.id) || [] : [];
+
+// Build deterministic mini radial ego-graph for up to 10 neighbors
+const svgW = 220;
+const svgH = 148;
+const cx = svgW / 2;
+const cy = svgH / 2;
+const rx = 76;
+const ry = 50;
+
+const visualNeighbors = neighbors.slice(0, 10).map((rel, idx, arr) => {
+  const angle = -Math.PI / 2 + (2 * Math.PI * idx) / Math.max(1, arr.length);
+  return {
+    ...rel,
+    x: cx + rx * Math.cos(angle),
+    y: cy + ry * Math.sin(angle),
+  };
+});
+
+function shortTitle(title: string, id: string, type: string): string {
+  if (type === 'adr' || type === 'troubleshooting') {
+    const prefix = id.split('-').slice(0, 2).join('-');
+    const rest = title.split('·')[1]?.trim() || title;
+    return `${prefix} · ${rest.length > 10 ? rest.slice(0, 10) + '…' : rest}`;
+  }
+  return title.length > 14 ? title.slice(0, 14) + '…' : title;
+}
+---
+
+<DefaultTableOfContents {...Astro.props} />
+
+{doc && neighbors.length > 0 && (
+  <aside class="kb-local-net" aria-label="局部知识网络" data-local-net>
+    <div class="kb-local-net-head">
+      <h2>关联脉络（{neighbors.length}）</h2>
+      <a
+        class="kb-local-net-jump"
+        href={`${withBase('/graph/')}?node=${encodeURIComponent(doc.id)}`}
+        title="在全局关系图谱中聚焦本节点"
+      >
+        全局图谱 →
+      </a>
+    </div>
+
+    <div class="kb-mini-graph-box">
+      <svg viewBox={`0 0 ${svgW} ${svgH}`} aria-label={`${doc.title} 的局部关联微图谱`}>
+        <g aria-hidden="true">
+          {visualNeighbors.map((n) => (
+            <line
+              class={`kb-mini-edge ${n.kinds.includes('frontmatter') ? 'is-solid' : 'is-dashed'}`}
+              x1={cx}
+              y1={cy}
+              x2={n.x.toFixed(1)}
+              y2={n.y.toFixed(1)}
+              data-mini-edge={n.item.id}
+            />
+          ))}
+        </g>
+
+        <g class={`kb-mini-center kb-type-${doc.type}`} transform={`translate(${cx}, ${cy})`}>
+          <circle r="10.5" class="kb-mini-pulse" />
+          <circle r="6.5" />
+          <title>当前文档：{doc.title}</title>
+        </g>
+
+        {visualNeighbors.map((n) => (
+          <a
+            href={withDocRoute(n.item.route)}
+            class={`kb-mini-node kb-type-${n.item.type}`}
+            data-mini-node={n.item.id}
+            aria-label={`${TYPE_SHORT_LABELS[n.item.type]}：${n.item.title}`}
+            transform={`translate(${n.x.toFixed(1)}, ${n.y.toFixed(1)})`}
+          >
+            <circle r="5.2" />
+            <title>{`[${TYPE_SHORT_LABELS[n.item.type]}] ${n.item.title}`}</title>
+          </a>
+        ))}
+      </svg>
+    </div>
+
+    <ul class="kb-local-net-list">
+      {neighbors.slice(0, 8).map((n) => (
+        <li data-mini-item={n.item.id}>
+          <a href={withDocRoute(n.item.route)} title={n.item.title}>
+            <span class={`kb-mini-dot kb-type-${n.item.type}`} aria-hidden="true"></span>
+            <span class="kb-mini-type">{TYPE_SHORT_LABELS[n.item.type]}</span>
+            <span class="kb-mini-label">{shortTitle(n.item.title, n.item.id, n.item.type)}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+
+    {neighbors.length > 8 && (
+      <a
+        class="kb-local-net-more"
+        href={`${withBase('/graph/')}?node=${encodeURIComponent(doc.id)}`}
+      >
+        查看全部 {neighbors.length} 个关联节点 →
+      </a>
+    )}
+  </aside>
+)}
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-local-net]').forEach((panel) => {
+    const setActive = (id: string | null) => {
+      panel.querySelectorAll<HTMLElement>('[data-mini-node], [data-mini-edge], [data-mini-item]').forEach((el) => {
+        const matchId =
+          el.dataset.miniNode || el.dataset.miniEdge || el.dataset.miniItem || '';
+        el.classList.toggle('is-active', Boolean(id) && matchId === id);
+      });
+    };
+
+    panel.querySelectorAll<HTMLElement>('[data-mini-node], [data-mini-item]').forEach((el) => {
+      const id = el.dataset.miniNode || el.dataset.miniItem || '';
+      if (!id) return;
+      el.addEventListener('mouseenter', () => setActive(id));
+      el.addEventListener('mouseleave', () => setActive(null));
+      el.addEventListener('focusin', () => setActive(id));
+      el.addEventListener('focusout', () => setActive(null));
+    });
+  });
+</script>

@@ -1,0 +1,1091 @@
+---
+import type { GraphNode } from '../lib/kb-data';
+import {
+  TYPE_LABELS,
+  TYPE_SHORT_LABELS,
+  getReadingMinutes,
+  loadKbData,
+  withDocRoute,
+} from '../lib/kb-data';
+
+const { graph, byId, neighborsById } = loadKbData();
+
+const width = 960;
+const height = 540;
+const centerX = width / 2;
+const centerY = height / 2;
+
+const nodes = graph.nodes.map((node) => ({
+  ...node,
+  x: centerX,
+  y: centerY,
+  vx: 0,
+  vy: 0,
+  neighbors: new Set<string>(),
+}));
+type PositionedNode = (typeof nodes)[number];
+const nodeById = new Map(nodes.map((node) => [node.id, node]));
+
+// Deduplicate undirected visual edges while preserving whether a structural frontmatter bond exists
+const pairMap = new Map<
+  string,
+  { source: PositionedNode; target: PositionedNode; kinds: Set<string> }
+>();
+
+for (const edge of graph.edges) {
+  const source = nodeById.get(edge.source);
+  const target = nodeById.get(edge.target);
+  if (!source || !target || source === target) continue;
+  source.neighbors.add(target.id);
+  target.neighbors.add(source.id);
+  const key = [source.id, target.id].sort().join('::');
+  if (!pairMap.has(key)) {
+    pairMap.set(key, { source, target, kinds: new Set() });
+  }
+  pairMap.get(key)!.kinds.add(edge.kind);
+}
+
+const edges = Array.from(pairMap.values()).map((e) => ({
+  source: e.source,
+  target: e.target,
+  isStructural: e.kinds.has('frontmatter'),
+}));
+
+function placeRing(types: GraphNode['type'][], radiusX: number, radiusY: number, offset = 0) {
+  const group = nodes.filter((node) => types.includes(node.type));
+  group.forEach((node, index) => {
+    const angle = offset + (2 * Math.PI * index) / Math.max(1, group.length);
+    node.x += radiusX * Math.cos(angle);
+    node.y += radiusY * Math.sin(angle);
+  });
+}
+
+if (nodes.filter((node) => node.type === 'synthesis').length > 1) {
+  placeRing(['synthesis'], 65, 50);
+}
+placeRing(['topic'], 185, 118, -Math.PI / 4);
+placeRing(['project'], 335, 185, -Math.PI / 6);
+placeRing(['adr', 'troubleshooting'], 415, 222, Math.PI / 7);
+
+// Build-time deterministic elliptical force simulation
+for (let iteration = 0; iteration < 180; iteration++) {
+  const alpha = 1 - iteration / 180;
+  for (let i = 0; i < nodes.length; i++) {
+    const a = nodes[i];
+    for (let j = i + 1; j < nodes.length; j++) {
+      const b = nodes[j];
+      const dx = (b.x - a.x) / 170;
+      const dy = (b.y - a.y) / 78;
+      const distance = Math.hypot(dx, dy) || 0.01;
+      if (distance < 1.35) {
+        const push = ((1.35 - distance) / distance) * 6.5 * alpha;
+        const fx = dx * push * 1.15;
+        const fy = dy * push * 0.85;
+        a.vx -= fx;
+        a.vy -= fy;
+        b.vx += fx;
+        b.vy += fy;
+      }
+    }
+  }
+  for (const { source, target } of edges) {
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    const force = (distance - 175) * 0.012 * alpha;
+    const fx = (dx / distance) * force;
+    const fy = (dy / distance) * force;
+    source.vx += fx;
+    source.vy += fy;
+    target.vx -= fx;
+    target.vy -= fy;
+  }
+  for (const node of nodes) {
+    node.vx = (node.vx + (centerX - node.x) * 0.003 * alpha) * 0.75;
+    node.vy = (node.vy + (centerY - node.y) * 0.005 * alpha) * 0.75;
+    node.x = Math.max(98, Math.min(width - 98, node.x + node.vx));
+    node.y = Math.max(42, Math.min(height - 48, node.y + node.vy));
+  }
+}
+
+function shortLabel(node: PositionedNode) {
+  let prefix = '';
+  let label = node.title;
+  let limit = 13;
+  if (node.type === 'adr' || node.type === 'troubleshooting') {
+    prefix = node.id.split('-').slice(0, 2).join('-') + ' ';
+    label = node.title.split('·')[1]?.trim() || node.title;
+    limit = 9;
+  }
+  if (label.length > limit) {
+    label = label.slice(0, limit) + '…';
+  }
+  return prefix + label;
+}
+
+const typeCounts: Record<string, number> = {};
+for (const n of nodes) {
+  typeCounts[n.type] = (typeCounts[n.type] || 0) + 1;
+}
+
+// Serialize rich inspector payload for client-side selection panel
+const inspectorPayload = Object.fromEntries(
+  nodes.map((node) => {
+    const doc = byId.get(node.id);
+    const rels = neighborsById.get(node.id) || [];
+    const flowSteps =
+      doc?.type === 'project'
+        ? doc.signal_flow || []
+        : doc?.type === 'troubleshooting'
+          ? doc.phases || []
+          : [];
+    const keywords = [
+      node.id,
+      node.title,
+      doc?.description || '',
+      ...(doc?.tags || []),
+      ...(doc?.type === 'project' ? doc.tech_stack || [] : []),
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    return [
+      node.id,
+      {
+        id: node.id,
+        x: +node.x.toFixed(1),
+        y: +node.y.toFixed(1),
+        title: node.title,
+        type: node.type,
+        typeLabel: TYPE_LABELS[node.type],
+        href: withDocRoute(node.route),
+        description: doc?.description || '',
+        readingMinutes: doc ? getReadingMinutes(doc) : 1,
+        wordCount: doc?.word_count || 0,
+        flowSteps,
+        keywords,
+        neighbors: rels.map((r) => ({
+          id: r.item.id,
+          title: r.item.title,
+          type: r.item.type,
+          typeShort: TYPE_SHORT_LABELS[r.item.type],
+          href: withDocRoute(r.item.route),
+          structural: r.kinds.includes('frontmatter'),
+        })),
+      },
+    ];
+  }),
+);
+
+const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关联脉络`;
+---
+
+<div class="kb-graph not-content" data-graph-payload={JSON.stringify(inspectorPayload)}>
+  <div class="kb-graph-toolbar">
+    <div class="kb-graph-filters" role="group" aria-label="节点类型筛选">
+      <button type="button" data-graph-filter="all" aria-pressed="true">
+        全部 ({nodes.length})
+      </button>
+      {Object.entries(TYPE_LABELS).map(([type, label]) => (
+        <button type="button" data-graph-filter={type} aria-pressed="false">
+          <span class={`kb-graph-dot kb-type-${type}`} aria-hidden="true"></span>
+          {label} ({typeCounts[type] || 0})
+        </button>
+      ))}
+    </div>
+
+    <div class="kb-graph-tools">
+      <input
+        type="search"
+        class="kb-graph-search"
+        placeholder="筛选节点或技术栈…"
+        aria-label="按关键字定位图谱节点"
+        data-graph-search
+      />
+      <div class="kb-graph-zoom-btns" role="group" aria-label="画布缩放控制">
+        <button type="button" data-graph-zoom="out" title="缩小画布" aria-label="缩小">−</button>
+        <button type="button" data-graph-zoom="reset" title="重置缩放与选中状态">复位</button>
+        <button type="button" data-graph-zoom="in" title="放大画布" aria-label="放大">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="kb-graph-workspace">
+    <div class="kb-graph-stage-col">
+      <div class="kb-graph-stage kb-blueprint-canvas" data-graph-stage>
+        <svg viewBox={`0 0 ${width} ${height}`} aria-label="知识库节点关联图谱">
+          <g data-graph-viewport>
+            <g aria-hidden="true" class="kb-graph-orbits">
+              <ellipse cx={centerX} cy={centerY} rx="185" ry="118" />
+              <ellipse cx={centerX} cy={centerY} rx="335" ry="185" />
+              <ellipse cx={centerX} cy={centerY} rx="425" ry="228" />
+            </g>
+            <g aria-hidden="true">
+              {edges.map(({ source, target, isStructural }) => (
+                <line
+                  class={`kb-graph-edge ${isStructural ? 'is-solid' : 'is-dashed'}`}
+                  x1={source.x.toFixed(1)}
+                  y1={source.y.toFixed(1)}
+                  x2={target.x.toFixed(1)}
+                  y2={target.y.toFixed(1)}
+                  data-source={source.id}
+                  data-target={target.id}
+                />
+              ))}
+            </g>
+            {nodes.map((node) => {
+              const radius = Math.min(16, 7.5 + Math.sqrt(node.neighbors.size) * 2.4);
+              return (
+                <a
+                  class={`kb-graph-node kb-type-${node.type}`}
+                  href={withDocRoute(node.route)}
+                  aria-label={`${TYPE_LABELS[node.type]}：${node.title}`}
+                  data-node-id={node.id}
+                  data-node-type={node.type}
+                  transform={`translate(${node.x.toFixed(1)}, ${node.y.toFixed(1)})`}
+                >
+                  <circle r={(radius + 5).toFixed(1)} class="kb-node-ring" />
+                  <circle r={radius.toFixed(1)} class="kb-node-core" />
+                  <text y={(radius + 15).toFixed(1)} text-anchor="middle">{shortLabel(node)}</text>
+                </a>
+              );
+            })}
+          </g>
+        </svg>
+      </div>
+
+      <div class="kb-graph-legend">
+        <span><i class="kb-legend-line is-solid"></i> 结构化依赖 (frontmatter)</span>
+        <span><i class="kb-legend-line is-dashed"></i> 正文双链引用 (wikilink)</span>
+        <span class="kb-legend-tip">单击节点锁定脉冲链路 · 再次点击或点右侧按钮阅读全文 · 滚轮缩放与拖拽平移</span>
+      </div>
+    </div>
+
+    <aside class="kb-graph-inspector" aria-live="polite" data-graph-inspector>
+      <div data-inspector-default>
+        <p class="kb-inspector-title">{summary}</p>
+        <p class="kb-inspector-desc">
+          点击或悬停图中任意节点，实时点亮上下游信号脉络，并在此查看执行链路与一跳关联文档。
+        </p>
+      </div>
+      <div data-inspector-detail hidden>
+        <div class="kb-inspector-head">
+          <span class="kb-inspector-badge" data-detail-badge></span>
+          <button type="button" class="kb-inspector-clear" data-detail-clear aria-label="取消固定节点">
+            取消锁定 ✕
+          </button>
+        </div>
+        <h2 class="kb-detail-title" data-detail-title></h2>
+        <p class="kb-detail-meta" data-detail-meta></p>
+        <p class="kb-detail-desc" data-detail-desc></p>
+        <div class="kb-detail-flow" data-detail-flow hidden></div>
+        <a class="kb-detail-cta" data-detail-link href="#">阅读完整文档 →</a>
+        <div class="kb-detail-rels">
+          <h3 data-detail-rel-heading>关联节点</h3>
+          <ul data-detail-rel-list></ul>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+  interface NeighborItem {
+    id: string;
+    title: string;
+    type: string;
+    typeShort: string;
+    href: string;
+    structural: boolean;
+  }
+  interface NodePayload {
+    id: string;
+    x: number;
+    y: number;
+    title: string;
+    type: string;
+    typeLabel: string;
+    href: string;
+    description: string;
+    readingMinutes: number;
+    wordCount: number;
+    flowSteps?: string[];
+    keywords: string;
+    neighbors: NeighborItem[];
+  }
+
+  const root = document.querySelector<HTMLElement>('.kb-graph[data-graph-payload]');
+  if (root) {
+    const payload: Record<string, NodePayload> = JSON.parse(root.dataset.graphPayload || '{}');
+    const filterBtns = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-graph-filter]'));
+    const searchInput = root.querySelector<HTMLInputElement>('[data-graph-search]')!;
+    const zoomBtns = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-graph-zoom]'));
+    const stage = root.querySelector<HTMLElement>('[data-graph-stage]')!;
+    const viewport = root.querySelector<SVGGElement>('[data-graph-viewport]')!;
+    const nodes = Array.from(root.querySelectorAll<SVGAElement>('[data-node-id]'));
+    const edges = Array.from(root.querySelectorAll<SVGLineElement>('[data-source]'));
+
+    const defaultView = root.querySelector<HTMLElement>('[data-inspector-default]')!;
+    const detailView = root.querySelector<HTMLElement>('[data-inspector-detail]')!;
+    const detailBadge = root.querySelector<HTMLElement>('[data-detail-badge]')!;
+    const detailClear = root.querySelector<HTMLButtonElement>('[data-detail-clear]')!;
+    const detailTitle = root.querySelector<HTMLElement>('[data-detail-title]')!;
+    const detailMeta = root.querySelector<HTMLElement>('[data-detail-meta]')!;
+    const detailDesc = root.querySelector<HTMLElement>('[data-detail-desc]')!;
+    const detailFlow = root.querySelector<HTMLElement>('[data-detail-flow]')!;
+    const detailLink = root.querySelector<HTMLAnchorElement>('[data-detail-link]')!;
+    const detailRelHeading = root.querySelector<HTMLElement>('[data-detail-rel-heading]')!;
+    const detailRelList = root.querySelector<HTMLUListElement>('[data-detail-rel-list]')!;
+
+    let selectedType = 'all';
+    let searchQuery = '';
+    let pinnedId: string | null = null;
+    let hoveredId: string | null = null;
+
+    // SVG Pan & Zoom state
+    let scale = 1;
+    let tx = 0;
+    let ty = 0;
+    let panning = false;
+    let panMoved = false;
+    let panStartX = 0;
+    let panStartY = 0;
+    let tweenRaf = 0;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function updateTransform() {
+      viewport.setAttribute(
+        'transform',
+        `translate(${tx.toFixed(1)}, ${ty.toFixed(1)}) scale(${scale.toFixed(3)})`,
+      );
+    }
+
+    function smoothCenterNode(id: string) {
+      const info = payload[id];
+      if (!info) return;
+      cancelAnimationFrame(tweenRaf);
+      const targetScale = Math.max(scale, 1.1);
+      const targetTx = (480 - info.x * targetScale) * 0.55;
+      const targetTy = (270 - info.y * targetScale) * 0.55;
+
+      if (reducedMotion) {
+        scale = targetScale;
+        tx = targetTx;
+        ty = targetTy;
+        updateTransform();
+        return;
+      }
+
+      const startScale = scale;
+      const startTx = tx;
+      const startTy = ty;
+      const startTime = performance.now();
+      const duration = 280;
+
+      const step = (now: number) => {
+        const t = Math.min(1, (now - startTime) / duration);
+        const ease = 1 - Math.pow(1 - t, 3);
+        scale = startScale + (targetScale - startScale) * ease;
+        tx = startTx + (targetTx - startTx) * ease;
+        ty = startTy + (targetTy - startTy) * ease;
+        updateTransform();
+        if (t < 1) tweenRaf = requestAnimationFrame(step);
+      };
+      tweenRaf = requestAnimationFrame(step);
+    }
+
+    function renderInspector(id: string | null) {
+      const info = id ? payload[id] : undefined;
+      if (!info) {
+        defaultView.hidden = false;
+        detailView.hidden = true;
+        return;
+      }
+      defaultView.hidden = true;
+      detailView.hidden = false;
+      detailBadge.className = `kb-inspector-badge kb-type-${info.type}`;
+      detailBadge.textContent = info.typeLabel;
+      detailTitle.textContent = info.title;
+      detailMeta.textContent = `约 ${info.readingMinutes} 分钟阅读 · ${info.wordCount.toLocaleString()} 词 · ${info.neighbors.length} 个关联节点`;
+      detailDesc.textContent = info.description;
+      detailLink.href = info.href;
+      detailRelHeading.textContent = `一跳关联脉络（${info.neighbors.length}）`;
+
+      const steps = info.flowSteps || [];
+      if (steps.length > 0) {
+        detailFlow.hidden = false;
+        detailFlow.className = `kb-detail-flow kb-type-${info.type}`;
+        detailFlow.replaceChildren(
+          ...steps.map((s, idx) => {
+            const chip = document.createElement('span');
+            chip.className = 'kb-detail-flow-chip';
+            chip.textContent = `${idx + 1}. ${s}`;
+            return chip;
+          }),
+        );
+      } else {
+        detailFlow.hidden = true;
+        detailFlow.replaceChildren();
+      }
+
+      detailRelList.replaceChildren(
+        ...info.neighbors.map((n) => {
+          const li = document.createElement('li');
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'kb-rel-focus-btn';
+          btn.title = '在图谱中平滑切换聚焦到此节点';
+          const dotSpan = document.createElement('span');
+          dotSpan.className = `kb-graph-dot kb-type-${n.type}`;
+          const kindSpan = document.createElement('span');
+          kindSpan.className = 'kb-rel-kind';
+          kindSpan.textContent = n.typeShort;
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'kb-rel-name';
+          nameSpan.textContent = n.title;
+          btn.append(dotSpan, kindSpan, nameSpan);
+          btn.addEventListener('click', () => {
+            pinnedId = n.id;
+            syncUrlNode(pinnedId);
+            updateGraphState();
+            smoothCenterNode(n.id);
+          });
+
+          const openLink = document.createElement('a');
+          openLink.href = n.href;
+          openLink.className = 'kb-rel-open';
+          openLink.textContent = '阅读 →';
+          li.append(btn, openLink);
+          return li;
+        }),
+      );
+    }
+
+    function syncUrlNode(id: string | null) {
+      const url = new URL(window.location.href);
+      if (id) url.searchParams.set('node', id);
+      else url.searchParams.delete('node');
+      window.history.replaceState(null, '', url);
+    }
+
+    function updateGraphState() {
+      const focusId = hoveredId || pinnedId;
+      const q = searchQuery.trim().toLowerCase();
+      const matchedSet = new Set<string>();
+
+      if (focusId) {
+        matchedSet.add(focusId);
+      } else {
+        for (const node of nodes) {
+          const id = node.dataset.nodeId!;
+          const typeOk = selectedType === 'all' || node.dataset.nodeType === selectedType;
+          const queryOk = !q || (payload[id]?.keywords || '').includes(q);
+          if (typeOk && queryOk) {
+            matchedSet.add(id);
+          }
+        }
+      }
+
+      const filtering = Boolean(focusId) || selectedType !== 'all' || Boolean(q);
+      const visible = new Set(matchedSet);
+
+      for (const edge of edges) {
+        const s = edge.dataset.source!;
+        const t = edge.dataset.target!;
+        const lit = focusId
+          ? s === focusId || t === focusId
+          : filtering && matchedSet.has(s) && matchedSet.has(t);
+        edge.classList.toggle('is-lit', lit);
+        if (focusId && lit) {
+          visible.add(s);
+          visible.add(t);
+        }
+        edge.classList.toggle('is-dim', filtering && !lit);
+      }
+
+      for (const node of nodes) {
+        const id = node.dataset.nodeId!;
+        node.classList.toggle('is-pinned', id === pinnedId);
+        node.classList.toggle('is-dim', filtering && !visible.has(id));
+      }
+
+      renderInspector(pinnedId || hoveredId);
+    }
+
+    // Hydrate ?node=<id> deep link
+    const urlNode = new URLSearchParams(window.location.search).get('node');
+    if (urlNode && payload[urlNode]) {
+      pinnedId = urlNode;
+      smoothCenterNode(urlNode);
+    }
+
+    filterBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        selectedType = btn.dataset.graphFilter!;
+        pinnedId = null;
+        syncUrlNode(null);
+        filterBtns.forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+        updateGraphState();
+      });
+    });
+
+    searchInput.addEventListener('input', () => {
+      searchQuery = searchInput.value;
+      if (searchQuery.trim()) {
+        pinnedId = null;
+        syncUrlNode(null);
+      }
+      updateGraphState();
+    });
+
+    detailClear.addEventListener('click', () => {
+      pinnedId = null;
+      syncUrlNode(null);
+      updateGraphState();
+    });
+
+    nodes.forEach((node) => {
+      const id = node.dataset.nodeId!;
+      node.addEventListener('mouseenter', () => {
+        hoveredId = id;
+        updateGraphState();
+      });
+      node.addEventListener('mouseleave', () => {
+        hoveredId = null;
+        updateGraphState();
+      });
+      node.addEventListener('focus', () => {
+        hoveredId = id;
+        updateGraphState();
+      });
+      node.addEventListener('blur', () => {
+        hoveredId = null;
+        updateGraphState();
+      });
+      node.addEventListener('click', (e) => {
+        if (panMoved) {
+          e.preventDefault();
+          return;
+        }
+        if (e.metaKey || e.ctrlKey || pinnedId === id) {
+          // Second click on already-pinned node (or Ctrl/Cmd+click) navigates to document
+          return;
+        }
+        e.preventDefault();
+        pinnedId = id;
+        syncUrlNode(id);
+        updateGraphState();
+      });
+    });
+
+    // Zoom & Pan interactions
+    zoomBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.graphZoom;
+        if (action === 'in') {
+          scale = Math.min(2.8, +(scale * 1.2).toFixed(3));
+        } else if (action === 'out') {
+          scale = Math.max(0.55, +(scale / 1.2).toFixed(3));
+        } else {
+          scale = 1;
+          tx = 0;
+          ty = 0;
+          pinnedId = null;
+          searchQuery = '';
+          searchInput.value = '';
+          selectedType = 'all';
+          filterBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.graphFilter === 'all')));
+          syncUrlNode(null);
+          updateGraphState();
+        }
+        updateTransform();
+      });
+    });
+
+    stage.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+        scale = Math.min(2.8, Math.max(0.55, +(scale * factor).toFixed(3)));
+        updateTransform();
+      },
+      { passive: false },
+    );
+
+    stage.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      if ((e.target as Element).closest('[data-node-id]')) {
+        panMoved = false;
+        return;
+      }
+      panning = true;
+      panMoved = false;
+      panStartX = e.clientX - tx;
+      panStartY = e.clientY - ty;
+      stage.setPointerCapture(e.pointerId);
+      stage.classList.add('is-panning');
+    });
+
+    stage.addEventListener('pointermove', (e) => {
+      if (!panning) return;
+      const nx = e.clientX - panStartX;
+      const ny = e.clientY - panStartY;
+      if (Math.hypot(nx - tx, ny - ty) > 3) {
+        panMoved = true;
+      }
+      tx = nx;
+      ty = ny;
+      updateTransform();
+    });
+
+    const stopPan = (e: PointerEvent) => {
+      if (panning && !panMoved && !(e.target as Element).closest('[data-node-id]')) {
+        pinnedId = null;
+        syncUrlNode(null);
+        updateGraphState();
+      }
+      panning = false;
+      stage.classList.remove('is-panning');
+    };
+    stage.addEventListener('pointerup', stopPan);
+    stage.addEventListener('pointercancel', () => {
+      panning = false;
+      stage.classList.remove('is-panning');
+    });
+
+    updateGraphState();
+  }
+</script>
+
+<style>
+  .kb-graph {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .kb-graph-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+
+  .kb-graph-filters {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+  }
+
+  .kb-graph-filters button {
+    display: inline-flex;
+    gap: 0.35rem;
+    align-items: center;
+    padding: 0.28rem 0.6rem;
+    border: 1px solid var(--kb-border);
+    border-radius: 0.4rem;
+    color: var(--sl-color-gray-2);
+    background: transparent;
+    font: inherit;
+    font-size: var(--sl-text-xs);
+    cursor: pointer;
+  }
+
+  .kb-graph-filters button:hover,
+  .kb-graph-filters button[aria-pressed='true'] {
+    color: var(--kb-accent);
+    border-color: var(--kb-accent);
+    background: var(--kb-surface);
+  }
+
+  .kb-graph-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--kb-type-color);
+    flex-shrink: 0;
+  }
+
+  .kb-graph-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .kb-graph-search {
+    padding: 0.28rem 0.6rem;
+    width: 12.5rem;
+    border: 1px solid var(--kb-border);
+    border-radius: 0.4rem;
+    background: var(--kb-surface);
+    color: var(--sl-color-white);
+    font: inherit;
+    font-size: var(--sl-text-xs);
+  }
+
+  .kb-graph-search:focus {
+    outline: 1px solid var(--kb-accent);
+    border-color: var(--kb-accent);
+  }
+
+  .kb-graph-zoom-btns {
+    display: inline-flex;
+    gap: 0.25rem;
+  }
+
+  .kb-graph-zoom-btns button {
+    padding: 0.26rem 0.55rem;
+    border: 1px solid var(--kb-border);
+    border-radius: 0.35rem;
+    background: var(--kb-surface);
+    color: var(--sl-color-gray-2);
+    font: inherit;
+    font-size: var(--sl-text-xs);
+    cursor: pointer;
+  }
+
+  .kb-graph-zoom-btns button:hover {
+    border-color: var(--kb-accent);
+    color: var(--kb-accent);
+  }
+
+  .kb-graph-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.9rem;
+    align-items: start;
+  }
+
+  @media (min-width: 68rem) {
+    .kb-graph-workspace {
+      grid-template-columns: minmax(0, 1fr) 19.5rem;
+    }
+  }
+
+  .kb-graph-stage {
+    overflow: hidden;
+    border: 1px solid var(--kb-border);
+    border-radius: 0.75rem;
+    box-shadow: var(--kb-shadow-sm);
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .kb-graph-stage.is-panning {
+    cursor: grabbing;
+  }
+
+  .kb-graph-stage svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    user-select: none;
+  }
+
+  .kb-graph-orbits ellipse {
+    fill: none;
+    stroke: var(--kb-border);
+    stroke-width: 1;
+    stroke-dasharray: 4 6;
+    opacity: 0.65;
+  }
+
+  .kb-graph-edge {
+    stroke: var(--sl-color-gray-4);
+    stroke-width: 1.3;
+    stroke-opacity: 0.45;
+    transition: opacity 0.18s, stroke 0.18s, stroke-width 0.18s;
+  }
+
+  .kb-graph-edge.is-dashed {
+    stroke-dasharray: 4 3.5;
+  }
+
+  .kb-graph-edge.is-lit {
+    stroke: var(--kb-accent);
+    stroke-width: 2.3;
+    stroke-opacity: 0.96;
+    stroke-dasharray: 6 4;
+    animation: kbDashFlow 0.95s linear infinite;
+  }
+
+  .kb-graph-node.is-dim,
+  .kb-graph-edge.is-dim {
+    opacity: 0.16;
+  }
+
+  .kb-graph-node .kb-node-core {
+    fill: var(--kb-type-color);
+    stroke: var(--kb-surface);
+    stroke-width: 1.8;
+    transition: stroke-width 0.18s, transform 0.18s;
+  }
+
+  .kb-graph-node .kb-node-ring {
+    fill: var(--kb-type-soft);
+    stroke: transparent;
+    stroke-width: 1.8;
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: opacity 0.2s, stroke 0.2s;
+  }
+
+  .kb-graph-node.is-pinned .kb-node-ring {
+    stroke: var(--kb-type-color);
+    opacity: 0.9;
+    animation: kbPulseSoft 2.4s ease-in-out infinite;
+  }
+
+  .kb-graph-node text {
+    fill: var(--sl-color-gray-2);
+    font-size: 11.8px;
+    font-weight: 600;
+    stroke: var(--kb-canvas-bg);
+    stroke-width: 3.2;
+    paint-order: stroke;
+  }
+
+  .kb-graph-node:is(:hover, :focus-visible, .is-pinned) .kb-node-core {
+    stroke: var(--sl-color-white);
+    stroke-width: 2.2;
+  }
+
+  .kb-graph-node:is(:hover, :focus-visible, .is-pinned) .kb-node-ring {
+    opacity: 0.85;
+    stroke: var(--kb-type-color);
+  }
+
+  .kb-graph-node:is(:hover, :focus-visible, .is-pinned) text {
+    fill: var(--sl-color-white);
+  }
+
+  .kb-graph-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 1rem;
+    margin-top: 0.5rem;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+  }
+
+  .kb-legend-line {
+    display: inline-block;
+    width: 1.2rem;
+    vertical-align: middle;
+    margin-right: 0.25rem;
+    border-top: 2px solid var(--sl-color-gray-3);
+  }
+
+  .kb-legend-line.is-dashed {
+    border-top-style: dashed;
+  }
+
+  .kb-legend-tip {
+    margin-left: auto;
+  }
+
+  /* Inspector Card */
+  .kb-graph-inspector {
+    min-width: 0;
+    padding: 1rem 1.05rem;
+    border: 1px solid var(--kb-border);
+    border-radius: 0.75rem;
+    background: var(--kb-surface);
+    box-shadow: var(--kb-shadow-sm);
+  }
+
+  .kb-detail-flow:not([hidden]) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.28rem;
+    margin-top: 0.55rem;
+  }
+
+  .kb-graph-inspector :global(.kb-detail-flow-chip) {
+    padding: 0.12rem 0.48rem;
+    border-radius: 0.32rem;
+    border: 1px solid color-mix(in srgb, var(--kb-type-color) 32%, var(--kb-border));
+    background: var(--kb-type-soft, var(--kb-surface-elevated));
+    color: var(--kb-type-ink, var(--sl-color-gray-1));
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  .kb-inspector-title {
+    margin: 0;
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    color: var(--sl-color-white);
+  }
+
+  .kb-inspector-desc {
+    margin: 0.45rem 0 0;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+    line-height: 1.6;
+  }
+
+  .kb-inspector-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .kb-inspector-badge {
+    display: inline-block;
+    padding: 0.1rem 0.48rem;
+    border-radius: 999px;
+    border: 1px solid var(--kb-type-color);
+    color: var(--kb-type-color);
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  .kb-inspector-clear {
+    padding: 0.12rem 0.4rem;
+    border: 1px solid var(--kb-border);
+    border-radius: 0.3rem;
+    background: transparent;
+    color: var(--sl-color-gray-3);
+    font: inherit;
+    font-size: 0.7rem;
+    cursor: pointer;
+  }
+
+  .kb-inspector-clear:hover {
+    border-color: var(--kb-accent);
+    color: var(--kb-accent);
+  }
+
+  .kb-detail-title {
+    margin: 0.5rem 0 0;
+    font-size: 1rem;
+    line-height: 1.4;
+    color: var(--sl-color-white);
+  }
+
+  .kb-detail-meta {
+    margin: 0.25rem 0 0;
+    color: var(--sl-color-gray-4);
+    font-family: var(--sl-font-mono);
+    font-size: 0.7rem;
+  }
+
+  .kb-detail-desc {
+    margin: 0.45rem 0 0;
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-xs);
+    line-height: 1.58;
+  }
+
+  .kb-detail-cta {
+    display: inline-block;
+    margin-top: 0.65rem;
+    padding: 0.34rem 0.72rem;
+    border-radius: 0.4rem;
+    border: 1px solid var(--sl-color-accent);
+    background: var(--sl-color-accent-low);
+    color: var(--sl-color-accent-high);
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .kb-detail-cta:hover {
+    border-color: var(--kb-accent);
+    color: var(--kb-accent);
+  }
+
+  .kb-detail-rels {
+    margin-top: 0.8rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid var(--kb-border);
+  }
+
+  .kb-detail-rels h3 {
+    margin: 0 0 0.4rem;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+
+  .kb-detail-rels ul {
+    list-style: none;
+    margin: 0;
+    padding: 0 0.2rem 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+    max-height: 14rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .kb-detail-rels :global(li) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .kb-detail-rels :global(.kb-rel-focus-btn) {
+    display: inline-flex;
+    flex: 1 1 0%;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    overflow: hidden;
+    padding: 0.2rem 0.28rem;
+    border: 0;
+    border-radius: 0.3rem;
+    background: transparent;
+    color: var(--sl-color-gray-2);
+    font: inherit;
+    font-size: var(--sl-text-xs);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .kb-detail-rels :global(.kb-rel-focus-btn:hover) {
+    background: var(--kb-surface-elevated);
+    color: var(--kb-accent);
+  }
+
+  .kb-detail-rels :global(.kb-graph-dot) {
+    width: 0.48rem;
+    height: 0.48rem;
+    border-radius: 50%;
+    background: var(--kb-type-color);
+    flex-shrink: 0;
+  }
+
+  .kb-detail-rels :global(.kb-rel-kind) {
+    color: var(--sl-color-gray-4);
+    font-size: 0.68rem;
+    flex-shrink: 0;
+  }
+
+  .kb-detail-rels :global(.kb-rel-name) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .kb-detail-rels :global(.kb-rel-open) {
+    flex-shrink: 0;
+    color: var(--kb-accent);
+    font-size: 0.7rem;
+    text-decoration: none;
+  }
+
+  .kb-detail-rels :global(.kb-rel-open:hover) {
+    text-decoration: underline;
+  }
+</style>

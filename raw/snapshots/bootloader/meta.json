@@ -1,0 +1,14 @@
+{
+  "id": "bootloader",
+  "repo": "Mangta517/bootloader",
+  "repo_url": "https://github.com/Mangta517/bootloader",
+  "description": "STM32F407VET6 主 Bootloader、W25Q16 更新、独立 USART1 串口恢复与 LED APP 三工程",
+  "visibility": "public",
+  "default_branch": "main",
+  "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+  "commit_date": "2026-11-01T13:48:45Z",
+  "is_fork": false,
+  "is_archived": false,
+  "primary_language": "C",
+  "stars": 0
+}

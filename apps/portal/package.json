@@ -1,0 +1,22 @@
+{
+  "name": "@kb/portal",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "prepare:content": "node scripts/prepare-content.mjs",
+    "typecheck": "tsc --noEmit",
+    "dev": "node scripts/prepare-content.mjs && astro dev --host 127.0.0.1 --port 4321",
+    "build": "node scripts/prepare-content.mjs && astro build",
+    "preview": "astro preview --host 127.0.0.1 --port 4321"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.43.1",
+    "astro": "^7.4.13",
+    "mermaid": "^12.3.0",
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,31 @@
+{/* Light-first theme provider: defaults to 'light' once while preserving explicit user theme choices ('light' | 'dark' | 'auto'). */}
+<script is:inline>
+  (() => {
+    try {
+      const storageKey = 'starlight-theme';
+      const initKey = 'kb-theme-light-default-v1';
+      let storedTheme = typeof localStorage !== 'undefined' ? localStorage.getItem(storageKey) : null;
+
+      if (typeof localStorage !== 'undefined' && localStorage.getItem(initKey) !== '1') {
+        localStorage.setItem(initKey, '1');
+        if (storedTheme !== 'dark') {
+          storedTheme = 'light';
+          localStorage.setItem(storageKey, 'light');
+        }
+      }
+
+      const resolved =
+        storedTheme === 'light' || storedTheme === 'dark'
+          ? storedTheme
+          : storedTheme === ''
+            ? window.matchMedia('(prefers-color-scheme: light)').matches
+              ? 'light'
+              : 'dark'
+            : 'light';
+
+      document.documentElement.dataset.theme = resolved;
+    } catch {
+      document.documentElement.dataset.theme = 'light';
+    }
+  })();
+</script>

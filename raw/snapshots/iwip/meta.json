@@ -1,0 +1,14 @@
+{
+  "id": "iwip",
+  "repo": "Mangta517/Iwip",
+  "repo_url": "https://github.com/Mangta517/Iwip",
+  "description": "STM32F407ZGT6 bare-metal lwIP + LAN8720A + NT35510 LCD + Goodix touch",
+  "visibility": "public",
+  "default_branch": "main",
+  "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+  "commit_date": "2026-11-21T10:16:51Z",
+  "is_fork": false,
+  "is_archived": false,
+  "primary_language": "C",
+  "stars": 0
+}

@@ -1,0 +1,19 @@
+{
+  "name": "mangta-knowledge-base",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Mangta 的公开 GitHub 工程知识库（Astro Starlight 与知识图谱）",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "prepare:portal": "pnpm --filter @kb/portal prepare:content",
+    "dev:portal": "pnpm --filter @kb/portal dev",
+    "typecheck": "pnpm --filter @kb/portal typecheck",
+    "build:portal": "pnpm --filter @kb/portal build",
+    "build:site": "node scripts/build-site.mjs",
+    "preview:site": "node scripts/preview-site.mjs"
+  }
+}

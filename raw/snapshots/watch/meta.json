@@ -1,0 +1,14 @@
+{
+  "id": "watch",
+  "repo": "Mangta517/watch",
+  "repo_url": "https://github.com/Mangta517/watch",
+  "description": "STM32F411CEU6 smartwatch with BLE/SPP wireless OTA: FreeRTOS + LVGL + ST7789/CST816 + MPU6050/LSM303DLHC/SPL006/AHT21/EM7028 + KT6368A (Keil MDK-ARM)",
+  "visibility": "public",
+  "default_branch": "main",
+  "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+  "commit_date": "2026-10-14T13:23:23Z",
+  "is_fork": false,
+  "is_archived": false,
+  "primary_language": "C",
+  "stars": 0
+}

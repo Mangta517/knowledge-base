@@ -1,0 +1,920 @@
+{
+  "generated_at": "2026-11-24T10:06:26.756208Z",
+  "owner": "Mangta517",
+  "projects": [
+    {
+      "title": "STM32F407 Bootloader 与串口恢复",
+      "description": "按 EEPROM 状态分流启动，将 CAN 接收的镜像暂存到 W25Q16，并保留独立 USART 恢复程序。",
+      "type": "project",
+      "id": "bootloader",
+      "tags": [
+        "stm32",
+        "bootloader",
+        "can",
+        "flash"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "repo": "Mangta517/bootloader",
+      "repo_url": "https://github.com/Mangta517/bootloader",
+      "visibility": "public",
+      "publish_policy": "public",
+      "tier": "core",
+      "status": "maintained",
+      "domains": [
+        "embedded"
+      ],
+      "tech_stack": [
+        "STM32 HAL",
+        "Keil MDK",
+        "bxCAN",
+        "USART DMA",
+        "W25Q16",
+        "24C02"
+      ],
+      "primary_language": "C",
+      "stars": 0,
+      "synced_commit": "6d5aebc586133f383908581183b44e6572b7be06",
+      "featured": true,
+      "related_topics": [
+        "embedded-stream-framing"
+      ],
+      "related_adrs": [
+        "ADR-0001-stage-image-before-boot"
+      ],
+      "mcu": "STM32F407VET6",
+      "signal_flow": [
+        "CAN 接收",
+        "W25Q16 暂存",
+        "EEPROM 提交",
+        "片内 Flash 搬运",
+        "向量校验与跳转"
+      ],
+      "highlights": [
+        {
+          "label": "CAN 速率",
+          "value": "200 kbit/s"
+        },
+        {
+          "label": "外部暂存",
+          "value": "W25Q16 · 2 MiB"
+        },
+        {
+          "label": "APP 分区",
+          "value": "480 KiB"
+        }
+      ],
+      "route": "/projects/bootloader/",
+      "source_path": "wiki/projects/bootloader.md",
+      "word_count": 2258,
+      "reading_minutes": 6,
+      "mermaid_count": 2,
+      "table_count": 7,
+      "evidence_count": 24,
+      "has_human_notes": false,
+      "related_troubleshooting": [
+        "TS-0001-bootloader-update-phase"
+      ]
+    },
+    {
+      "title": "STM32F103 四轴飞控与遥控端",
+      "description": "飞控端用 FreeRTOS 组织 IMU、串级姿态控制与气压定高，遥控端用 nRF24L01P 交换输入和状态。",
+      "type": "project",
+      "id": "flight",
+      "tags": [
+        "stm32",
+        "freertos",
+        "imu",
+        "pid"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "repo": "Mangta517/flight",
+      "repo_url": "https://github.com/Mangta517/flight",
+      "visibility": "public",
+      "publish_policy": "public",
+      "tier": "core",
+      "status": "maintained",
+      "domains": [
+        "embedded"
+      ],
+      "tech_stack": [
+        "STM32 HAL",
+        "FreeRTOS",
+        "Keil MDK",
+        "MPU6050",
+        "nRF24L01P",
+        "SPL006"
+      ],
+      "primary_language": "C",
+      "stars": 0,
+      "synced_commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+      "featured": true,
+      "related_topics": [
+        "task-and-bus-ownership",
+        "sensor-feedback-pipeline"
+      ],
+      "related_adrs": [
+        "ADR-0002-assign-sensor-bus-owner"
+      ],
+      "mcu": "STM32F103C8（飞控与遥控）",
+      "signal_flow": [
+        "MPU6050 采样",
+        "姿态解算",
+        "串级 PID",
+        "混控与 PWM"
+      ],
+      "highlights": [
+        {
+          "label": "飞行任务周期",
+          "value": "2 tick，名义 2 ms"
+        },
+        {
+          "label": "传感器总线",
+          "value": "I2C1 · 400 kHz"
+        },
+        {
+          "label": "电机输出",
+          "value": "TIM2 四路 PWM"
+        }
+      ],
+      "route": "/projects/flight/",
+      "source_path": "wiki/projects/flight.md",
+      "word_count": 2182,
+      "reading_minutes": 6,
+      "mermaid_count": 2,
+      "table_count": 7,
+      "evidence_count": 22,
+      "has_human_notes": false,
+      "related_troubleshooting": []
+    },
+    {
+      "title": "STM32F103 FreeRTOS 学习模板",
+      "description": "公开快照保留 STM32F103C8 的 Keil 工程配置、启动文件和编译产物目录，可用于定位 RTOS 学习工程依赖。",
+      "type": "project",
+      "id": "freertos-beginer",
+      "tags": [
+        "stm32",
+        "freertos",
+        "cmsis-rtos2",
+        "learning"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "repo": "Mangta517/freertos-beginer",
+      "repo_url": "https://github.com/Mangta517/freertos-beginer",
+      "visibility": "public",
+      "publish_policy": "public",
+      "tier": "active",
+      "status": "experimental",
+      "domains": [
+        "embedded"
+      ],
+      "tech_stack": [
+        "Keil MDK",
+        "FreeRTOS",
+        "CMSIS-RTOS2",
+        "STM32 HAL"
+      ],
+      "primary_language": "Makefile",
+      "stars": 0,
+      "synced_commit": "88e3c2fa9133c614d937a5e172fbd0aabd3204b8",
+      "featured": false,
+      "related_topics": [
+        "task-and-bus-ownership"
+      ],
+      "related_adrs": [],
+      "mcu": "STM32F103C8",
+      "signal_flow": [
+        "向量表",
+        "Reset_Handler",
+        "SystemInit",
+        "ARMCC __main"
+      ],
+      "highlights": [
+        {
+          "label": "内核",
+          "value": "Cortex-M3"
+        },
+        {
+          "label": "工程接口",
+          "value": "CMSIS-RTOS2 声明"
+        },
+        {
+          "label": "证据范围",
+          "value": "Keil 配置与启动汇编"
+        }
+      ],
+      "route": "/projects/freertos-beginer/",
+      "source_path": "wiki/projects/freertos-beginer.md",
+      "word_count": 1218,
+      "reading_minutes": 3,
+      "mermaid_count": 1,
+      "table_count": 5,
+      "evidence_count": 4,
+      "has_human_notes": false,
+      "related_troubleshooting": []
+    },
+    {
+      "title": "STM32F407ZGT6 以太网与触摸工程",
+      "description": "在当前提交中用 FreeRTOS 承载 lwIP、LAN8720A 网口和 Goodix 触摸任务，保留 NT35510 LCD 与外部 SRAM 支持。",
+      "type": "project",
+      "id": "iwip",
+      "tags": [
+        "stm32",
+        "ethernet",
+        "lwip",
+        "freertos",
+        "lcd"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "repo": "Mangta517/Iwip",
+      "repo_url": "https://github.com/Mangta517/Iwip",
+      "visibility": "public",
+      "publish_policy": "public",
+      "tier": "core",
+      "status": "maintained",
+      "domains": [
+        "embedded",
+        "networking"
+      ],
+      "tech_stack": [
+        "STM32 HAL",
+        "FreeRTOS",
+        "lwIP",
+        "LAN8720A",
+        "Goodix GT5xx",
+        "Keil MDK"
+      ],
+      "primary_language": "C",
+      "stars": 0,
+      "synced_commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+      "featured": true,
+      "related_topics": [
+        "task-and-bus-ownership",
+        "ethernet-link-and-ip"
+      ],
+      "related_adrs": [
+        "ADR-0003-run-lwip-in-rtos-mode"
+      ],
+      "mcu": "STM32F407ZGT6",
+      "signal_flow": [
+        "LAN8720A PHY",
+        "RMII 与 ETH DMA",
+        "输入线程与 pbuf",
+        "tcpip_input",
+        "TCP/IP 核心"
+      ],
+      "highlights": [
+        {
+          "label": "系统时钟",
+          "value": "168 MHz"
+        },
+        {
+          "label": "RMII 参考时钟",
+          "value": "50 MHz"
+        },
+        {
+          "label": "lwIP 执行模式",
+          "value": "FreeRTOS · NO_SYS=0"
+        }
+      ],
+      "route": "/projects/iwip/",
+      "source_path": "wiki/projects/iwip.md",
+      "word_count": 1692,
+      "reading_minutes": 5,
+      "mermaid_count": 2,
+      "table_count": 5,
+      "evidence_count": 20,
+      "has_human_notes": false,
+      "related_troubleshooting": [
+        "TS-0003-ethernet-link-without-ip"
+      ]
+    },
+    {
+      "title": "MSPM0G3507 电赛控制项目",
+      "description": "由 MSPM0 消费 K230 视觉坐标、在本地运行平衡 PID，并通过 Emm_V5 驱动步进机构，仓库同时保留循迹和调试模块。",
+      "type": "project",
+      "id": "mspm0g3507",
+      "tags": [
+        "mspm0",
+        "k230",
+        "pid",
+        "uart"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "repo": "Mangta517/MSPM0G3507",
+      "repo_url": "https://github.com/Mangta517/MSPM0G3507",
+      "visibility": "public",
+      "publish_policy": "public",
+      "tier": "core",
+      "status": "maintained",
+      "domains": [
+        "embedded"
+      ],
+      "tech_stack": [
+        "TI DriverLib",
+        "CCS",
+        "SysConfig",
+        "K230 MicroPython",
+        "UART",
+        "Emm_V5"
+      ],
+      "primary_language": "C",
+      "stars": 0,
+      "synced_commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+      "featured": true,
+      "related_topics": [
+        "sensor-feedback-pipeline",
+        "embedded-stream-framing"
+      ],
+      "related_adrs": [],
+      "mcu": "MSPM0G3507 + K230",
+      "signal_flow": [
+        "K230 视觉坐标",
+        "UART0 组帧",
+        "平衡 PID",
+        "UART1 位置命令",
+        "Emm_V5 执行与回执"
+      ],
+      "highlights": [
+        {
+          "label": "执行模型",
+          "value": "裸机主循环 · 1 ms 时基"
+        },
+        {
+          "label": "视觉坐标系",
+          "value": "800×480 px"
+        },
+        {
+          "label": "视觉帧超时",
+          "value": "150 ms"
+        }
+      ],
+      "route": "/projects/mspm0g3507/",
+      "source_path": "wiki/projects/mspm0g3507.md",
+      "word_count": 2316,
+      "reading_minutes": 7,
+      "mermaid_count": 2,
+      "table_count": 7,
+      "evidence_count": 17,
+      "has_human_notes": false,
+      "related_troubleshooting": [
+        "TS-0004-k230-vision-timeout"
+      ]
+    },
+    {
+      "title": "STM32F411 智能手表",
+      "description": "将传感器采集、LVGL 显示、RTC、KT6368A 蓝牙和启动诊断组织为可追踪的双任务固件。",
+      "type": "project",
+      "id": "watch",
+      "tags": [
+        "stm32",
+        "freertos",
+        "lvgl",
+        "ble",
+        "dma"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "repo": "Mangta517/watch",
+      "repo_url": "https://github.com/Mangta517/watch",
+      "visibility": "public",
+      "publish_policy": "public",
+      "tier": "core",
+      "status": "maintained",
+      "domains": [
+        "embedded"
+      ],
+      "tech_stack": [
+        "STM32 HAL",
+        "FreeRTOS",
+        "LVGL",
+        "SPI DMA",
+        "KT6368A",
+        "Keil MDK"
+      ],
+      "primary_language": "C",
+      "stars": 0,
+      "synced_commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+      "featured": true,
+      "related_topics": [
+        "task-and-bus-ownership",
+        "embedded-stream-framing",
+        "sensor-feedback-pipeline"
+      ],
+      "related_adrs": [
+        "ADR-0002-assign-sensor-bus-owner"
+      ],
+      "mcu": "STM32F411CEU6",
+      "signal_flow": [
+        "运动传感器",
+        "SENSOR I2C",
+        "IMU 快照",
+        "LVGL 渲染",
+        "SPI DMA 刷屏"
+      ],
+      "highlights": [
+        {
+          "label": "采样任务",
+          "value": "10 ms 周期"
+        },
+        {
+          "label": "LVGL 任务",
+          "value": "每轮后延时 5 ms"
+        },
+        {
+          "label": "显示屏",
+          "value": "ST7789 · 240×280"
+        }
+      ],
+      "route": "/projects/watch/",
+      "source_path": "wiki/projects/watch.md",
+      "word_count": 2201,
+      "reading_minutes": 6,
+      "mermaid_count": 2,
+      "table_count": 6,
+      "evidence_count": 32,
+      "has_human_notes": false,
+      "related_troubleshooting": [
+        "TS-0002-watch-startup-latency"
+      ]
+    }
+  ],
+  "topics": [
+    {
+      "title": "嵌入式串流的消息边界",
+      "description": "从 DMA、UART、CAN 和蓝牙收到的传输片段，按协议定义重组成完整消息并提交状态。",
+      "type": "topic",
+      "id": "embedded-stream-framing",
+      "tags": [
+        "protocol",
+        "uart",
+        "can",
+        "dma"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "domain": "embedded",
+      "related_projects": [
+        "bootloader",
+        "mspm0g3507",
+        "watch"
+      ],
+      "route": "/topics/embedded/embedded-stream-framing/",
+      "source_path": "wiki/topics/embedded/embedded-stream-framing.md",
+      "word_count": 1401,
+      "reading_minutes": 4,
+      "mermaid_count": 1,
+      "table_count": 4,
+      "evidence_count": 4,
+      "has_human_notes": false
+    },
+    {
+      "title": "从以太网链路到 IPv4 可达",
+      "description": "按 PHY 协商、MAC/DMA、netif 地址和上层协议顺序验证 MCU 以太网。",
+      "type": "topic",
+      "id": "ethernet-link-and-ip",
+      "tags": [
+        "ethernet",
+        "lwip",
+        "dhcp"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "domain": "networking",
+      "related_projects": [
+        "iwip"
+      ],
+      "route": "/topics/networking/ethernet-link-and-ip/",
+      "source_path": "wiki/topics/networking/ethernet-link-and-ip.md",
+      "word_count": 1308,
+      "reading_minutes": 4,
+      "mermaid_count": 1,
+      "table_count": 3,
+      "evidence_count": 5,
+      "has_human_notes": false
+    },
+    {
+      "title": "传感器反馈链路的单位与时序",
+      "description": "用采样时刻、坐标系、有效标志和控制量定义每个处理边界，使姿态、视觉和环境数据可追踪。",
+      "type": "topic",
+      "id": "sensor-feedback-pipeline",
+      "tags": [
+        "sensor",
+        "imu",
+        "control",
+        "timing"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "domain": "embedded",
+      "related_projects": [
+        "flight",
+        "mspm0g3507",
+        "watch"
+      ],
+      "route": "/topics/embedded/sensor-feedback-pipeline/",
+      "source_path": "wiki/topics/embedded/sensor-feedback-pipeline.md",
+      "word_count": 1382,
+      "reading_minutes": 4,
+      "mermaid_count": 1,
+      "table_count": 3,
+      "evidence_count": 3,
+      "has_human_notes": false
+    },
+    {
+      "title": "嵌入式任务与外设所有权",
+      "description": "把共享外设限定在明确的执行上下文，用快照和事件把耗时操作与消费者分开。",
+      "type": "topic",
+      "id": "task-and-bus-ownership",
+      "tags": [
+        "freertos",
+        "concurrency",
+        "dma"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "domain": "embedded",
+      "related_projects": [
+        "flight",
+        "freertos-beginer",
+        "iwip",
+        "watch"
+      ],
+      "route": "/topics/embedded/task-and-bus-ownership/",
+      "source_path": "wiki/topics/embedded/task-and-bus-ownership.md",
+      "word_count": 1460,
+      "reading_minutes": 4,
+      "mermaid_count": 1,
+      "table_count": 3,
+      "evidence_count": 5,
+      "has_human_notes": false
+    }
+  ],
+  "adrs": [
+    {
+      "title": "ADR-0001 · 镜像先暂存再提交",
+      "description": "F407 更新 APP 在外部 Flash 保存完整镜像，并用 EEPROM 更新标记把接收阶段与启动搬运阶段连接起来。",
+      "type": "adr",
+      "id": "ADR-0001-stage-image-before-boot",
+      "tags": [
+        "bootloader",
+        "flash",
+        "recovery"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "adr_id": "ADR-0001",
+      "decision_status": "accepted",
+      "related_projects": [
+        "bootloader"
+      ],
+      "route": "/adr/ADR-0001-stage-image-before-boot/",
+      "source_path": "wiki/adr/ADR-0001-stage-image-before-boot.md",
+      "word_count": 1182,
+      "reading_minutes": 3,
+      "mermaid_count": 1,
+      "table_count": 3,
+      "evidence_count": 4,
+      "has_human_notes": false
+    },
+    {
+      "title": "ADR-0002 · 传感器总线交由单任务访问",
+      "description": "飞控与手表都将共享传感器总线收敛到一个任务，并为低频器件保留分频采样。",
+      "type": "adr",
+      "id": "ADR-0002-assign-sensor-bus-owner",
+      "tags": [
+        "i2c",
+        "freertos",
+        "concurrency"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "adr_id": "ADR-0002",
+      "decision_status": "accepted",
+      "related_projects": [
+        "flight",
+        "watch"
+      ],
+      "route": "/adr/ADR-0002-assign-sensor-bus-owner/",
+      "source_path": "wiki/adr/ADR-0002-assign-sensor-bus-owner.md",
+      "word_count": 1434,
+      "reading_minutes": 4,
+      "mermaid_count": 0,
+      "table_count": 4,
+      "evidence_count": 8,
+      "has_human_notes": false
+    },
+    {
+      "title": "ADR-0003 · 运行 lwIP 的 OS 模式",
+      "description": "当前 STM32F407 以太网工程由 FreeRTOS 管理网络与触摸线程，lwIP 使用 TCP/IP 核心上下文。",
+      "type": "adr",
+      "id": "ADR-0003-run-lwip-in-rtos-mode",
+      "tags": [
+        "lwip",
+        "freertos",
+        "ethernet"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "adr_id": "ADR-0003",
+      "decision_status": "accepted",
+      "related_projects": [
+        "iwip"
+      ],
+      "route": "/adr/ADR-0003-run-lwip-in-rtos-mode/",
+      "source_path": "wiki/adr/ADR-0003-run-lwip-in-rtos-mode.md",
+      "word_count": 1197,
+      "reading_minutes": 3,
+      "mermaid_count": 1,
+      "table_count": 3,
+      "evidence_count": 6,
+      "has_human_notes": false
+    }
+  ],
+  "troubleshooting": [
+    {
+      "title": "TS-0001 · Bootloader 收完 BIN 后未进入 APP",
+      "description": "按接收、外部 Flash 暂存、EEPROM 提交、内部搬运与向量跳转定位 F407 更新失败阶段。",
+      "type": "troubleshooting",
+      "id": "TS-0001-bootloader-update-phase",
+      "tags": [
+        "bootloader",
+        "eeprom",
+        "can"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "ts_id": "TS-0001",
+      "severity": "high",
+      "related_projects": [
+        "bootloader"
+      ],
+      "phases": [
+        "接收与 CRC",
+        "外部 Flash 暂存",
+        "EEPROM 提交",
+        "片内 Flash 搬运",
+        "向量跳转"
+      ],
+      "route": "/troubleshooting/TS-0001-bootloader-update-phase/",
+      "source_path": "wiki/troubleshooting/TS-0001-bootloader-update-phase.md",
+      "word_count": 1486,
+      "reading_minutes": 4,
+      "mermaid_count": 1,
+      "table_count": 3,
+      "evidence_count": 5,
+      "has_human_notes": false
+    },
+    {
+      "title": "TS-0002 · 手表首帧或正常采集延迟",
+      "description": "对照供电、首帧提交、DMA、传感器就绪、RTC/蓝牙结束及校准状态定位冷启动耗时。",
+      "type": "troubleshooting",
+      "id": "TS-0002-watch-startup-latency",
+      "tags": [
+        "watch",
+        "startup",
+        "lvgl",
+        "diagnostics"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "ts_id": "TS-0002",
+      "severity": "medium",
+      "related_projects": [
+        "watch"
+      ],
+      "phases": [
+        "供电锁存",
+        "首帧提交",
+        "DMA 完成与可见刷新",
+        "采样就绪",
+        "后台模块与校准"
+      ],
+      "route": "/troubleshooting/TS-0002-watch-startup-latency/",
+      "source_path": "wiki/troubleshooting/TS-0002-watch-startup-latency.md",
+      "word_count": 1339,
+      "reading_minutes": 4,
+      "mermaid_count": 1,
+      "table_count": 3,
+      "evidence_count": 11,
+      "has_human_notes": false
+    },
+    {
+      "title": "TS-0003 · 以太网插线后仍无 IP",
+      "description": "从编译时 DHCP 选项、PHY 链路和 netif 状态定位 STM32 以太网不可达的层级。",
+      "type": "troubleshooting",
+      "id": "TS-0003-ethernet-link-without-ip",
+      "tags": [
+        "lwip",
+        "ethernet",
+        "dhcp"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "ts_id": "TS-0003",
+      "severity": "medium",
+      "related_projects": [
+        "iwip"
+      ],
+      "phases": [
+        "地址配置",
+        "RMII 时钟与 PHY",
+        "DMA 收包",
+        "netif 状态",
+        "协议应答"
+      ],
+      "route": "/troubleshooting/TS-0003-ethernet-link-without-ip/",
+      "source_path": "wiki/troubleshooting/TS-0003-ethernet-link-without-ip.md",
+      "word_count": 1271,
+      "reading_minutes": 4,
+      "mermaid_count": 1,
+      "table_count": 3,
+      "evidence_count": 5,
+      "has_human_notes": false
+    },
+    {
+      "title": "TS-0004 · K230 无目标、超时与电机回执",
+      "description": "分别记录视觉有效性、UART0 新帧、目标毫度与 Emm_V5 回执，定位平衡机构无动作或回中。",
+      "type": "troubleshooting",
+      "id": "TS-0004-k230-vision-timeout",
+      "tags": [
+        "mspm0",
+        "k230",
+        "uart",
+        "motor"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "ts_id": "TS-0004",
+      "severity": "medium",
+      "related_projects": [
+        "mspm0g3507"
+      ],
+      "phases": [
+        "系统武装",
+        "UART0 新帧",
+        "目标有效性与超时",
+        "位置命令",
+        "串口回执"
+      ],
+      "route": "/troubleshooting/TS-0004-k230-vision-timeout/",
+      "source_path": "wiki/troubleshooting/TS-0004-k230-vision-timeout.md",
+      "word_count": 1312,
+      "reading_minutes": 4,
+      "mermaid_count": 1,
+      "table_count": 3,
+      "evidence_count": 6,
+      "has_human_notes": false
+    }
+  ],
+  "synthesis": [
+    {
+      "title": "从任务模板到可验证的嵌入式架构",
+      "description": "比较六个公开仓库的运行方式、资源交接、数据有效性和故障恢复，给出跨项目读代码的顺序。",
+      "type": "synthesis",
+      "id": "embedded-architecture-evolution",
+      "tags": [
+        "architecture",
+        "firmware",
+        "freertos",
+        "validation"
+      ],
+      "created": "2026-11-21",
+      "updated": "2026-11-24",
+      "related_projects": [
+        "bootloader",
+        "flight",
+        "freertos-beginer",
+        "iwip",
+        "mspm0g3507",
+        "watch"
+      ],
+      "related_topics": [
+        "task-and-bus-ownership",
+        "embedded-stream-framing",
+        "sensor-feedback-pipeline",
+        "ethernet-link-and-ip"
+      ],
+      "route": "/synthesis/embedded-architecture-evolution/",
+      "source_path": "wiki/synthesis/embedded-architecture-evolution.md",
+      "word_count": 1466,
+      "reading_minutes": 4,
+      "mermaid_count": 1,
+      "table_count": 3,
+      "evidence_count": 0,
+      "has_human_notes": false
+    }
+  ],
+  "link_map": {
+    "ADR-0001-stage-image-before-boot": "/adr/ADR-0001-stage-image-before-boot/",
+    "ADR-0002-assign-sensor-bus-owner": "/adr/ADR-0002-assign-sensor-bus-owner/",
+    "ADR-0003-run-lwip-in-rtos-mode": "/adr/ADR-0003-run-lwip-in-rtos-mode/",
+    "TS-0001-bootloader-update-phase": "/troubleshooting/TS-0001-bootloader-update-phase/",
+    "TS-0002-watch-startup-latency": "/troubleshooting/TS-0002-watch-startup-latency/",
+    "TS-0003-ethernet-link-without-ip": "/troubleshooting/TS-0003-ethernet-link-without-ip/",
+    "TS-0004-k230-vision-timeout": "/troubleshooting/TS-0004-k230-vision-timeout/",
+    "bootloader": "/projects/bootloader/",
+    "embedded-architecture-evolution": "/synthesis/embedded-architecture-evolution/",
+    "embedded-stream-framing": "/topics/embedded/embedded-stream-framing/",
+    "ethernet-link-and-ip": "/topics/networking/ethernet-link-and-ip/",
+    "flight": "/projects/flight/",
+    "freertos-beginer": "/projects/freertos-beginer/",
+    "iwip": "/projects/iwip/",
+    "mspm0g3507": "/projects/mspm0g3507/",
+    "sensor-feedback-pipeline": "/topics/embedded/sensor-feedback-pipeline/",
+    "task-and-bus-ownership": "/topics/embedded/task-and-bus-ownership/",
+    "watch": "/projects/watch/"
+  },
+  "reading_tracks": [
+    {
+      "id": "rtos-and-bus-ownership",
+      "title": "RTOS 并发与外设所有权线",
+      "summary": "从启动模板出发，比较两端任务调度、任务间快照和 TCP/IP 核心邮箱。",
+      "steps": [
+        {
+          "id": "freertos-beginer",
+          "role": "启动模板",
+          "focus": "从复位入口和 Keil 分组划出公开源码能证实的范围。"
+        },
+        {
+          "id": "flight",
+          "role": "周期任务",
+          "focus": "对照双端任务周期和飞行任务对 I2C1 的独占访问。"
+        },
+        {
+          "id": "watch",
+          "role": "快照交接",
+          "focus": "沿传感器任务、互斥快照和 LVGL 任务追踪数据交接。"
+        },
+        {
+          "id": "iwip",
+          "role": "线程边界",
+          "focus": "追踪 RX 输入线程如何把 pbuf 交给 lwIP 核心线程。"
+        },
+        {
+          "id": "task-and-bus-ownership",
+          "role": "机制归纳",
+          "focus": "用任务、总线和共享状态三个维度检查执行边界。"
+        }
+      ]
+    },
+    {
+      "id": "reliable-streams-and-updates",
+      "title": "可靠串流与固件升级线",
+      "summary": "追踪 DMA/CAN 分片重组、外部 Flash 暂存、EEPROM 提交和掉电恢复。",
+      "steps": [
+        {
+          "id": "embedded-stream-framing",
+          "role": "组帧模型",
+          "focus": "比较长度、结束符和校验各自提供的消息边界。"
+        },
+        {
+          "id": "bootloader",
+          "role": "更新实现",
+          "focus": "从 CAN 接收追到外部暂存、复位搬运和向量检查。"
+        },
+        {
+          "id": "ADR-0001-stage-image-before-boot",
+          "role": "架构决策",
+          "focus": "对照 EEPROM 状态与片内 Flash 擦写阶段理解恢复路径。"
+        },
+        {
+          "id": "TS-0001-bootloader-update-phase",
+          "role": "实板定位",
+          "focus": "用接收日志、外部元数据和目标向量判断故障停在哪一阶段。"
+        }
+      ]
+    },
+    {
+      "id": "sensor-feedback-and-diagnostics",
+      "title": "传感器反馈与实板排障线",
+      "summary": "对照采样时基、坐标单位和有效标志，定位视觉控制异常与手表冷启动延迟。",
+      "steps": [
+        {
+          "id": "sensor-feedback-pipeline",
+          "role": "反馈模型",
+          "focus": "梳理源数据、有效性、时间基准和执行器输出的关系。"
+        },
+        {
+          "id": "mspm0g3507",
+          "role": "控制实现",
+          "focus": "从 K230 像素追踪到毫度目标与 Emm_V5 位置命令。"
+        },
+        {
+          "id": "TS-0004-k230-vision-timeout",
+          "role": "视觉排查",
+          "focus": "分开观察合法无球、帧超时和电机回执。"
+        },
+        {
+          "id": "TS-0002-watch-startup-latency",
+          "role": "启动排查",
+          "focus": "分别测量首帧提交、DMA 完成和采样就绪。"
+        }
+      ]
+    }
+  ]
+}

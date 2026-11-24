@@ -1,0 +1,327 @@
+---
+import type { KbDocItem, ReadingTrackData } from '../lib/kb-data';
+import { TYPE_SHORT_LABELS, getReadingMinutes, withDocRoute } from '../lib/kb-data';
+
+interface Props {
+  tracks: ReadingTrackData[];
+  byId: Map<string, KbDocItem>;
+}
+
+const { tracks, byId } = Astro.props;
+
+const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
+---
+
+<div class="kb-tracks-grid">
+  {tracks.map((track, tIdx) => {
+    const resolvedSteps = track.steps
+      .map((s) => {
+        const doc = byId.get(s.id);
+        if (!doc) return null;
+        return {
+          id: s.id,
+          role: s.role,
+          focus: s.focus,
+          title: doc.title,
+          type: doc.type,
+          typeShort: TYPE_SHORT_LABELS[doc.type],
+          href: withDocRoute(doc.route),
+          mins: getReadingMinutes(doc),
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => Boolean(x));
+
+    const accentClass = trackAccents[tIdx % trackAccents.length];
+
+    return (
+      <article class={`kb-track-card ${accentClass}`} data-track-stepper>
+        <div class="kb-track-top">
+          <span class="kb-track-idx">ROUTE 0{tIdx + 1}</span>
+          <span class="kb-track-count">{resolvedSteps.length} 步闭环</span>
+        </div>
+
+        <h3>{track.title}</h3>
+        <p class="kb-track-summary">{track.summary}</p>
+
+        <!-- Interactive Stepper Pipeline Rail -->
+        <div class="kb-stepper-rail-wrap">
+          <div class="kb-stepper-line">
+            <div class="kb-stepper-line-fill" data-stepper-fill style="width: 0%;"></div>
+          </div>
+          <div class="kb-stepper-nodes" role="tablist" aria-label={`${track.title} 步骤节点`}>
+            {resolvedSteps.map((step, sIdx) => (
+              <button
+                type="button"
+                role="tab"
+                class={`kb-step-btn kb-type-${step.type} ${sIdx === 0 ? 'is-active' : ''}`}
+                aria-selected={sIdx === 0 ? 'true' : 'false'}
+                data-step-trigger={sIdx}
+                data-step-pct={
+                  resolvedSteps.length > 1
+                    ? Math.round((sIdx / (resolvedSteps.length - 1)) * 100)
+                    : 100
+                }
+              >
+                <span class="kb-step-num">{sIdx + 1}</span>
+                <span class="kb-step-role">{step.role}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <!-- Progressive Disclosure Focus Box (1 step shown at a time -> minimal text clutter) -->
+        <div class="kb-step-focus-box kb-blueprint-canvas">
+          {resolvedSteps.map((step, sIdx) => (
+            <div
+              class={`kb-step-detail kb-type-${step.type}`}
+              data-step-detail={sIdx}
+              hidden={sIdx !== 0}
+            >
+              <div class="kb-step-detail-head">
+                <span class="kb-step-kind">{step.typeShort}</span>
+                <a class="kb-step-doc-link" href={step.href}>
+                  {step.title}
+                </a>
+                <span class="kb-step-mins">{step.mins} min</span>
+              </div>
+              <p class="kb-step-focus-text">{step.focus}</p>
+            </div>
+          ))}
+        </div>
+      </article>
+    );
+  })}
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-track-stepper]').forEach((card) => {
+    const triggers = Array.from(card.querySelectorAll<HTMLButtonElement>('[data-step-trigger]'));
+    const details = Array.from(card.querySelectorAll<HTMLElement>('[data-step-detail]'));
+    const fill = card.querySelector<HTMLElement>('[data-stepper-fill]');
+
+    function activate(idx: number) {
+      triggers.forEach((btn, i) => {
+        const active = i === idx;
+        const passed = i <= idx;
+        btn.classList.toggle('is-active', active);
+        btn.classList.toggle('is-passed', passed);
+        btn.setAttribute('aria-selected', String(active));
+      });
+      details.forEach((d, i) => {
+        d.hidden = i !== idx;
+      });
+      if (fill && triggers[idx]) {
+        fill.style.width = `${triggers[idx].dataset.stepPct || 0}%`;
+      }
+    }
+
+    triggers.forEach((btn, idx) => {
+      btn.addEventListener('click', () => activate(idx));
+      btn.addEventListener('mouseenter', () => activate(idx));
+      btn.addEventListener('keydown', (e) => {
+        const next = {
+          ArrowLeft: (idx - 1 + triggers.length) % triggers.length,
+          ArrowRight: (idx + 1) % triggers.length,
+          Home: 0,
+          End: triggers.length - 1,
+        }[e.key];
+        if (next !== undefined) {
+          e.preventDefault();
+          activate(next);
+          triggers[next].focus();
+        }
+      });
+    });
+
+    activate(0);
+  });
+</script>
+
+<style>
+  .kb-tracks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20.5rem), 1fr));
+    gap: 0.9rem;
+  }
+
+  .kb-track-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.52rem;
+    padding: 0.95rem 1.05rem;
+    border: 1px solid var(--kb-border);
+    border-radius: 0.75rem;
+    background: var(--kb-surface);
+    box-shadow: var(--kb-shadow-sm);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .kb-track-card:hover {
+    border-color: var(--kb-border-strong);
+    box-shadow: var(--kb-shadow-hover);
+  }
+
+  .kb-track-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.68rem;
+    font-family: var(--sl-font-mono);
+  }
+
+  .kb-track-idx {
+    padding: 0.08rem 0.44rem;
+    border-radius: 999px;
+    background: var(--kb-type-soft);
+    color: var(--kb-type-color);
+    font-weight: 700;
+  }
+
+  .kb-track-count {
+    color: var(--sl-color-gray-3);
+  }
+
+  .kb-track-card h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--sl-color-white);
+  }
+
+  .kb-track-summary {
+    margin: 0;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+    line-height: 1.52;
+  }
+
+  .kb-stepper-rail-wrap {
+    position: relative;
+    margin-top: 0.25rem;
+    padding-top: 0.15rem;
+  }
+
+  .kb-stepper-line {
+    position: relative;
+    height: 3px;
+    margin: 0 0.75rem 0.48rem;
+    border-radius: 999px;
+    background: var(--kb-surface-soft);
+    overflow: hidden;
+  }
+
+  .kb-stepper-line-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--kb-accent), var(--kb-topic));
+    transition: width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .kb-stepper-nodes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+
+  .kb-step-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.26rem;
+    padding: 0.18rem 0.46rem;
+    border-radius: 999px;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-2);
+    font: inherit;
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.16s, background 0.16s, color 0.16s, transform 0.16s;
+  }
+
+  .kb-step-btn:hover,
+  .kb-step-btn.is-active {
+    border-color: var(--kb-type-color);
+    background: var(--kb-type-soft);
+    color: var(--kb-type-ink, var(--sl-color-gray-1));
+    transform: translateY(-1px);
+  }
+
+  .kb-step-num,
+  .kb-step-role {
+    pointer-events: none;
+  }
+
+  .kb-step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    background: var(--kb-surface);
+    color: var(--kb-type-ink, var(--kb-type-color));
+    font-family: var(--sl-font-mono);
+    font-size: 0.64rem;
+    font-weight: 700;
+  }
+
+  .kb-step-focus-box {
+    margin-top: auto;
+    padding: 0.6rem 0.72rem;
+    border-radius: 0.55rem;
+    border: 1px solid var(--kb-border);
+    min-height: 4.5rem;
+  }
+
+  .kb-step-detail:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.26rem;
+    animation: kbFadeSlideUp 0.18s ease-out;
+  }
+
+  .kb-step-detail-head {
+    display: flex;
+    align-items: center;
+    gap: 0.38rem;
+    font-size: var(--sl-text-xs);
+  }
+
+  .kb-step-kind {
+    padding: 0.06rem 0.38rem;
+    border-radius: 0.25rem;
+    background: var(--kb-type-soft);
+    color: var(--kb-type-color);
+    font-size: 0.66rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .kb-step-doc-link {
+    color: var(--kb-accent);
+    font-weight: 600;
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .kb-step-doc-link:hover {
+    text-decoration: underline;
+  }
+
+  .kb-step-mins {
+    margin-left: auto;
+    color: var(--sl-color-gray-3);
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
+    flex-shrink: 0;
+  }
+
+  .kb-step-focus-text {
+    margin: 0;
+    color: var(--sl-color-gray-2);
+    font-size: 0.74rem;
+    line-height: 1.48;
+  }
+</style>

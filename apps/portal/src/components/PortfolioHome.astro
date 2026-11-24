@@ -1,0 +1,1409 @@
+---
+import HeroSignalStage from './HeroSignalStage.astro';
+import ProjectMicroSchematic from './ProjectMicroSchematic.astro';
+import ReadingTrackStepper from './ReadingTrackStepper.astro';
+import {
+  DECISION_STATUS_LABELS,
+  DOMAIN_LABELS,
+  SEVERITY_LABELS,
+  getReadingMinutes,
+  getReadingTracks,
+  getRelatedTroubleshooting,
+  loadKbData,
+  withBase,
+  withDocRoute,
+} from '../lib/kb-data';
+
+const { catalog, stats, byId } = loadKbData();
+const { counts } = stats;
+const tierOrder = { core: 0, active: 1, archive: 2 };
+const projects = [...catalog.projects].sort((a, b) => {
+  return tierOrder[a.tier] - tierOrder[b.tier] || a.id.localeCompare(b.id);
+});
+
+const tierLabels: Record<string, string> = {
+  core: 'Core',
+  active: 'Active',
+  archive: 'Archive',
+};
+
+const projectById = new Map(catalog.projects.map((p) => [p.id, p]));
+const topicById = new Map(catalog.topics.map((t) => [t.id, t]));
+const adrById = new Map(catalog.adrs.map((a) => [a.id, a]));
+
+const priorityTech = new Set([
+  'STM32 HAL',
+  'FreeRTOS',
+  'Keil MDK',
+  'LVGL',
+  'lwIP',
+  'SPI DMA',
+  'USART DMA',
+  'bxCAN',
+  'TI DriverLib',
+  'K230 MicroPython',
+]);
+const allTechEntries = Object.entries(stats.by_tech_stack || {}).sort(([a, ca], [b, cb]) => {
+  if (cb !== ca) return cb - ca;
+  const pa = priorityTech.has(a) ? 0 : 1;
+  const pb = priorityTech.has(b) ? 0 : 1;
+  return pa - pb || a.localeCompare(b);
+});
+const primaryTechs = allTechEntries.slice(0, 9);
+const extraTechs = allTechEntries.slice(9);
+
+const readingTracks = getReadingTracks(catalog);
+
+interface LibraryEntry {
+  id: string;
+  codeBadge?: string;
+  title: string;
+  description: string;
+  route: string;
+  readingMinutes: number;
+  mermaidCount: number;
+  evidenceCount: number;
+  meta?: string;
+  metaTone?: 'danger' | 'accent' | 'neutral';
+  phases?: string[];
+  relatedProjects: Array<{ id: string; title: string; href: string }>;
+}
+
+function mapRelatedProjects(ids: string[] = []) {
+  return ids
+    .map((pid) => {
+      const p = projectById.get(pid);
+      return p ? { id: pid, title: p.id, href: withDocRoute(p.route) } : null;
+    })
+    .filter((x): x is { id: string; title: string; href: string } => Boolean(x));
+}
+
+const groups: Array<{ id: string; label: string; colorClass: string; items: LibraryEntry[] }> = [
+  {
+    id: 'topics',
+    label: '技术专题',
+    colorClass: 'kb-type-topic',
+    items: catalog.topics.map((t) => ({
+      id: t.id,
+      title: t.title,
+      description: t.description,
+      route: t.route,
+      readingMinutes: getReadingMinutes(t),
+      mermaidCount: t.mermaid_count ?? 0,
+      evidenceCount: t.evidence_count ?? 0,
+      meta: DOMAIN_LABELS[t.domain] || t.domain,
+      metaTone: 'neutral',
+      relatedProjects: mapRelatedProjects(t.related_projects),
+    })),
+  },
+  {
+    id: 'troubleshooting',
+    label: '排障案例',
+    colorClass: 'kb-type-troubleshooting',
+    items: catalog.troubleshooting.map((ts) => ({
+      id: ts.id,
+      codeBadge: ts.ts_id,
+      title: ts.title.replace(/^TS-\d+\s*·\s*/, ''),
+      description: ts.description,
+      route: ts.route,
+      readingMinutes: getReadingMinutes(ts),
+      mermaidCount: ts.mermaid_count ?? 0,
+      evidenceCount: ts.evidence_count ?? 0,
+      meta: SEVERITY_LABELS[ts.severity] || ts.severity,
+      metaTone: ts.severity === 'high' ? 'danger' : 'neutral',
+      phases: ts.phases,
+      relatedProjects: mapRelatedProjects(ts.related_projects),
+    })),
+  },
+  {
+    id: 'adr',
+    label: '架构决策',
+    colorClass: 'kb-type-adr',
+    items: catalog.adrs.map((a) => ({
+      id: a.id,
+      codeBadge: a.adr_id,
+      title: a.title.replace(/^ADR-\d+\s*·\s*/, ''),
+      description: a.description,
+      route: a.route,
+      readingMinutes: getReadingMinutes(a),
+      mermaidCount: a.mermaid_count ?? 0,
+      evidenceCount: a.evidence_count ?? 0,
+      meta: DECISION_STATUS_LABELS[a.decision_status] || a.decision_status,
+      metaTone: 'accent',
+      relatedProjects: mapRelatedProjects(a.related_projects),
+    })),
+  },
+  {
+    id: 'synthesis',
+    label: '综合复盘',
+    colorClass: 'kb-type-synthesis',
+    items: catalog.synthesis.map((s) => ({
+      id: s.id,
+      title: s.title,
+      description: s.description,
+      route: s.route,
+      readingMinutes: getReadingMinutes(s),
+      mermaidCount: s.mermaid_count ?? 0,
+      evidenceCount: s.evidence_count ?? 0,
+      meta: '跨仓横向对照',
+      metaTone: 'accent',
+      relatedProjects: mapRelatedProjects(s.related_projects),
+    })),
+  },
+];
+
+const latestUpdate = stats.recent_updates[0]?.updated;
+const synthesis = catalog.synthesis[0];
+const totalEvidence = counts.total_evidence_links ?? 181;
+const totalMermaids = counts.total_mermaids ?? 22;
+const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + counts.synthesis;
+---
+
+<div class="kb-home not-content">
+  <!-- 1. Two-Column Visual Hero Workbench -->
+  <section class="kb-hero-grid" aria-labelledby="_top">
+    <div class="kb-hero-copy">
+      <div class="kb-eyebrow">
+        <span class="kb-eyebrow-pill">EMBEDDED ATLAS</span>
+        <span>{catalog.owner} 公开固件知识库</span>
+        {latestUpdate && (
+          <span class="kb-eyebrow-date">· 同步于 <time datetime={latestUpdate}>{latestUpdate}</time></span>
+        )}
+      </div>
+
+      <h1 id="_top" class="kb-hero-title">
+        用动态信号脉络读懂<span class="kb-title-highlight">嵌入式固件与硬件边界</span>
+      </h1>
+
+      <p class="kb-lead">
+        串联 STM32 / MSPM0 实板工程、FreeRTOS 并发、CAN/DMA 组帧与 lwIP 协议栈，每处结论直连固定 40 位提交 SHA。
+      </p>
+
+      <!-- Animated Bento Metric Tiles -->
+      <div class="kb-metric-bento" aria-label="知识库核心指标">
+        <div class="kb-metric-card kb-type-project">
+          <span class="kb-metric-num" data-count-to={counts.projects}>{counts.projects}</span>
+          <span class="kb-metric-label">公开固件工程</span>
+        </div>
+        <div class="kb-metric-card kb-type-topic">
+          <span class="kb-metric-num" data-count-to={totalEvidence}>{totalEvidence}</span>
+          <span class="kb-metric-label">固定 SHA 源码锚点</span>
+        </div>
+        <div class="kb-metric-card kb-type-adr">
+          <span class="kb-metric-num" data-count-to={totalMermaids}>{totalMermaids}</span>
+          <span class="kb-metric-label">架构与时序图</span>
+        </div>
+        <div class="kb-metric-card kb-type-troubleshooting">
+          <span class="kb-metric-num" data-count-to={crossNotesCount}>{crossNotesCount}</span>
+          <span class="kb-metric-label">专题 · ADR · 排障</span>
+        </div>
+      </div>
+
+      <div class="kb-actions">
+        {synthesis && (
+          <a class="kb-action kb-action--primary" href={withDocRoute(synthesis.route)}>
+            从跨项目架构复盘开始 →
+          </a>
+        )}
+        <a class="kb-action" href={withBase('/graph/')}>
+          <span class="kb-action-dot" aria-hidden="true"></span>
+          交互关系图谱
+        </a>
+        <button type="button" class="kb-action kb-search-btn" data-trigger-search>
+          全局检索 <kbd>Ctrl K</kbd>
+        </button>
+      </div>
+    </div>
+
+    <div class="kb-hero-visual">
+      <HeroSignalStage />
+    </div>
+  </section>
+
+  <!-- 2. Interactive Stepper Reading Tracks -->
+  <section aria-labelledby="kb-tracks-heading" class="kb-tracks-section">
+    <div class="kb-section-head">
+      <div>
+        <h2 id="kb-tracks-heading">交互式阅读路线</h2>
+        <span class="kb-section-sub">悬停或点击节点推进信号轨，按需查看每一步核查重点</span>
+      </div>
+    </div>
+    <ReadingTrackStepper tracks={readingTracks} byId={byId} />
+  </section>
+
+  <!-- 3. Hardware Project Matrix with Micro-Schematics -->
+  <section aria-labelledby="kb-projects" data-project-matrix>
+    <div class="kb-section-head">
+      <div>
+        <h2 id="kb-projects">
+          固件工程矩阵（<span data-project-count>{counts.projects}</span>）
+        </h2>
+        <span class="kb-section-sub">悬停卡片唤醒硬件信号链路 · 点击技术栈胶囊筛选关联仓库</span>
+      </div>
+      <button type="button" class="kb-reset-filter" data-filter-reset hidden>
+        清除筛选 ✕
+      </button>
+    </div>
+
+    <div class="kb-filter-bar" data-filter-bar hidden>
+      <div class="kb-filter-group" role="group" aria-label="项目分级筛选">
+        <button type="button" class="kb-filter-chip is-active" data-tier-filter="all">
+          全部 ({counts.projects})
+        </button>
+        <button type="button" class="kb-filter-chip" data-tier-filter="core">
+          Core 核心 ({stats.by_tier.core || 0})
+        </button>
+        {(stats.by_tier.active || 0) > 0 && (
+          <button type="button" class="kb-filter-chip" data-tier-filter="active">
+            Active ({stats.by_tier.active})
+          </button>
+        )}
+      </div>
+
+      <div class="kb-filter-group kb-tech-filters" role="group" aria-label="技术栈筛选">
+        {primaryTechs.map(([tech, count]) => (
+          <button type="button" class="kb-filter-chip" data-tech-filter={tech}>
+            {tech} <span class="kb-chip-count">{count}</span>
+          </button>
+        ))}
+        {extraTechs.map(([tech, count]) => (
+          <button
+            type="button"
+            class="kb-filter-chip kb-extra-tech"
+            data-tech-filter={tech}
+            hidden
+          >
+            {tech} <span class="kb-chip-count">{count}</span>
+          </button>
+        ))}
+        {extraTechs.length > 0 && (
+          <button type="button" class="kb-filter-more" data-toggle-extra-tech>
+            展开更多 (+{extraTechs.length})
+          </button>
+        )}
+      </div>
+    </div>
+
+    <div class="kb-project-grid">
+      {projects.map((project) => {
+        const relatedTroubleshooting = getRelatedTroubleshooting(project, catalog);
+        const relatedLinks = [
+          ...(project.related_topics || []).map((id) => {
+            const topic = topicById.get(id);
+            return topic ? { label: topic.title, href: withDocRoute(topic.route), kind: 'topic' } : null;
+          }),
+          ...(project.related_adrs || []).map((id) => {
+            const adr = adrById.get(id);
+            return adr ? { label: adr.adr_id, href: withDocRoute(adr.route), kind: 'adr' } : null;
+          }),
+          ...relatedTroubleshooting.map((ts) => ({
+            label: ts.ts_id,
+            href: withDocRoute(ts.route),
+            kind: 'troubleshooting',
+          })),
+        ].filter((item): item is { label: string; href: string; kind: string } => Boolean(item));
+
+        const shortSha = (project.synced_commit || '').slice(0, 7);
+        const mins = getReadingMinutes(project);
+        const extraSpecs = (project.highlights || []).slice(1, 3);
+
+        return (
+          <article
+            class="kb-project"
+            data-project-card
+            data-tier={project.tier}
+            data-techs={JSON.stringify(project.tech_stack || [])}
+          >
+            <ProjectMicroSchematic project={project} />
+
+            <div class="kb-project-heading">
+              <h3><a href={withDocRoute(project.route)}>{project.title}</a></h3>
+              <div class="kb-project-flags">
+                <span class={`kb-tier ${project.tier === 'core' ? 'is-core' : ''}`}>
+                  {tierLabels[project.tier] || project.tier}
+                </span>
+                {shortSha && (
+                  <span class="kb-sha" title={`同步提交 ${project.synced_commit}`}>@{shortSha}</span>
+                )}
+              </div>
+            </div>
+
+            <p class="kb-project-description">{project.description}</p>
+
+            {extraSpecs.length > 0 && (
+              <div class="kb-project-specs" aria-label="关键硬件规格">
+                {extraSpecs.map((sp) => (
+                  <span class="kb-mini-spec">
+                    <em>{sp.label}</em> {sp.value}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div class="kb-stack-tags" aria-label="项目技术栈">
+              {project.tech_stack.map((tech) => (
+                <button
+                  type="button"
+                  class="kb-card-tech"
+                  data-card-tech={tech}
+                  title={`按 ${tech} 筛选项目`}
+                >
+                  {tech}
+                </button>
+              ))}
+            </div>
+
+            {relatedLinks.length > 0 && (
+              <div class="kb-project-related" aria-label="关联知识节点">
+                {relatedLinks.map((link) => (
+                  <a class={`kb-rel-pill kb-type-${link.kind}`} href={link.href}>
+                    <span class="kb-rel-dot" aria-hidden="true"></span>
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            )}
+
+            <div class="kb-project-links">
+              <a class="kb-read-cta" href={withDocRoute(project.route)} aria-label={`阅读档案：${project.title}`}>
+                阅读档案 ({mins} min) →
+              </a>
+              <div class="kb-project-ext">
+                <a
+                  class="kb-muted-link"
+                  href={`${withBase('/graph/')}?node=${encodeURIComponent(project.id)}`}
+                  title={`在知识图谱中定位 ${project.title}`}
+                >
+                  图谱 ☍
+                </a>
+                <a
+                  href={project.repo_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`${project.title} 的 GitHub 仓库`}
+                >
+                  GitHub ↗
+                </a>
+              </div>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+    <p class="kb-empty-filter" data-project-empty hidden>
+      没有匹配当前筛选条件的项目档案，请点击“清除筛选”查看全部项目。
+    </p>
+  </section>
+
+  <!-- 4. Cross-Project Visual Bento Library -->
+  <section aria-labelledby="kb-library" class="kb-library-section">
+    <div class="kb-library-header">
+      <div>
+        <h2 id="kb-library">跨项目知识沉淀</h2>
+        <span class="kb-section-sub">从具体故障、设计取舍提炼可复用的机制模型</span>
+      </div>
+
+      <div class="kb-tabs" aria-labelledby="kb-library" hidden>
+        {groups.map(({ id, label, colorClass, items }) => (
+          <button
+            type="button"
+            id={`kb-tab-${id}`}
+            class={colorClass}
+            aria-controls={`kb-panel-${id}`}
+          >
+            <span class="kb-tab-dot" aria-hidden="true"></span>
+            {label}
+            <span class="kb-tab-badge">{items.length}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+
+    {groups.map(({ id, label, colorClass, items }) => (
+      <div id={`kb-panel-${id}`} class={`kb-category ${colorClass}`}>
+        <h3>{label}（{items.length}）</h3>
+        <div class="kb-bento-list">
+          {items.map((item) => (
+            <article class="kb-bento-card">
+              <div class="kb-bento-top">
+                <div class="kb-bento-badges">
+                  {item.codeBadge && <span class="kb-bento-code">{item.codeBadge}</span>}
+                  {item.meta && (
+                    <span class={`kb-bento-meta ${item.metaTone === 'danger' ? 'is-danger' : ''}`}>
+                      {item.metaTone === 'danger' && <i class="kb-danger-pulse" aria-hidden="true"></i>}
+                      {item.meta}
+                    </span>
+                  )}
+                </div>
+                <span class="kb-bento-stats">
+                  {item.mermaidCount > 0 && <span>{item.mermaidCount} 图 · </span>}
+                  {item.readingMinutes} min
+                </span>
+              </div>
+
+              <h4 class="kb-bento-title">
+                <a href={withDocRoute(item.route)}>{item.title}</a>
+              </h4>
+
+              <p class="kb-bento-desc">{item.description}</p>
+
+              {/* Visual Diagnostic Pipeline Stepper for Troubleshooting items */}
+              {item.phases && item.phases.length > 0 && (
+                <div class="kb-phase-strip" aria-label="故障排查阶段链路">
+                  {item.phases.map((phase, pIdx) => (
+                    <span class="kb-phase-pill" style={`--phase-idx: ${pIdx};`}>
+                      <b>{pIdx + 1}</b> {phase}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {item.relatedProjects.length > 0 && (
+                <div class="kb-bento-foot">
+                  <span class="kb-bento-foot-label">关联固件：</span>
+                  {item.relatedProjects.map((proj) => (
+                    <a class="kb-proj-mini-tag" href={proj.href}>{proj.title}</a>
+                  ))}
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
+      </div>
+    ))}
+  </section>
+</div>
+
+<script>
+  // 1. Trigger Starlight built-in search modal
+  document.querySelectorAll<HTMLButtonElement>('[data-trigger-search]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const slBtn = document.querySelector<HTMLButtonElement>('site-search button[data-open-modal]');
+      if (slBtn) slBtn.click();
+    });
+  });
+
+  // 2. Smooth Count-Up Animation for Hero Metric Tiles
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!reducedMotion) {
+    document.querySelectorAll<HTMLElement>('[data-count-to]').forEach((el) => {
+      const target = Number(el.dataset.countTo || '0');
+      if (!target || target <= 1) return;
+      const duration = 680;
+      const start = performance.now();
+      const tick = (now: number) => {
+        const progress = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        el.textContent = String(Math.round(target * eased));
+        if (progress < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+  }
+
+  // 3. Interactive Project Matrix Filtering with View Transitions
+  const matrix = document.querySelector<HTMLElement>('[data-project-matrix]');
+  if (matrix) {
+    const filterBar = matrix.querySelector<HTMLElement>('[data-filter-bar]')!;
+    const resetBtn = matrix.querySelector<HTMLButtonElement>('[data-filter-reset]')!;
+    const countEl = matrix.querySelector<HTMLElement>('[data-project-count]')!;
+    const emptyEl = matrix.querySelector<HTMLElement>('[data-project-empty]')!;
+    const cards = Array.from(matrix.querySelectorAll<HTMLElement>('[data-project-card]'));
+    const tierBtns = Array.from(matrix.querySelectorAll<HTMLButtonElement>('[data-tier-filter]'));
+    const techBtns = Array.from(matrix.querySelectorAll<HTMLButtonElement>('[data-tech-filter]'));
+    const cardTechBtns = Array.from(matrix.querySelectorAll<HTMLButtonElement>('[data-card-tech]'));
+    const extraToggle = matrix.querySelector<HTMLButtonElement>('[data-toggle-extra-tech]');
+    const extraChips = Array.from(matrix.querySelectorAll<HTMLButtonElement>('.kb-extra-tech'));
+
+    let activeTier = 'all';
+    let activeTech = '';
+    let extraExpanded = false;
+
+    function expandExtrasIfNeeded() {
+      if (!activeTech || extraExpanded) return;
+      const isExtra = extraChips.some((c) => c.dataset.techFilter === activeTech);
+      if (isExtra) {
+        extraExpanded = true;
+        extraChips.forEach((c) => (c.hidden = false));
+        if (extraToggle) extraToggle.textContent = '收起更多';
+      }
+    }
+
+    function updateDomFilter(syncUrl = true) {
+      expandExtrasIfNeeded();
+      let visibleCount = 0;
+
+      for (const card of cards) {
+        const tier = card.dataset.tier || '';
+        const techs: string[] = JSON.parse(card.dataset.techs || '[]');
+        const matchTier = activeTier === 'all' || tier === activeTier;
+        const matchTech = !activeTech || techs.includes(activeTech);
+        const show = matchTier && matchTech;
+        card.hidden = !show;
+        if (show) visibleCount++;
+      }
+
+      tierBtns.forEach((b) => {
+        const on = b.dataset.tierFilter === activeTier;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-pressed', String(on));
+      });
+
+      techBtns.forEach((b) => {
+        const on = b.dataset.techFilter === activeTech;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-pressed', String(on));
+      });
+
+      cardTechBtns.forEach((b) => {
+        b.classList.toggle('is-active', Boolean(activeTech) && b.dataset.cardTech === activeTech);
+      });
+
+      const isFiltered = activeTier !== 'all' || Boolean(activeTech);
+      countEl.textContent = isFiltered ? `${visibleCount} / ${cards.length}` : String(cards.length);
+      resetBtn.hidden = !isFiltered;
+      emptyEl.hidden = visibleCount > 0;
+
+      if (syncUrl) {
+        const url = new URL(window.location.href);
+        if (activeTier !== 'all') url.searchParams.set('tier', activeTier);
+        else url.searchParams.delete('tier');
+        if (activeTech) url.searchParams.set('tech', activeTech);
+        else url.searchParams.delete('tech');
+        window.history.replaceState(null, '', url);
+      }
+    }
+
+    function applyFilter(syncUrl = true) {
+      updateDomFilter(syncUrl);
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const initTier = params.get('tier');
+    const initTech = params.get('tech');
+    if (initTier && tierBtns.some((b) => b.dataset.tierFilter === initTier)) {
+      activeTier = initTier;
+    }
+    if (initTech && techBtns.some((b) => b.dataset.techFilter === initTech)) {
+      activeTech = initTech;
+    }
+
+    tierBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeTier = btn.dataset.tierFilter || 'all';
+        applyFilter();
+      });
+    });
+
+    techBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const t = btn.dataset.techFilter || '';
+        activeTech = activeTech === t ? '' : t;
+        applyFilter();
+      });
+    });
+
+    cardTechBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const t = btn.dataset.cardTech || '';
+        activeTech = activeTech === t ? '' : t;
+        applyFilter();
+      });
+    });
+
+    resetBtn.addEventListener('click', () => {
+      activeTier = 'all';
+      activeTech = '';
+      applyFilter();
+    });
+
+    if (extraToggle) {
+      const labelClosed = extraToggle.textContent || '展开更多';
+      extraToggle.addEventListener('click', () => {
+        extraExpanded = !extraExpanded;
+        extraChips.forEach((c) => (c.hidden = !extraExpanded));
+        extraToggle.textContent = extraExpanded ? '收起更多' : labelClosed;
+      });
+    }
+
+    filterBar.hidden = false;
+    applyFilter(false);
+  }
+
+  // 4. Cross-project Library Pill Tabs
+  const tablist = document.querySelector<HTMLElement>('.kb-tabs');
+  if (tablist) {
+    const tabs = Array.from(tablist.querySelectorAll('button'));
+    const panels = tabs.map((tab) => document.getElementById(tab.getAttribute('aria-controls')!)!);
+
+    function selectTab(active: number) {
+      tabs.forEach((tab, index) => {
+        const selected = index === active;
+        tab.setAttribute('aria-selected', String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+        panels[index].hidden = !selected;
+      });
+    }
+
+    tablist.setAttribute('role', 'tablist');
+    tabs.forEach((tab, index) => {
+      tab.setAttribute('role', 'tab');
+      panels[index].setAttribute('role', 'tabpanel');
+      panels[index].setAttribute('aria-labelledby', tab.id);
+      tab.addEventListener('click', () => selectTab(index));
+      tab.addEventListener('keydown', (event) => {
+        const nextIndex = {
+          ArrowLeft: (index - 1 + tabs.length) % tabs.length,
+          ArrowRight: (index + 1) % tabs.length,
+          Home: 0,
+          End: tabs.length - 1,
+        }[event.key];
+        if (nextIndex === undefined) return;
+        event.preventDefault();
+        selectTab(nextIndex);
+        tabs[nextIndex].focus();
+      });
+    });
+    selectTab(0);
+    tablist.hidden = false;
+  }
+</script>
+
+<style>
+  .kb-home {
+    display: grid;
+    gap: 2.8rem;
+  }
+
+  /* ===========================
+     1. Hero Two-Column Workbench
+     =========================== */
+  .kb-hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.4rem;
+    align-items: center;
+  }
+
+  @media (min-width: 64rem) {
+    .kb-hero-grid {
+      grid-template-columns: minmax(0, 1.02fr) minmax(0, 1.08fr);
+      gap: 1.75rem;
+    }
+  }
+
+  .kb-hero-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+
+  .kb-eyebrow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+  }
+
+  .kb-eyebrow-pill {
+    padding: 0.14rem 0.52rem;
+    border-radius: 999px;
+    background: var(--kb-project-soft);
+    border: 1px solid color-mix(in srgb, var(--kb-accent) 35%, var(--kb-border));
+    color: var(--kb-accent);
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+
+  .kb-hero-title {
+    margin: 0 !important;
+    font-size: clamp(1.68rem, 2.8vw, 2.35rem) !important;
+    line-height: 1.24 !important;
+    letter-spacing: -0.02em;
+    color: var(--sl-color-white);
+  }
+
+  .kb-title-highlight {
+    display: inline-block;
+    background: linear-gradient(120deg, var(--kb-accent), var(--kb-topic));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .kb-lead {
+    margin: 0;
+    font-size: 0.96rem;
+    line-height: 1.68;
+    color: var(--sl-color-gray-2);
+    max-width: 38rem;
+  }
+
+  .kb-metric-bento {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.55rem;
+  }
+
+  @media (max-width: 36rem) {
+    .kb-metric-bento {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .kb-metric-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    padding: 0.62rem 0.72rem;
+    border-radius: 0.65rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface);
+    box-shadow: var(--kb-shadow-sm);
+    border-top: 2.5px solid var(--kb-type-color);
+  }
+
+  .kb-metric-num {
+    font-family: var(--sl-font-mono);
+    font-size: 1.32rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--sl-color-white);
+  }
+
+  .kb-metric-label {
+    color: var(--sl-color-gray-3);
+    font-size: 0.7rem;
+    line-height: 1.3;
+  }
+
+  .kb-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-top: 0.15rem;
+  }
+
+  .kb-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    padding: 0.46rem 0.92rem;
+    border: 1px solid var(--kb-border);
+    border-radius: 0.52rem;
+    background: var(--kb-surface);
+    color: var(--sl-color-gray-1);
+    box-shadow: var(--kb-shadow-sm);
+    text-decoration: none;
+    font: inherit;
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.16s, color 0.16s, transform 0.16s, box-shadow 0.16s;
+  }
+
+  .kb-action--primary {
+    border-color: var(--kb-accent);
+    background: var(--kb-accent);
+    color: #ffffff;
+  }
+
+  .kb-action--primary:hover {
+    background: color-mix(in srgb, var(--kb-accent) 88%, #000000);
+    border-color: color-mix(in srgb, var(--kb-accent) 88%, #000000);
+    color: #ffffff;
+    transform: translateY(-1px);
+  }
+
+  .kb-action:not(.kb-action--primary):hover {
+    border-color: var(--kb-accent);
+    color: var(--kb-accent);
+    transform: translateY(-1px);
+  }
+
+  .kb-action-dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--kb-topic);
+  }
+
+  .kb-search-btn kbd {
+    padding: 0.08rem 0.35rem;
+    border-radius: 0.25rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-3);
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
+    font-weight: 500;
+  }
+
+  /* ===========================
+     Section Headers & Filter Bar
+     =========================== */
+  .kb-section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.95rem;
+  }
+
+  .kb-home h2 {
+    margin: 0;
+    font-size: var(--sl-text-xl);
+    color: var(--sl-color-white);
+  }
+
+  .kb-section-sub {
+    display: block;
+    margin-top: 0.18rem;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+  }
+
+  .kb-filter-bar:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.48rem;
+    margin-bottom: 1rem;
+    padding: 0.72rem 0.85rem;
+    border-radius: 0.68rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface);
+    box-shadow: var(--kb-shadow-sm);
+  }
+
+  .kb-filter-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .kb-filter-chip,
+  .kb-filter-more,
+  .kb-reset-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    padding: 0.22rem 0.6rem;
+    border: 1px solid var(--kb-border);
+    border-radius: 999px;
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-2);
+    font: inherit;
+    font-size: var(--sl-text-xs);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+
+  .kb-filter-chip[hidden],
+  .kb-reset-filter[hidden] {
+    display: none;
+  }
+
+  .kb-filter-chip:hover,
+  .kb-filter-chip.is-active {
+    border-color: var(--kb-accent);
+    background: var(--sl-color-accent-low);
+    color: var(--sl-color-accent-high);
+    font-weight: 600;
+  }
+
+  .kb-chip-count {
+    color: var(--sl-color-gray-3);
+    font-family: var(--sl-font-mono);
+    font-size: 0.88em;
+  }
+
+  .kb-filter-more,
+  .kb-reset-filter {
+    border-style: dashed;
+    background: transparent;
+    color: var(--sl-color-gray-3);
+  }
+
+  .kb-filter-more:hover,
+  .kb-reset-filter:hover {
+    border-color: var(--kb-accent);
+    color: var(--kb-accent);
+  }
+
+  /* ===========================
+     3. Project Hardware Cards
+     =========================== */
+  .kb-project-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20.5rem), 1fr));
+    gap: 1rem;
+  }
+
+  .kb-project[hidden] {
+    display: none;
+  }
+
+  .kb-project {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.95rem 1.05rem;
+    border: 1px solid var(--kb-border);
+    border-radius: 0.72rem;
+    background: var(--kb-surface);
+    box-shadow: var(--kb-shadow-sm);
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+  }
+
+  .kb-project:hover {
+    border-color: var(--kb-border-strong);
+    box-shadow: var(--kb-shadow-hover);
+    transform: translateY(-2px);
+  }
+
+  .kb-project h3 {
+    margin: 0;
+    font-size: 1.02rem;
+    line-height: 1.38;
+  }
+
+  .kb-project-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .kb-project-flags {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-shrink: 0;
+  }
+
+  .kb-project h3 a {
+    color: var(--sl-color-white);
+    text-decoration: none;
+    font-weight: 700;
+  }
+
+  .kb-project h3 a:hover {
+    color: var(--kb-accent);
+    text-decoration: underline;
+  }
+
+  .kb-tier {
+    padding: 0.08rem 0.44rem;
+    border-radius: 999px;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-3);
+    font-size: 0.67rem;
+    font-weight: 700;
+  }
+
+  .kb-tier.is-core {
+    border-color: color-mix(in srgb, var(--kb-accent) 45%, var(--kb-border));
+    background: var(--kb-project-soft);
+    color: var(--kb-accent);
+  }
+
+  .kb-sha {
+    color: var(--sl-color-gray-3);
+    font-size: 0.72rem;
+    font-family: var(--sl-font-mono);
+  }
+
+  .kb-project-description {
+    margin: 0;
+    color: var(--sl-color-gray-2);
+    font-size: 0.84rem;
+    line-height: 1.56;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .kb-project-specs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.32rem;
+  }
+
+  .kb-mini-spec {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.1rem 0.44rem;
+    border-radius: 0.3rem;
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
+  }
+
+  .kb-mini-spec em {
+    font-style: normal;
+    font-family: var(--sl-font);
+    color: var(--sl-color-gray-3);
+  }
+
+  .kb-stack-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.28rem;
+  }
+
+  .kb-card-tech {
+    padding: 0.1rem 0.45rem;
+    border: 1px solid var(--kb-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--sl-color-gray-3);
+    font: inherit;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+
+  .kb-card-tech:hover,
+  .kb-card-tech.is-active {
+    border-color: var(--kb-accent);
+    background: var(--kb-project-soft);
+    color: var(--kb-accent);
+  }
+
+  .kb-project-related {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+
+  .kb-rel-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.26rem;
+    padding: 0.12rem 0.5rem;
+    border-radius: 0.34rem;
+    border: 1px solid color-mix(in srgb, var(--kb-type-color) 28%, var(--kb-border));
+    background: var(--kb-type-soft);
+    color: var(--kb-type-ink, var(--sl-color-gray-1));
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: transform 0.14s, border-color 0.14s;
+  }
+
+  .kb-rel-pill:hover {
+    transform: translateY(-1px);
+    border-color: var(--kb-type-color);
+  }
+
+  .kb-rel-dot {
+    width: 0.38rem;
+    height: 0.38rem;
+    border-radius: 50%;
+    background: var(--kb-type-color);
+    flex-shrink: 0;
+  }
+
+  .kb-project-links {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: auto;
+    padding-top: 0.55rem;
+    border-top: 1px solid var(--kb-border);
+    font-size: var(--sl-text-xs);
+  }
+
+  .kb-project-ext {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  .kb-project-links a {
+    color: var(--kb-accent);
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .kb-project-links a.kb-muted-link {
+    color: var(--sl-color-gray-3);
+    font-weight: 500;
+  }
+
+  .kb-project-links a:hover {
+    color: var(--kb-accent);
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+  }
+
+  .kb-empty-filter {
+    margin: 0.75rem 0 0;
+    padding: 1rem;
+    border: 1px dashed var(--kb-border);
+    border-radius: 0.6rem;
+    background: var(--kb-surface);
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-sm);
+    text-align: center;
+  }
+
+  /* ===========================
+     4. Cross-Project Bento Library
+     =========================== */
+  .kb-library-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .kb-tabs:not([hidden]) {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    padding: 0.25rem;
+    border-radius: 0.65rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface);
+    box-shadow: var(--kb-shadow-sm);
+  }
+
+  .kb-tabs button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.32rem;
+    padding: 0.32rem 0.68rem;
+    border: 1px solid transparent;
+    border-radius: 0.45rem;
+    background: transparent;
+    color: var(--sl-color-gray-2);
+    font: inherit;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s, border-color 0.18s;
+  }
+
+  .kb-tabs button:hover {
+    color: var(--sl-color-gray-1);
+  }
+
+  .kb-tabs button[aria-selected='true'] {
+    background: var(--kb-type-soft);
+    border-color: color-mix(in srgb, var(--kb-type-color) 48%, var(--kb-border));
+    color: var(--kb-type-ink, var(--sl-color-gray-1));
+  }
+
+  .kb-tab-dot,
+  .kb-tab-badge {
+    pointer-events: none;
+  }
+
+  .kb-tab-dot {
+    width: 0.42rem;
+    height: 0.42rem;
+    border-radius: 50%;
+    background: var(--kb-type-color);
+  }
+
+  .kb-tab-badge {
+    padding: 0.04rem 0.34rem;
+    border-radius: 999px;
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-3);
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
+  }
+
+  .kb-category[role='tabpanel'] h3 {
+    display: none;
+  }
+
+  .kb-category:not([hidden]) .kb-bento-list {
+    animation: kbFadeSlideUp 0.22s ease-out;
+  }
+
+  .kb-bento-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
+    gap: 0.85rem;
+  }
+
+  .kb-bento-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.48rem;
+    padding: 0.92rem 1.05rem;
+    border-radius: 0.72rem;
+    border: 1px solid var(--kb-border);
+    border-left: 3px solid var(--kb-type-color);
+    background: var(--kb-surface);
+    box-shadow: var(--kb-shadow-sm);
+    transition: border-color 0.18s, box-shadow 0.18s, transform 0.18s;
+  }
+
+  .kb-bento-card:hover {
+    border-color: var(--kb-border-strong);
+    border-left-color: var(--kb-type-color);
+    box-shadow: var(--kb-shadow-hover);
+    transform: translateY(-2px);
+  }
+
+  .kb-bento-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.45rem;
+    font-size: 0.7rem;
+  }
+
+  .kb-bento-badges {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .kb-bento-code {
+    padding: 0.08rem 0.42rem;
+    border-radius: 0.28rem;
+    background: var(--kb-type-soft);
+    color: var(--kb-type-color);
+    font-family: var(--sl-font-mono);
+    font-weight: 700;
+  }
+
+  .kb-bento-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    padding: 0.08rem 0.45rem;
+    border-radius: 999px;
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-2);
+    font-weight: 600;
+  }
+
+  .kb-bento-meta.is-danger {
+    background: var(--kb-troubleshooting-soft);
+    color: var(--kb-troubleshooting);
+  }
+
+  .kb-danger-pulse {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: var(--kb-troubleshooting);
+    animation: kbPulseSoft 2s ease-in-out infinite;
+  }
+
+  .kb-bento-stats {
+    color: var(--sl-color-gray-3);
+    font-family: var(--sl-font-mono);
+  }
+
+  .kb-bento-title {
+    margin: 0;
+    font-size: 0.98rem;
+    line-height: 1.4;
+  }
+
+  .kb-bento-title a {
+    color: var(--sl-color-white);
+    text-decoration: none;
+    font-weight: 700;
+  }
+
+  .kb-bento-title a:hover {
+    color: var(--kb-accent);
+    text-decoration: underline;
+  }
+
+  .kb-bento-desc {
+    margin: 0;
+    color: var(--sl-color-gray-2);
+    font-size: 0.82rem;
+    line-height: 1.56;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .kb-phase-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.28rem;
+    padding-top: 0.15rem;
+  }
+
+  .kb-phase-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22rem;
+    padding: 0.12rem 0.42rem;
+    border-radius: 0.3rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-2);
+    font-size: 0.68rem;
+    transition:
+      border-color 0.18s calc(var(--phase-idx) * 35ms),
+      background 0.18s calc(var(--phase-idx) * 35ms);
+  }
+
+  .kb-bento-card:hover .kb-phase-pill {
+    border-color: color-mix(in srgb, var(--kb-type-color) 45%, var(--kb-border));
+    background: color-mix(in srgb, var(--kb-surface) 82%, var(--kb-type-soft));
+  }
+
+  .kb-phase-pill b {
+    color: var(--kb-type-color);
+    font-family: var(--sl-font-mono);
+    font-size: 0.64rem;
+  }
+
+  .kb-bento-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: auto;
+    padding-top: 0.4rem;
+    border-top: 1px dashed var(--kb-border);
+    font-size: 0.72rem;
+  }
+
+  .kb-bento-foot-label {
+    color: var(--sl-color-gray-3);
+  }
+
+  .kb-proj-mini-tag {
+    padding: 0.08rem 0.42rem;
+    border-radius: 0.28rem;
+    background: var(--kb-project-soft);
+    color: var(--kb-accent);
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .kb-proj-mini-tag:hover {
+    text-decoration: underline;
+  }
+</style>

@@ -1,0 +1,9 @@
+[project]
+name = "mangta-public-kb"
+version = "0.1.0"
+description = "Public GitHub project knowledge base"
+requires-python = ">=3.12"
+dependencies = ["PyYAML>=6.0.2,<7"]
+
+[tool.uv]
+package = false

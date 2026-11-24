@@ -1,0 +1,53 @@
+- id: rtos-and-bus-ownership
+  title: RTOS 并发与外设所有权线
+  summary: 从启动模板出发，比较两端任务调度、任务间快照和 TCP/IP 核心邮箱。
+  steps:
+    - id: freertos-beginer
+      role: 启动模板
+      focus: 从复位入口和 Keil 分组划出公开源码能证实的范围。
+    - id: flight
+      role: 周期任务
+      focus: 对照双端任务周期和飞行任务对 I2C1 的独占访问。
+    - id: watch
+      role: 快照交接
+      focus: 沿传感器任务、互斥快照和 LVGL 任务追踪数据交接。
+    - id: iwip
+      role: 线程边界
+      focus: 追踪 RX 输入线程如何把 pbuf 交给 lwIP 核心线程。
+    - id: task-and-bus-ownership
+      role: 机制归纳
+      focus: 用任务、总线和共享状态三个维度检查执行边界。
+
+- id: reliable-streams-and-updates
+  title: 可靠串流与固件升级线
+  summary: 追踪 DMA/CAN 分片重组、外部 Flash 暂存、EEPROM 提交和掉电恢复。
+  steps:
+    - id: embedded-stream-framing
+      role: 组帧模型
+      focus: 比较长度、结束符和校验各自提供的消息边界。
+    - id: bootloader
+      role: 更新实现
+      focus: 从 CAN 接收追到外部暂存、复位搬运和向量检查。
+    - id: ADR-0001-stage-image-before-boot
+      role: 架构决策
+      focus: 对照 EEPROM 状态与片内 Flash 擦写阶段理解恢复路径。
+    - id: TS-0001-bootloader-update-phase
+      role: 实板定位
+      focus: 用接收日志、外部元数据和目标向量判断故障停在哪一阶段。
+
+- id: sensor-feedback-and-diagnostics
+  title: 传感器反馈与实板排障线
+  summary: 对照采样时基、坐标单位和有效标志，定位视觉控制异常与手表冷启动延迟。
+  steps:
+    - id: sensor-feedback-pipeline
+      role: 反馈模型
+      focus: 梳理源数据、有效性、时间基准和执行器输出的关系。
+    - id: mspm0g3507
+      role: 控制实现
+      focus: 从 K230 像素追踪到毫度目标与 Emm_V5 位置命令。
+    - id: TS-0004-k230-vision-timeout
+      role: 视觉排查
+      focus: 分开观察合法无球、帧超时和电机回执。
+    - id: TS-0002-watch-startup-latency
+      role: 启动排查
+      focus: 分别测量首帧提交、DMA 完成和采样就绪。

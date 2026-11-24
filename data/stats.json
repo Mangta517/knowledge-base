@@ -1,0 +1,151 @@
+{
+  "generated_at": "2026-11-24T10:06:26.756208Z",
+  "counts": {
+    "projects": 6,
+    "topics": 4,
+    "adrs": 3,
+    "troubleshooting": 4,
+    "synthesis": 1,
+    "total_notes": 18,
+    "total_words": 28105,
+    "total_mermaids": 22,
+    "total_tables": 75,
+    "total_evidence_links": 181
+  },
+  "by_tier": {
+    "core": 5,
+    "active": 1,
+    "archive": 0
+  },
+  "by_domain": {
+    "embedded": 6,
+    "networking": 1
+  },
+  "by_tech_stack": {
+    "24C02": 1,
+    "CCS": 1,
+    "CMSIS-RTOS2": 1,
+    "Emm_V5": 1,
+    "FreeRTOS": 4,
+    "Goodix GT5xx": 1,
+    "K230 MicroPython": 1,
+    "KT6368A": 1,
+    "Keil MDK": 5,
+    "LAN8720A": 1,
+    "LVGL": 1,
+    "MPU6050": 1,
+    "SPI DMA": 1,
+    "SPL006": 1,
+    "STM32 HAL": 5,
+    "SysConfig": 1,
+    "TI DriverLib": 1,
+    "UART": 1,
+    "USART DMA": 1,
+    "W25Q16": 1,
+    "bxCAN": 1,
+    "lwIP": 1,
+    "nRF24L01P": 1
+  },
+  "by_language": {
+    "C": 5,
+    "Makefile": 1
+  },
+  "recent_updates": [
+    {
+      "id": "TS-0001-bootloader-update-phase",
+      "title": "TS-0001 · Bootloader 收完 BIN 后未进入 APP",
+      "type": "troubleshooting",
+      "updated": "2026-11-24",
+      "route": "/troubleshooting/TS-0001-bootloader-update-phase/",
+      "description": "按接收、外部 Flash 暂存、EEPROM 提交、内部搬运与向量跳转定位 F407 更新失败阶段。"
+    },
+    {
+      "id": "TS-0002-watch-startup-latency",
+      "title": "TS-0002 · 手表首帧或正常采集延迟",
+      "type": "troubleshooting",
+      "updated": "2026-11-24",
+      "route": "/troubleshooting/TS-0002-watch-startup-latency/",
+      "description": "对照供电、首帧提交、DMA、传感器就绪、RTC/蓝牙结束及校准状态定位冷启动耗时。"
+    },
+    {
+      "id": "TS-0003-ethernet-link-without-ip",
+      "title": "TS-0003 · 以太网插线后仍无 IP",
+      "type": "troubleshooting",
+      "updated": "2026-11-24",
+      "route": "/troubleshooting/TS-0003-ethernet-link-without-ip/",
+      "description": "从编译时 DHCP 选项、PHY 链路和 netif 状态定位 STM32 以太网不可达的层级。"
+    },
+    {
+      "id": "TS-0004-k230-vision-timeout",
+      "title": "TS-0004 · K230 无目标、超时与电机回执",
+      "type": "troubleshooting",
+      "updated": "2026-11-24",
+      "route": "/troubleshooting/TS-0004-k230-vision-timeout/",
+      "description": "分别记录视觉有效性、UART0 新帧、目标毫度与 Emm_V5 回执，定位平衡机构无动作或回中。"
+    },
+    {
+      "id": "ADR-0001-stage-image-before-boot",
+      "title": "ADR-0001 · 镜像先暂存再提交",
+      "type": "adr",
+      "updated": "2026-11-24",
+      "route": "/adr/ADR-0001-stage-image-before-boot/",
+      "description": "F407 更新 APP 在外部 Flash 保存完整镜像，并用 EEPROM 更新标记把接收阶段与启动搬运阶段连接起来。"
+    },
+    {
+      "id": "ADR-0002-assign-sensor-bus-owner",
+      "title": "ADR-0002 · 传感器总线交由单任务访问",
+      "type": "adr",
+      "updated": "2026-11-24",
+      "route": "/adr/ADR-0002-assign-sensor-bus-owner/",
+      "description": "飞控与手表都将共享传感器总线收敛到一个任务，并为低频器件保留分频采样。"
+    },
+    {
+      "id": "ADR-0003-run-lwip-in-rtos-mode",
+      "title": "ADR-0003 · 运行 lwIP 的 OS 模式",
+      "type": "adr",
+      "updated": "2026-11-24",
+      "route": "/adr/ADR-0003-run-lwip-in-rtos-mode/",
+      "description": "当前 STM32F407 以太网工程由 FreeRTOS 管理网络与触摸线程，lwIP 使用 TCP/IP 核心上下文。"
+    },
+    {
+      "id": "embedded-stream-framing",
+      "title": "嵌入式串流的消息边界",
+      "type": "topic",
+      "updated": "2026-11-24",
+      "route": "/topics/embedded/embedded-stream-framing/",
+      "description": "从 DMA、UART、CAN 和蓝牙收到的传输片段，按协议定义重组成完整消息并提交状态。"
+    },
+    {
+      "id": "ethernet-link-and-ip",
+      "title": "从以太网链路到 IPv4 可达",
+      "type": "topic",
+      "updated": "2026-11-24",
+      "route": "/topics/networking/ethernet-link-and-ip/",
+      "description": "按 PHY 协商、MAC/DMA、netif 地址和上层协议顺序验证 MCU 以太网。"
+    },
+    {
+      "id": "sensor-feedback-pipeline",
+      "title": "传感器反馈链路的单位与时序",
+      "type": "topic",
+      "updated": "2026-11-24",
+      "route": "/topics/embedded/sensor-feedback-pipeline/",
+      "description": "用采样时刻、坐标系、有效标志和控制量定义每个处理边界，使姿态、视觉和环境数据可追踪。"
+    },
+    {
+      "id": "task-and-bus-ownership",
+      "title": "嵌入式任务与外设所有权",
+      "type": "topic",
+      "updated": "2026-11-24",
+      "route": "/topics/embedded/task-and-bus-ownership/",
+      "description": "把共享外设限定在明确的执行上下文，用快照和事件把耗时操作与消费者分开。"
+    },
+    {
+      "id": "embedded-architecture-evolution",
+      "title": "从任务模板到可验证的嵌入式架构",
+      "type": "synthesis",
+      "updated": "2026-11-24",
+      "route": "/synthesis/embedded-architecture-evolution/",
+      "description": "比较六个公开仓库的运行方式、资源交接、数据有效性和故障恢复，给出跨项目读代码的顺序。"
+    }
+  ]
+}

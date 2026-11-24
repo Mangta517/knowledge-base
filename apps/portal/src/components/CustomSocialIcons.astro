@@ -1,0 +1,20 @@
+---
+import DefaultSocialIcons from '@astrojs/starlight/components/SocialIcons.astro';
+import { withBase } from '../lib/kb-data';
+---
+
+<a class="kb-header-graph" href={withBase('/graph/')}>知识图谱</a>
+<DefaultSocialIcons {...Astro.props} />
+
+<style>
+  .kb-header-graph {
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-sm);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .kb-header-graph:hover {
+    color: var(--kb-accent);
+  }
+</style>

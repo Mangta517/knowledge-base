@@ -1,0 +1,18 @@
+name: Knowledge base
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv run --locked python scripts/lint_kb.py
+      - run: uv run --locked python scripts/build_indexes.py --check
+      - run: uv run --locked python -m unittest discover -s tests -v

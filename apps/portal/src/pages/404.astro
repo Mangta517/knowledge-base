@@ -1,0 +1,16 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import NotFoundView from '../components/NotFoundView.astro';
+---
+
+<StarlightPage
+  frontmatter={{
+    title: '页面未找到 (404)',
+    description: '请求的路由不存在或大小写不匹配，正在尝试自动定位目标文档。',
+    template: 'splash',
+    editUrl: false,
+    pagefind: false,
+  }}
+>
+  <NotFoundView />
+</StarlightPage>

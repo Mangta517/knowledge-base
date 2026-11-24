@@ -1,0 +1,103 @@
+name: Deploy Knowledge Base to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Least-privilege default: read-only repository contents
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup uv and verify knowledge base contract
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv run --locked python scripts/lint_kb.py
+      - run: uv run --locked python scripts/build_indexes.py --check
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Compute SITE_URL and SITE_BASE
+        id: paths
+        shell: bash
+        env:
+          GH_OWNER: ${{ github.repository_owner }}
+          GH_REPO: ${{ github.event.repository.name }}
+          PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
+        run: |
+          if [[ -n "${PAGES_BASE_URL}" ]]; then
+            SITE_ORIGIN=$(printf '%s' "${PAGES_BASE_URL}" | sed -E 's#^(https?://[^/]+).*#\1#')
+            SITE_PATH=$(printf '%s' "${PAGES_BASE_URL}" | sed -E 's#^https?://[^/]+##; s#/$##')
+          else
+            SITE_ORIGIN="https://${GH_OWNER,,}.github.io"
+            if [[ "${GH_REPO,,}" == "${GH_OWNER,,}.github.io" ]]; then
+              SITE_PATH=""
+            else
+              SITE_PATH="/${GH_REPO}"
+            fi
+          fi
+          echo "site_url=${SITE_ORIGIN}" >> "$GITHUB_OUTPUT"
+          echo "site_base=${SITE_PATH}" >> "$GITHUB_OUTPUT"
+
+      - name: Run frontend typecheck
+        run: pnpm typecheck
+
+      - name: Build Astro Starlight site
+        env:
+          SITE_URL: ${{ steps.paths.outputs.site_url }}
+          SITE_BASE: ${{ steps.paths.outputs.site_base }}
+        run: pnpm build:site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

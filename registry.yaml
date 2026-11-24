@@ -1,0 +1,105 @@
+owner: Mangta517
+repos:
+  bootloader:
+    repo: Mangta517/bootloader
+    repo_url: https://github.com/Mangta517/bootloader
+    visibility: public
+    available: true
+    is_fork: false
+    is_archived: false
+    default_branch: main
+    primary_language: C
+    stars: 0
+    pushed_at: '2026-11-06T02:32:10Z'
+    tier: core
+    publish_policy: public
+    domains:
+    - embedded
+    snapshot_commit: 6d5aebc586133f383908581183b44e6572b7be06
+    synced_commit: 6d5aebc586133f383908581183b44e6572b7be06
+  flight:
+    repo: Mangta517/flight
+    repo_url: https://github.com/Mangta517/flight
+    visibility: public
+    available: true
+    is_fork: false
+    is_archived: false
+    default_branch: main
+    primary_language: C
+    stars: 0
+    pushed_at: '2026-11-06T02:32:19Z'
+    tier: core
+    publish_policy: public
+    domains:
+    - embedded
+    snapshot_commit: 8b05c39baa1731cf4873d2caaa0db34a61b63e2c
+    synced_commit: 8b05c39baa1731cf4873d2caaa0db34a61b63e2c
+  freertos-beginer:
+    repo: Mangta517/freertos-beginer
+    repo_url: https://github.com/Mangta517/freertos-beginer
+    visibility: public
+    available: true
+    is_fork: false
+    is_archived: false
+    default_branch: main
+    primary_language: Makefile
+    stars: 0
+    pushed_at: '2026-11-06T02:31:04Z'
+    tier: active
+    publish_policy: public
+    domains:
+    - embedded
+    snapshot_commit: 88e3c2fa9133c614d937a5e172fbd0aabd3204b8
+    synced_commit: 88e3c2fa9133c614d937a5e172fbd0aabd3204b8
+  iwip:
+    repo: Mangta517/Iwip
+    repo_url: https://github.com/Mangta517/Iwip
+    visibility: public
+    available: true
+    is_fork: false
+    is_archived: false
+    default_branch: main
+    primary_language: C
+    stars: 0
+    pushed_at: '2026-11-21T10:16:51Z'
+    tier: core
+    publish_policy: public
+    domains:
+    - embedded
+    - networking
+    snapshot_commit: eb966f2289c240fd18d5b670aea3057d5f73e3f8
+    synced_commit: eb966f2289c240fd18d5b670aea3057d5f73e3f8
+  mspm0g3507:
+    repo: Mangta517/MSPM0G3507
+    repo_url: https://github.com/Mangta517/MSPM0G3507
+    visibility: public
+    available: true
+    is_fork: false
+    is_archived: false
+    default_branch: master
+    primary_language: C
+    stars: 0
+    pushed_at: '2026-11-06T02:31:47Z'
+    tier: core
+    publish_policy: public
+    domains:
+    - embedded
+    snapshot_commit: d0232ccc9a7e31693e8fa0d1f234f242cd282856
+    synced_commit: d0232ccc9a7e31693e8fa0d1f234f242cd282856
+  watch:
+    repo: Mangta517/watch
+    repo_url: https://github.com/Mangta517/watch
+    visibility: public
+    available: true
+    is_fork: false
+    is_archived: false
+    default_branch: main
+    primary_language: C
+    stars: 0
+    pushed_at: '2026-11-20T04:06:15Z'
+    tier: core
+    publish_policy: public
+    domains:
+    - embedded
+    snapshot_commit: fbd89280178acf4a51e80f919e7f96468b4967f0
+    synced_commit: fbd89280178acf4a51e80f919e7f96468b4967f0

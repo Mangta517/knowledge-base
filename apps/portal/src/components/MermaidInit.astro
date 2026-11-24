@@ -1,0 +1,302 @@
+<dialog class="kb-mermaid-dialog" id="kb-mermaid-dialog" aria-label="图表全屏缩放检视">
+  <div class="kb-mmd-dialog-bar">
+    <span class="kb-mmd-dialog-hint">滚轮缩放 · 按住拖拽平移 · Esc 关闭</span>
+    <div class="kb-mmd-dialog-controls">
+      <button type="button" data-zoom-cmd="out" aria-label="缩小">−</button>
+      <button type="button" data-zoom-cmd="reset" aria-label="重置视图">100%</button>
+      <button type="button" data-zoom-cmd="in" aria-label="放大">+</button>
+      <button type="button" data-zoom-cmd="close" class="kb-mmd-close" aria-label="关闭全屏检视">关闭 ✕</button>
+    </div>
+  </div>
+  <div class="kb-mmd-dialog-canvas" data-zoom-canvas>
+    <div class="kb-mmd-dialog-inner" data-zoom-inner></div>
+  </div>
+</dialog>
+
+<script>
+  function decodeBase64Utf8(b64: string): string {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) {
+      bytes[i] = bin.charCodeAt(i);
+    }
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+
+  function isLightTheme(): boolean {
+    return document.documentElement.dataset.theme === 'light';
+  }
+
+  let mermaidPromise: Promise<typeof import('mermaid')> | undefined;
+  let initializedTheme: string | null = null;
+  let uidCounter = 0;
+
+  async function getConfiguredMermaid() {
+    const mod = await (mermaidPromise ??= import('mermaid'));
+    const mermaid = mod.default;
+    const light = isLightTheme();
+    const themeKey = light ? 'light' : 'dark';
+
+    if (initializedTheme !== themeKey) {
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        suppressErrorRendering: true,
+        theme: light ? 'base' : 'dark',
+        themeVariables: light
+          ? {
+              background: 'transparent',
+              primaryColor: '#e0f2fe',
+              primaryTextColor: '#0f172a',
+              primaryBorderColor: '#0284c7',
+              lineColor: '#475569',
+              secondaryColor: '#ecfdf5',
+              tertiaryColor: '#f8fafd',
+              noteBkgColor: '#fef3c7',
+              noteTextColor: '#78350f',
+              noteBorderColor: '#d97706',
+              actorBkg: '#ffffff',
+              actorBorder: '#0284c7',
+              actorTextColor: '#0f172a',
+              signalColor: '#334155',
+              fontFamily: 'Inter, PingFang SC, Microsoft YaHei, sans-serif',
+            }
+          : {
+              background: 'transparent',
+              primaryColor: '#173857',
+              primaryTextColor: '#eef3fb',
+              primaryBorderColor: '#38bdf8',
+              lineColor: '#94a3b8',
+              secondaryColor: '#1b2a44',
+              tertiaryColor: '#223352',
+              noteBkgColor: '#3b2f17',
+              noteTextColor: '#fef3c7',
+              noteBorderColor: '#fbbf24',
+              actorBkg: '#1b273d',
+              actorBorder: '#38bdf8',
+              actorTextColor: '#eef3fb',
+              fontFamily: 'Inter, PingFang SC, Microsoft YaHei, sans-serif',
+            },
+      });
+      initializedTheme = themeKey;
+    }
+    return mermaid;
+  }
+
+  function showError(stage: HTMLElement, error: unknown, source = '') {
+    const message = document.createElement('pre');
+    message.className = 'kb-mermaid-error';
+    message.textContent = `Mermaid 渲染失败：${String(error)}\n\n${source}`;
+    stage.replaceChildren(message);
+  }
+
+  async function renderWrapper(wrap: HTMLElement) {
+    const b64 = wrap.getAttribute('data-mermaid-b64') || '';
+    if (!b64) return;
+    const stage = wrap.querySelector<HTMLElement>('.kb-mermaid-stage') || wrap;
+    const toolbar = wrap.querySelector<HTMLElement>('.kb-mermaid-toolbar');
+    const source = decodeBase64Utf8(b64);
+
+    try {
+      const mermaid = await getConfiguredMermaid();
+      const id = `kb-mmd-${++uidCounter}`;
+      const { svg } = await mermaid.render(id, source);
+      stage.innerHTML = svg;
+      wrap.dataset.rendered = '1';
+      if (toolbar) toolbar.hidden = false;
+    } catch (err) {
+      showError(stage, err, source);
+    }
+  }
+
+  const wrappers = Array.from(
+    document.querySelectorAll<HTMLElement>('.kb-mermaid-wrap[data-mermaid-b64]'),
+  );
+
+  if (wrappers.length > 0) {
+    const renderedSet = new Set<HTMLElement>();
+
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            const el = entry.target as HTMLElement;
+            io.unobserve(el);
+            renderedSet.add(el);
+            renderWrapper(el);
+          });
+        },
+        { rootMargin: '280px 0px' },
+      );
+      wrappers.forEach((w) => io.observe(w));
+    } else {
+      wrappers.forEach((w) => {
+        renderedSet.add(w);
+        renderWrapper(w);
+      });
+    }
+
+    // Setup Lightbox Zoom & Pan
+    const dialog = document.getElementById('kb-mermaid-dialog') as HTMLDialogElement | null;
+    const canvas = dialog?.querySelector<HTMLElement>('[data-zoom-canvas]');
+    const inner = dialog?.querySelector<HTMLElement>('[data-zoom-inner]');
+    const resetBtn = dialog?.querySelector<HTMLButtonElement>('[data-zoom-cmd="reset"]');
+
+    let scale = 1;
+    let tx = 0;
+    let ty = 0;
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let activeWrap: HTMLElement | null = null;
+
+    function applyTransform() {
+      if (!inner) return;
+      inner.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+      if (resetBtn) {
+        resetBtn.textContent = `${Math.round(scale * 100)}%`;
+      }
+    }
+
+    function openLightbox(wrap: HTMLElement) {
+      if (!dialog || !inner) return;
+      const svg = wrap.querySelector<SVGSVGElement>('.kb-mermaid-stage svg');
+      if (!svg) return;
+      activeWrap = wrap;
+      const rect = svg.getBoundingClientRect();
+      const vb = svg.viewBox?.baseVal;
+      const rawW = (vb && vb.width > 0 ? vb.width : rect.width) || 720;
+      const rawH = (vb && vb.height > 0 ? vb.height : rect.height) || 420;
+      const fitRatio = Math.min(
+        (window.innerWidth * 0.84) / rawW,
+        (window.innerHeight * 0.72) / rawH,
+        1.5,
+      );
+
+      const clone = svg.cloneNode(true) as SVGSVGElement;
+      clone.removeAttribute('style');
+      clone.style.width = `${Math.max(240, Math.round(rawW * fitRatio))}px`;
+      clone.style.height = `${Math.max(140, Math.round(rawH * fitRatio))}px`;
+      clone.style.maxWidth = 'none';
+      clone.style.maxHeight = 'none';
+      inner.replaceChildren(clone);
+      scale = 1;
+      tx = 0;
+      ty = 0;
+      applyTransform();
+      if (!dialog.open) {
+        dialog.showModal();
+      }
+    }
+
+    if (dialog && canvas && inner) {
+      dialog.querySelectorAll<HTMLButtonElement>('[data-zoom-cmd]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const cmd = btn.dataset.zoomCmd;
+          if (cmd === 'in') {
+            scale = Math.min(4, +(scale * 1.25).toFixed(2));
+            applyTransform();
+          } else if (cmd === 'out') {
+            scale = Math.max(0.35, +(scale / 1.25).toFixed(2));
+            applyTransform();
+          } else if (cmd === 'reset') {
+            scale = 1;
+            tx = 0;
+            ty = 0;
+            applyTransform();
+          } else if (cmd === 'close') {
+            dialog.close();
+          }
+        });
+      });
+
+      canvas.addEventListener(
+        'wheel',
+        (e) => {
+          e.preventDefault();
+          const factor = e.deltaY < 0 ? 1.14 : 1 / 1.14;
+          scale = Math.min(4, Math.max(0.35, +(scale * factor).toFixed(3)));
+          applyTransform();
+        },
+        { passive: false },
+      );
+
+      canvas.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        dragging = true;
+        startX = e.clientX - tx;
+        startY = e.clientY - ty;
+        canvas.setPointerCapture(e.pointerId);
+        canvas.classList.add('is-dragging');
+      });
+
+      canvas.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        tx = e.clientX - startX;
+        ty = e.clientY - startY;
+        applyTransform();
+      });
+
+      const stopDrag = () => {
+        dragging = false;
+        canvas.classList.remove('is-dragging');
+      };
+      canvas.addEventListener('pointerup', stopDrag);
+      canvas.addEventListener('pointercancel', stopDrag);
+
+      dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) {
+          dialog.close();
+        }
+      });
+    }
+
+    // Bind toolbar buttons and SVG click-to-zoom
+    wrappers.forEach((wrap) => {
+      wrap.addEventListener('click', async (e) => {
+        const target = e.target as HTMLElement;
+        const btn = target.closest<HTMLButtonElement>('[data-mmd-action]');
+        if (btn) {
+          const action = btn.dataset.mmdAction;
+          if (action === 'zoom') {
+            openLightbox(wrap);
+          } else if (action === 'copy') {
+            const b64 = wrap.getAttribute('data-mermaid-b64') || '';
+            const src = b64 ? decodeBase64Utf8(b64) : '';
+            if (!src) return;
+            const prev = btn.textContent || '复制源码';
+            try {
+              await navigator.clipboard.writeText(src);
+              btn.textContent = '已复制 ✓';
+              window.setTimeout(() => {
+                btn.textContent = prev;
+              }, 1600);
+            } catch {
+              btn.textContent = '复制失败';
+            }
+          }
+          return;
+        }
+        if (target.closest('.kb-mermaid-stage svg') && wrap.dataset.rendered === '1') {
+          openLightbox(wrap);
+        }
+      });
+    });
+
+    // Re-render visible/rendered diagrams when theme switches
+    const themeObserver = new MutationObserver(async () => {
+      initializedTheme = null;
+      for (const wrap of renderedSet) {
+        await renderWrapper(wrap);
+      }
+      if (dialog?.open && activeWrap) {
+        openLightbox(activeWrap);
+      }
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+  }
+</script>

@@ -1,0 +1,14 @@
+{
+  "id": "flight",
+  "repo": "Mangta517/flight",
+  "repo_url": "https://github.com/Mangta517/flight",
+  "description": "Quad drone: flight controller + remote control (STM32F103 / FreeRTOS / Keil MDK-ARM)",
+  "visibility": "public",
+  "default_branch": "main",
+  "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+  "commit_date": "2026-09-02T12:58:22Z",
+  "is_fork": false,
+  "is_archived": false,
+  "primary_language": "C",
+  "stars": 0
+}

@@ -1,0 +1,13 @@
+.venv/
+.uv-cache/
+__pycache__/
+dist/
+node_modules/
+.env
+.env.*
+*.log
+/apps/portal/src/content/docs/
+/apps/portal/public/wiki-assets/
+/apps/portal/.astro/
+
+

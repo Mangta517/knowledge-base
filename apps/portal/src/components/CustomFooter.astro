@@ -1,0 +1,48 @@
+---
+import DefaultFooter from '@astrojs/starlight/components/Footer.astro';
+import MermaidInit from './MermaidInit.astro';
+import { loadKbData, normalizeDocKey, withBase } from '../lib/kb-data';
+
+const entryId = Astro.locals.starlightRoute?.entry?.id || '';
+const cleanId = normalizeDocKey(entryId);
+const { byRouteKey } = loadKbData();
+const doc = byRouteKey.get(cleanId);
+
+const isSplash = cleanId === '' || cleanId === 'index' || cleanId === 'graph' || cleanId === '404';
+const shouldLoadMermaid = !isSplash && (doc ? (doc.mermaid_count ?? 1) > 0 : true);
+---
+
+<DefaultFooter {...Astro.props}><slot /></DefaultFooter>
+<nav class="kb-footer-index" aria-label="公开索引">
+  <span>公开数据与 AI 索引</span>
+  <a href={withBase('/llms.txt')}>llms.txt</a>
+  <a href={withBase('/llms-full.txt')}>llms-full.txt</a>
+  <a href={withBase('/data/catalog.json')}>catalog.json</a>
+  <a href={withBase('/data/graph.json')}>graph.json</a>
+  <a href={withBase('/data/stats.json')}>stats.json</a>
+  <a href={withBase('/graph/')}>知识图谱</a>
+</nav>
+{shouldLoadMermaid && <MermaidInit />}
+
+<style>
+  .kb-footer-index {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.2rem 0.7rem;
+    margin-top: 1.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--kb-border);
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+  }
+
+  .kb-footer-index a {
+    color: inherit;
+    text-underline-offset: 0.18em;
+  }
+
+  .kb-footer-index a:hover {
+    color: var(--kb-accent);
+  }
+</style>
