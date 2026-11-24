@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-24T10:06:26.756208Z",
+  "generated_at": "2026-11-24T13:55:13.836611Z",
   "owner": "Mangta517",
   "projects": [
     {
@@ -660,13 +660,15 @@
         "片内 Flash 搬运",
         "向量跳转"
       ],
+      "root_cause": "公开联调中，LED APP 将 4480 字节 BIN 暂存到 W25Q16 0x001000，板上旧主引导仍只接受首扇区内的起点，在搬运前拒绝元数据。",
+      "located_by": "用接收长度、CRC OK 和 Update save OK 排除本轮传输与保存失败，再用复位后的 APP metadata error 及其中的地址和长度锁定旧主引导的起点规则。",
       "route": "/troubleshooting/TS-0001-bootloader-update-phase/",
       "source_path": "wiki/troubleshooting/TS-0001-bootloader-update-phase.md",
-      "word_count": 1486,
-      "reading_minutes": 4,
+      "word_count": 2015,
+      "reading_minutes": 6,
       "mermaid_count": 1,
       "table_count": 3,
-      "evidence_count": 5,
+      "evidence_count": 6,
       "has_human_notes": false
     },
     {
@@ -694,13 +696,15 @@
         "采样就绪",
         "后台模块与校准"
       ],
+      "root_cause": "首帧字段只记 LVGL 提交，画面还取决于 SPI DMA 与面板刷新。LSE 和蓝牙各有等待窗口，EEPROM 缺少有效 MPU1 记录时需用运行期采样重新校准。",
+      "located_by": "用 PA3、SPI1 和 DMA 完成测点定位显示延迟，再用 WDG1 type 4 的板端时间差、校准状态和 type 5 保存阶段分辨采样、RTC、蓝牙与零偏耗时。",
       "route": "/troubleshooting/TS-0002-watch-startup-latency/",
       "source_path": "wiki/troubleshooting/TS-0002-watch-startup-latency.md",
-      "word_count": 1339,
-      "reading_minutes": 4,
+      "word_count": 2022,
+      "reading_minutes": 6,
       "mermaid_count": 1,
       "table_count": 3,
-      "evidence_count": 11,
+      "evidence_count": 14,
       "has_human_notes": false
     },
     {
@@ -727,13 +731,15 @@
         "netif 状态",
         "协议应答"
       ],
+      "root_cause": "默认 LWIP_DHCP=0，使用静态 192.168.1.30/24。地址匹配后，PHY 协商、MAC 启动或 RX 缓冲落入 CCM 等故障仍会让已亮灯的端口无法收包。",
+      "located_by": "先用 [NET] Mode 确认地址模式，再查 PA1、MDIO 和 netif 链路标志，并对照 ETH RX IRQ、线程唤醒及 DHCP/ARP/ICMP 抓包找到首个失败环节。",
       "route": "/troubleshooting/TS-0003-ethernet-link-without-ip/",
       "source_path": "wiki/troubleshooting/TS-0003-ethernet-link-without-ip.md",
-      "word_count": 1271,
-      "reading_minutes": 4,
+      "word_count": 1899,
+      "reading_minutes": 5,
       "mermaid_count": 1,
       "table_count": 3,
-      "evidence_count": 5,
+      "evidence_count": 6,
       "has_human_notes": false
     },
     {
@@ -761,13 +767,15 @@
         "位置命令",
         "串口回执"
       ],
+      "root_cause": "连续 8 个合法无球帧或 150 ms 未消费合格新帧都会设回中目标。PA13 解除武装或 UART1 有效 E2/EE 回执会走停止路径。",
+      "located_by": "关联 UART0 原始帧、SM 武装状态、无球计数和 TO 标志，再对照目标毫度、UART1 位置命令及 02/9F/E2/EE 回执定位。",
       "route": "/troubleshooting/TS-0004-k230-vision-timeout/",
       "source_path": "wiki/troubleshooting/TS-0004-k230-vision-timeout.md",
-      "word_count": 1312,
-      "reading_minutes": 4,
+      "word_count": 1869,
+      "reading_minutes": 5,
       "mermaid_count": 1,
       "table_count": 3,
-      "evidence_count": 6,
+      "evidence_count": 7,
       "has_human_notes": false
     }
   ],

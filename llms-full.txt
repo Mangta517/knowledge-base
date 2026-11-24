@@ -1483,7 +1483,22 @@ CAN 已触发更新但复位后仍运行旧 APP，主引导启动后直接进入
 | 持久化 | W25Q16 的 8 B 元数据和正文首 8 B，EEPROM 的三字节状态 |
 | 结果 | 最后一条板端日志、实际复位后的运行目标 |
 
-## 故障定位决策树
+## 错误原因与触发机理
+
+- **公开联调记录。** 更新 APP 把首个 4 KiB 扇区留给元数据，正文从 W25Q16 的 `0x001000` 写入。实板仍运行扇区 0 的旧主引导，其预检要求 `8 <= start < 0x1000`，读到首扇区以外的正文地址便返回失败，尚未擦除片内 APP。修正提交把起点下限设为 `APP_W25_START_ADDR_MIN=0x001000`，使两个目标遵循同一布局。[修正提交 ca2c823](https://github.com/Mangta517/bootloader/commit/ca2c82397ee94ce1d8c30de2ac03003b6797d058)
+- **更早的接收问题。** 逐帧阻塞打印会干扰 F407 轮询接收节拍。早期联调版取消了接收期间的逐帧打印，改在空闲后汇总长度。此时的长度日志只表示统计到的字节数。[历史提交 957ea1f](https://github.com/Mangta517/bootloader/commit/957ea1fbb9615138a5fd2659dd68efa763e85647)
+- **固定源码的其他分支。** `app_update_save_image` 拒绝 2048 B 及以下的镜像，未打包的 1360 B 单灯 APP 即使 CRC 正确也会在保存阶段失败。首次读到无效 EEPROM 密钥时，主引导写入 `01 5A 6B`，当次 RAM 中的默认 `02` 保留，下一次启动再读取有效标记。若 BIN 链接基址错误或首 8 B 已损坏，故障会落在外部候选向量预检或片内最终跳转校验。
+
+## 定位过程与关键证据
+
+1. 公开记录依次出现 `CAN receive done,len:4480`、`CRC OK` 和 `Update save OK`。长度与发送端一致，CRC 通过，更新 APP 也完成了外部写入与 EEPROM 标记读回，排查转向复位后的主引导。
+2. 复位后首先出现 `APP metadata error: W25=0x00001000 length=4480`。两个值正是新版 APP 写入的起点和长度。在 `App_bootloader_check_meta` 中，该日志位于候选向量读取及片内擦除之前。对照修正提交，`4480` 满足长度约束，`0x001000` 正好触及旧版起点上界，由此锁定主引导与更新 APP 的布局失配。
+3. 公开记录记载更新主引导后用户反馈问题解决。记录范围覆盖串口日志及结果反馈，EEPROM 完成标记独立读回、整段 Flash 内容比对和掉电恢复仍需复测。[固定快照中的联调记录](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/README.md#L192-L200)
+4. 若复测出现 `APP stack pointer error`、`APP reset handler error`，读取 W25Q16 候选 BIN 的首 8 B；若已经完成搬运或串口恢复刚输出 `ok,len:`，再遇到 `Invalid stack pointer` 或 `Invalid reset handler`，读取片内 APP 的首 8 B 并核对 map 的 `0x08008000` 链接基址。
+
+## 具体排查流程
+
+### 故障定位决策树
 
 ```mermaid
 flowchart TD
@@ -1505,22 +1520,20 @@ flowchart TD
     A --> J
 ```
 
-## 分层排查速查表
+### 分步排查与速查表
 
 | 阶段 | 观测点与日志关键字 | 正常基线 | 异常根因 | 修复与复测 |
 | --- | --- | --- | --- | --- |
-| CAN 触发 | USART1 `cmd`；总线上 `hyf` | 标准 ID 0 / DLC 3 | 命令错工程、接收未置空闲态 | 识别当前工程，重新上电从空闲开始 |
-| CAN BIN | `CAN receive done,len:` | ID 1、DLC 1–8，实际 BIN 计数；最后有效帧后 1000 ms 打印 | 位速率/TX RX 错、超 5120 B、无有效帧 | 双方 200 kbit/s，验证终端、ACK 和最后两帧 |
-| CRC | `CRC OK` 或 `CRC FAIL` | 末帧后 1100 ms 发 ID 1/DLC 4 小端 CRC；最后数据后 2000 ms 超时 | 提前混进 BIN、超时、尾字补法不同 | 核对捕获时间和实际长度，再用主机脚本算 CRC |
-| 暂存正文 | `Update save OK` 或 `Update save FAIL` | 2049–5120 B，先正文再元数据并最后提交 | SPI 写使能、BUSY、页边界、记录读回失败 | 测第一处失败，读 W25Q16 与 EEPROM 实值 |
-| EEPROM | `0x10–0x12` 实际三字节 | `01 5A 6B` 更新，成功后 `02 5A 6B`，`03 5A 6B` 恢复 | WP、电源或密钥无效 | 核对每字节，记录两次启动 |
-| 外部预检 | `APP metadata error`、`APP stack pointer error`、`APP reset handler error` | 起点 `0x1000 <= start < 0x200000`，长度 `0x800 < len <= 0x78000`，不越出 W25Q16 | 地址颠倒、长度字节序错、BIN 向量错误 | 分别解码两个 LE32，核对首 8 B 与链接地址 |
-| 片内擦写 | `APP update error; enter recovery` 或 `APP update ok: length=` | 从扇区 2 擦到 BIN 最后一个字节所在扇区；512 B 分批写半字 | 供电、HAL 擦写失败、外部读超时 | 记失败偏移、擦写返回值和引导落点 |
-| 恢复命令 | `start:len`；`Flash erased; send data` | 长度 1–491520 B，擦除成功且 DMA 已启动 | 长度语法错误、擦除或启动失败 | 先发命令，等日志后再发二进制 |
-| 恢复收尾 | `ok,len:` 或 `RX error; reset` | 长度和接收实际一致，空闲确认后等 2 s | 早发、少发、多发、环处理不及时 | 捕获全部源数据，记录最后字节与 DMA 下标 |
-| 最终跳转 | `Error: Invalid stack pointer in application!`、`Error: Invalid reset handler in application!` 或 `jump error` | MSP 8 B 对齐，Thumb 复位入口在目标分区 | BIN 用错链接地址、向量已损坏 | 比对 map、片内首 8 B、VTOR 和程序实际落点 |
+| 接收与 CRC · 触发 | USART1 `cmd`；总线上 `hyf` | 标准 ID 0 / DLC 3 | 命令错工程、接收未置空闲态 | 识别当前工程，重新上电从空闲开始 |
+| 接收与 CRC · 长度 | `CAN receive done,len:` | ID 1、DLC 1–8，末帧后 1000 ms 打印字节数 | 位速率、接线、超 5120 B、无有效帧 | 双方 200 kbit/s，验证终端、ACK 和最后两帧 |
+| 接收与 CRC · 校验 | `CRC OK` 或 `CRC FAIL` | 末帧后 1100 ms 发 ID 1/DLC 4 小端 CRC；最后数据后 2000 ms 超时 | 提前混进 BIN、超时、尾字补法不同 | 核对捕获时间和实际长度，再用主机脚本算 CRC |
+| 外部 Flash 暂存 | `Update save OK` 或 `Update save FAIL` | 2049–5120 B，先写正文再写元数据，最后提交标记 | 短镜像、SPI 写使能、BUSY、页边界或标记读回失败 | 测第一处失败，读 W25Q16 与 EEPROM 实值 |
+| EEPROM 提交 | `0x10–0x12` 实际三字节 | `01 5A 6B` 更新，成功后 `02 5A 6B`，`03 5A 6B` 恢复 | WP、电源或密钥无效 | 核对每字节，记录两次启动 |
+| 片内 Flash 搬运 · 预检 | `APP metadata error`、`APP stack pointer error`、`APP reset handler error` | `0x1000 <= start < 0x200000`，`0x800 < len <= 0x78000`，不越出 W25Q16 | 主引导版本、地址或长度错误，候选 BIN 向量错误 | 解码两个 LE32，读正文首 8 B 并核对链接地址 |
+| 片内 Flash 搬运 · 擦写 | `APP update error; enter recovery` 或 `APP update ok: length=` | 从扇区 2 擦到 BIN 末字节所在扇区；按 512 B 批次写半字 | 供电、HAL 擦写失败、外部读超时 | 记失败偏移、擦写返回值和引导落点 |
+| 向量跳转 | `Error: Invalid stack pointer in application!`、`Error: Invalid reset handler in application!` 或 `jump error` | MSP 8 B 对齐，Thumb 复位入口在目标分区 | BIN 用错链接地址、向量已损坏 | 比对 map、片内首 8 B、VTOR 和程序实际落点 |
 
-EEPROM 密钥无效时，主引导写 `01 5A 6B`，本次仍用原 RAM 状态。下次状态读回有效后才走升级。串口恢复打印 `ok,len:` 说明接收收尾成功，随后仍要执行独立向量校验。
+若当前运行串口恢复程序，先发送 `start:len`（1–491520 B），等 `Flash erased; send data` 后发送原始 BIN。按声明长度、DMA 下标和末字节时间定位 `RX error; reset`；若出现 `ok,len:`，按表中「向量跳转」继续检查。
 
 ## 关键源码测点
 
@@ -1565,7 +1578,24 @@ EEPROM 密钥无效时，主引导写 `01 5A 6B`，本次仍用原 RAM 状态。
 | 传感器 | EEPROM 是否有有效校准，手表是否保持静止 |
 | 蓝牙 | 配置是否已匹配，手机何时建立 SPP、CSV 是否丢帧 |
 
-## 故障定位决策树
+## 错误原因与触发机理
+
+以下分支来自固定提交的启动代码和诊断文档，可分别解释画面、采样和校准三种延迟。
+
+- **画面延迟。** `app_lvgl_task` 在 `lv_refr_now(NULL)` 返回后立即记录 `FIRST_FRAME_MS`，接着创建 sensor 任务。像素由 SPI1 TX 的 DMA2 Stream2 异步发送，`HAL_SPI_TxCpltCallback` 推进 flush 完成。首帧提交、末个刷屏块发送完成和面板显像各有独立的测量时刻。
+- **RTC 与蓝牙晚就绪。** LVGL 循环运行 LSE 及 AT 状态机，传感器任务可并行。LSE 以 `LSERDY` 判断起振，等待上限为 5000 ms。KT6368A 有 20 ms 放电、1200 ms 上电等待和每次查询 500 ms 应答窗口。配置变化还可能触发模块重启和再次查询。[LSE 配置](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/Core/Inc/stm32f4xx_hal_conf.h) [AT 时序定义](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/kt6368a.h)
+- **姿态迟迟未稳定。** BL24C02 的两槽 `MPU1` 记录都无效时（空白、量程不符或 CRC 不通过），sensor 任务进入运行期静止采样校准。有有效副本时进入 `MPU6050_CAL_RESTORED` 并立即应用零偏。运行期校准期间，传感器仍可能发布尚未应用本次零偏的数据。
+
+## 定位过程与关键证据
+
+1. 先记录 PA3、VDD 与 NRST。供电锁存和复位均正常后，再把首次 SPI 活动、末个首帧 DMA 完成回调及可见画面标在同一条测量时间轴上。若 `FIRST_FRAME_MS` 已写入而 SPI 迟迟未完成，转查 LCD flush、DMA 配置与回调。若所有像素已发完仍未显像，继续检查面板侧。
+2. 使用编译时设置 `APP_DEBUG_TELEMETRY=1` 的诊断固件，从 SPP 导出 WDG1 type 4 的 16 个启动字段。固定提交默认值为 `0`，板端调试可改读内存中的测点。[诊断开关与字段](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_diag.h)
+3. 以同次启动的 `HAL_GetTick()` 为时基，剔除 `0xFFFFFFFF` 未置字段，再求 `SENSOR_READY_MS - SENSOR_BEGIN_MS`、`RTC_END_MS - RTC_BEGIN_MS` 和 `BT_END_MS - BT_BEGIN_MS`。若采样已开始，且各器件成功计数在增长，RTC 或蓝牙的长等待可单独归到对应后台模块。通过 `RTC_RESULT`、`BT_RESULT` 与 `LSERDY`、USART1 波形辨别等待成功与超时。
+4. 若采样稳定却仍有零偏，读 `CAL_STATE` 与 `CAL_RESULT`。状态为恢复时直接检查载入记录和姿态；出现静止或平均阶段时核对帧计数；结果为 `2` 时，本次 RAM 校准已成功，按 type 5 的保存阶段与错误码定位 EEPROM 写入或读回失败。实际各段耗时由复测填入。
+
+## 具体排查流程
+
+### 故障定位决策树
 
 ```mermaid
 flowchart TD
@@ -1582,20 +1612,20 @@ flowchart TD
     G -->|否| E["核对 MPU 校准、EEPROM 与诊断导出"]
 ```
 
-## 分层排查速查表
+### 分步排查与速查表
 
 | 阶段 | 观测点与日志 | 正常基线 | 异常根因 | 处理 |
 | --- | --- | --- | --- | --- |
-| 供电 | PA3、VDD、复位 | PA3 在板级初始化前拉高 | 自保持接线、电压下跌 | 共时钟量 PA3、VDD、NRST |
-| 创建 LVGL | `App_Task_Create`、`App_Display_Init` | 优先级 3、1024 字栈，正常进入任务 | 分配失败、板级初始化阻塞 | 看错误入口、堆和控制流 |
+| 供电锁存 | PA3、VDD、复位 | PA3 在板级初始化前拉高 | 自保持接线、电压下跌 | 共时钟量 PA3、VDD、NRST |
+| 首帧提交 · 创建任务 | `App_Task_Create`、`App_Display_Init` | 优先级 3、1024 字栈，正常进入任务 | 分配失败、板级初始化阻塞 | 看错误入口、堆和控制流 |
 | 首帧提交 | `FIRST_FRAME_MS` | `lv_refr_now` 返回后记录 | 屏初始化、刷屏路径阻塞 | 单独量函数入出时刻 |
-| 首个/末个刷新事务 | DMA2 Stream2、`HAL_SPI_TxCpltCallback` / flush 回调 | 对应传输完成；可能有多个刷屏块 | SPI、DMA 配置或无完成回调 | 同看时钟、片选、回调与可见变化 |
-| 传感器任务开始、就绪 | `SENSOR_BEGIN_MS`、`SENSOR_READY_MS` | 提交后创建；初始化完成后置 ready | I2C 事务、EEPROM 读取、分配 | 按 SDA/SCL 和驱动返回定位 |
-| 正常采集窗口 | `SAMPLING_BEGIN_MS` 与各 sensor 记录 | 循环开始后逐器件出现有效读数 | 未就绪、NACK、循环延迟 | 比较成功数、样本年龄和采样间隔 |
-| RTC | `RTC_BEGIN_MS`、`RTC_END_MS`、`RTC_RESULT` | LSE 就绪后完成配置；等待上限 5000 ms | LSE 未起振或时钟配置失败 | 查 LSERDY、电源、晶振与负载 |
-| 蓝牙 | `BT_BEGIN_MS`、`BT_END_MS`、`BT_RESULT` | 20 ms 放电、1200 ms 上电等待、500 ms 查询窗口 | 模块供电、UART、AT 未匹配 | 抓 PA8 和 USART1，核对 T4/T5 |
-| 校准 | `CAL_STATE`、`CAL_FRAMES`、`CAL_STABLE_FRAMES`、`CAL_RESULT` | 有有效记录立即恢复；否则按静止/平均阶段累计 | 板子在动、I2C 失败、记录无效 | 平放重启并核对 CAL 开始/结束 |
-| EEPROM 保存 | WDG1 type 5 与 `CAL_RESULT` | 成功态 `0`，校准失败 `1`，RAM 成功保存失败 `2` | WP、地址/页边界、写后读回 | 先确认写入阶段与地址，再断电复测 |
+| DMA 完成与可见刷新 | DMA2 Stream2、`HAL_SPI_TxCpltCallback` / flush 回调 | 每块传输完成后调用对应回调；一帧可能含多个块 | SPI、DMA 配置或无完成回调 | 同看时钟、片选、回调与可见变化 |
+| 采样就绪 · 初始化 | `SENSOR_BEGIN_MS`、`SENSOR_READY_MS` | 首帧提交后创建任务，初始化流程走完后记 ready | I2C 事务、EEPROM 读取、分配 | 按 SDA/SCL 和驱动返回定位 |
+| 采样就绪 · 正常采集 | `SAMPLING_BEGIN_MS` 与各 sensor 记录 | 循环开始后逐器件出现有效读数 | 未就绪、NACK、循环延迟 | 比较成功数、样本年龄和采样间隔 |
+| 后台模块与校准 · RTC | `RTC_BEGIN_MS`、`RTC_END_MS`、`RTC_RESULT` | LSE 就绪后完成配置；等待上限 5000 ms | LSE 未起振或时钟配置失败 | 查 LSERDY、电源、晶振与负载 |
+| 后台模块与校准 · 蓝牙 | `BT_BEGIN_MS`、`BT_END_MS`、`BT_RESULT` | 20 ms 放电、1200 ms 上电等待、每次查询 500 ms 窗口 | 模块供电、UART、AT 未匹配 | 抓 PA8 和 USART1，核对 T4/T5 |
+| 后台模块与校准 · MPU | `CAL_STATE`、`CAL_FRAMES`、`CAL_STABLE_FRAMES`、`CAL_RESULT` | 有效记录立即恢复，否则按静止及平均阶段累计 | 板子在动、I2C 失败、记录无效 | 平放重启并核对 CAL 开始/结束 |
+| 后台模块与校准 · 保存 | WDG1 type 5 与 `CAL_RESULT` | 成功态 `0`，校准失败 `1`，RAM 成功保存失败 `2` | WP、地址/页边界、写后读回 | 先确认写入阶段与地址，再断电复测 |
 
 设备基线不同。MPU 周期目标 10 ms，SPL006 每 250 ms 轮询 1 Hz 器件，AHT21 约 2 s 一次，心率开启后软件最低读间隔 30 ms。`SAMPLING_BEGIN_MS` 表示进入服务循环，首包应从各项的成功计数与首样本时间证据确认。
 
@@ -1616,7 +1646,7 @@ flowchart TD
 
 1. 在静止且固定接线条件下重复冷启动，保留同一 SHA、首次通电和后续上电的区别。
 2. 以示波器或逻辑分析仪记录 VDD、PA3、LCD SPI。标记 LVGL 开始、首帧提交、各 DMA 完成和首张画面的可见时刻。
-3. 从 SPP 导出启动、任务、传感器、MPU EEPROM 和校准诊断，对同一次板端时间轴做差。
+3. 用启用诊断的固件从 SPP 导出启动、任务、传感器、MPU EEPROM 和校准记录，对同一次板端时间轴做差。
 4. 分别以已有有效 EEPROM 与需要校准的状态复测；临时遮断蓝牙或 RTC 时观察传感器是否继续采集。
 5. 连接手机后确认帧序号及 CRC。采样成功、UART 发送成功和手机接收分别观察。
 
@@ -1644,16 +1674,33 @@ flowchart TD
 | 快照变量 | MDIO 地址、PHY 协商结果、`g_lwipdev`、`g_lwip_netif` |
 | 包级证据 | 同一时间窗口的 ARP、ICMP 和可选 DHCP 抓包 |
 
-## 故障定位决策树
+## 错误原因与触发机理
+
+固定提交支持以下分支。以实际固件的模式、地址和收包证据判定当前是哪一支。
+
+- **等不到租约。** `LWIP_DHCP` 默认是 `0`，`lwip_comm_init` 直接将静态 IPv4 地址设置为 `192.168.1.30/24`。在这套固件上等待 DHCP Discover 会一直没有结果。测试 PC 地址在另一个网段或 VLAN 时，也可能无法发起有效的同链路 ARP。
+- **物理有链路，协议栈还未就绪。** `eth_link` 每 100 ms 检查一次 PHY。LAN8720A 的 BSR 链路位低电平锁存，驱动连读两次，再通过 PHYSCSR 取得协商后的速率与双工。MAC 成功设置并运行 `HAL_ETH_Start_IT` 后才调用 `netif_set_link_up`。
+- **PHY 与 MAC 已启动，DMA 收不到数据。** DMA 描述符和 RX 缓冲要位于 ETH DMA 可访问的 SRAM。若链接布局把它们放入 F407 从 `0x10000000` 开始的 CCM RAM，PHY 仍能亮灯，DMA 却无法访问这些地址。查最终 map 才能确认是否发生了这种放置错误。[DMA 描述符分配](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/ETHERNET/ethernet.c)
+
+## 定位过程与关键证据
+
+1. 读取串口 `[NET] Mode:`。静态固件对照实际 IP、掩码和主机网段；DHCP 固件对照租约或超时回退日志。先用模式确定该等待什么流量。
+2. 测 PA1 是否有稳定的 50 MHz RMII 时钟。用 MDIO 检查 ID1/ID2 和 BSR 双读结果，再看 PHYSCSR 协商完成和双工。通过后读取 `g_lwip_netif` 的 `link_up` 标志；PHY 正常且该位未置时，沿 `ethernetif_link_check_state` 检查 MAC 配置和启动返回值。
+3. 链路已置位后，用同网段 PC 的 ARP 请求或同一轮 DHCP 租约回复作为已知输入。按 ETH RX IRQ → `HAL_ETH_RxCpltCallback` 释放 `s_rx_semaphore` → `eth_thread` 醒来 → `HAL_ETH_ReadData` → `netif->input` 逐点记录。第一个缺失处对应中断、描述符/缓冲、线程调度或输入交接问题。结合描述符地址、OWN 位与 RX 池状态验证。
+4. 收包进入栈后，分别核对 `netif_is_up`、`netif_is_link_up` 和实际 IPv4 地址。DHCP 模式追踪租约交换或静态回退；地址确定后，按 ARP 请求/应答、ICMP 请求/应答依次确认。固定源码给出了这些判据，具体丢包点以同轮抓包为准。
+
+## 具体排查流程
+
+### 故障定位决策树
 
 ```mermaid
 flowchart TD
     A{"实际编译的 LWIP_DHCP"}
     A -->|0| S["确认静态 IP 与同网段测试主机"]
     A -->|1| T["确认租约环境与状态日志"]
-    S --> P{"RMII 时钟和 PHY 协商通过"}
+    S --> P{"RMII 时钟、PHY 协商和 MAC 启动通过"}
     T --> P
-    P -->|否| H["测 PA1，读 PHY ID、BSR、PHYSCSR"]
+    P -->|否| H["测 PA1，读 PHY 寄存器和 MAC 启动结果"]
     P -->|是| M{"RX 描述符与输入线程有活动"}
     M -->|否| R["检查 ETH 启动、DMA 内存、IRQ 与信号量"]
     M -->|是| N{"netif 的 link、up 和地址符合预期"}
@@ -1661,19 +1708,19 @@ flowchart TD
     N -->|是| C["按 DHCP、ARP、ICMP 和应用协议观察响应"]
 ```
 
-## 分层排查速查表
+### 分步排查与速查表
 
 | 阶段 | 观测点与日志 | 正常基线 | 异常根因 | 处理 |
 | --- | --- | --- | --- | --- |
-| 构建模式 | `LWIP_DHCP`、`[NET] Mode: Static` 或 `[NET] Mode: DHCP` | 默认 0，IP `192.168.1.30`、掩码 `255.255.255.0`、网关 `192.168.1.1` | 错误固件、主机网段错误 | 对照 Keil 宏与开机日志 |
-| 启动 | `[ETH] lwIP(FreeRTOS) init ok`、`g_lwip_init_status` | 初始成功可以无链路 | PHY 初始化失败或分配失败 | 对照 `lwip_comm_init failed` 及重试 |
-| 参考时钟 | PA1 50 MHz、PHY nRST、MDC/MDIO | PHY 输出 RMII REFCLKO，稳定复位释放 | 时钟方向错误、复位未释放 | 用板级地测示波器波形 |
-| PHY | ID1 `0x0007`，ID2 mask `0xFFF0` 得 `0xC0F0` | BSR `0x01` link 位，PHYSCSR `0x1F` 有协商结果 | MDIO 地址、连线、协商未完成 | 读扫描结果、对端端口及速率双工 |
-| RX 路径 | `HAL_ETH_ReadData`、ISR、`eth_thread` 和描述符 OWN | 收包 IRQ 可唤醒线程；pbuf 由核心终止引用 | DMA 地址进 CCM、池耗尽、接口未启动 | 在 ISR、信号量、PBUF 分配/回收处记计数 |
-| netif | `netif_is_link_up` / `netif_is_up` / IPv4 | link 与 up 各有标志，静态地址按配置 | MAC 配置失败、链路状态未更新 | 检查 `HAL_ETH_Start_IT` 与 link callback |
-| DHCP | `[NET] DHCP IP:` 或 `[NET] DHCP timeout, static IP:` | 模式开启时申请；`tries>4` 走静态回退 | 服务器、广播隔离、包未送栈 | 判断四步中断位置，用实际分到的 IP |
-| ARP / ICMP | ARP Request/Reply，再看 Echo | 同网段应先解析 MAC，后有应答 | 地址冲突、回包路径、主机防火墙 | 对照两端抓包及 PC 邻居缓存 |
-| 服务 | 实际业务端口、Netconn 编译选项 | 有监听者后才有应用响应 | 地址已通但服务未启用 | 用服务端日志和 TCP 连接对照 |
+| 地址配置 | `LWIP_DHCP`、`[NET] Mode: Static` 或 `[NET] Mode: DHCP` | 默认 0，IP `192.168.1.30`、掩码 `255.255.255.0`、网关 `192.168.1.1` | 固件模式或主机网段不符 | 对照 Keil 宏与开机日志 |
+| RMII 时钟与 PHY · 启动 | `[ETH] lwIP(FreeRTOS) init ok`、`g_lwip_init_status` | 初始化可在未插线时成功 | PHY 初始化失败或分配失败 | 对照 `lwip_comm_init failed` 及重试 |
+| RMII 时钟与 PHY · 时钟 | PA1 50 MHz、PHY nRST、MDC/MDIO | PHY 输出 RMII REFCLKO，稳定复位释放 | 时钟方向错误、复位未释放 | 用示波器测 PA1 |
+| RMII 时钟与 PHY · 协商 | ID1 `0x0007`，ID2 mask `0xFFF0` 得 `0xC0F0` | BSR 地址 `0x01` 的 link 位有效，PHYSCSR 地址 `0x1F` 有协商结果 | MDIO 地址、连线、协商或 MAC 启动失败 | 核对协商、`HAL_ETH_Start_IT` 和 link 标志 |
+| DMA 收包 | `HAL_ETH_ReadData`、ISR、`eth_thread` 和描述符 OWN | IRQ 唤醒 RX 线程；pbuf 消费完后归还 RX 池 | DMA 地址进 CCM、池耗尽、未收到中断 | 检查 map，在 ISR、信号量和 pbuf 分配/回收处记计数 |
+| netif 状态 | `netif_is_link_up` / `netif_is_up` / IPv4 | link 与 up 各有标志，IPv4 为静态配置或租约 | 网卡管理状态或地址未更新 | 对照 `netif_set_up`、link 回调和地址状态机 |
+| 协议应答 · DHCP | `[NET] DHCP IP:` 或 `[NET] DHCP timeout, static IP:` | 模式开启时申请；`tries>4` 走静态回退 | 服务器、广播隔离、包未送栈 | 判断四步交换中断位置，用实际地址复测 |
+| 协议应答 · ARP/ICMP | ARP Request/Reply，再看 Echo | 邻居缓存无条目时先解析 MAC，后有 Echo Reply | 地址冲突、回包路径、主机防火墙 | 对照两端抓包及 PC 邻居缓存 |
+| 协议应答 · 服务 | 实际业务端口、Netconn 编译选项 | 有监听者后才有应用响应 | 地址已通但服务未启用 | 用服务端日志和 TCP 连接对照 |
 
 当前源码里 `LWIP_STATS=0`。统计 RX 时用调试器或临时插桩区分中断、`ReadData` 成功、`netif->input` 错误和池释放，自定义调试计数与 lwIP 原生统计分开记录。
 
@@ -1724,7 +1771,22 @@ flowchart TD
 | PA13 停止 | PA13 从高到低 | `g_system_armed=false`，进入一次性停止 |
 | 驱动故障 | Emm 回 `E2` 或 `EE` | 锁存故障并发送停止，需明确重新武装 |
 
-## 故障定位决策树
+## 错误原因与触发机理
+
+- **合法无球帧触发回中。** UART0 解析 `$-1,-1#` 后发布 `fresh=1, valid=0`。武装主循环仍刷新 `g_k230_last_rx_ms`，并累计 `s_ball_miss_cnt`。短时可以预测或保持，第 8 个连续无球帧会清 PID 和历史，并设为无效零目标。
+- **UART0 断流或持续坏帧也触发回中。** 武装期间距最后一次消费合法帧达到 150 ms，`g_k230_timeout` 置真并调用 `StepperTrack_SetTarget(0, false)`。下一条合法帧清除超时标志，后续动作由该帧的目标有效性决定。
+- **解除武装、驱动故障和发包节流会表现为无动作。** PA13 下降沿使系统解除武装，主循环发送一次 `FE` 停止。Emm_V5 对已知命令的合法 `E2/EE` 回复会使 `StepperTrack_Update` 锁存 `fault` 并停止，后续视觉帧不能清除锁存，需排除故障后按 PA12 重新武装。无锁存时也可能因为目标仍在死区，或运动中偏差较小且距上次发包不足 10 ms，而暂不发新命令。[节流与死区定义](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/application/app_stepper_track.h)
+
+## 定位过程与关键证据
+
+1. 抓 UART0 原始流并记录帧间隔。若 `$-1,-1#` 仍持续出现且解析后帧龄不断刷新，可排除本轮断流，转查 K230 的检测结果或 ROI。若字节存在但无 `fresh`，核对组帧、坐标范围与溢出计数。
+2. 同时记录 `SM[ARM]` / `SM[OFF]`。武装状态下用调试器或临时测点读取 `s_ball_miss_cnt` 和 `g_k230_last_rx_ms`。计数达到 8、帧龄仍在刷新是无球路径。帧龄达到 150 ms 且 `TO` 置位是超时路径。200 ms 的无线调试打印可能跨过超时边沿，按 UART0 采样时间和板端 `tick_ms` 定位触发点。
+3. 比较 `ang: tgt=` 的毫度与 `stp: tgt=` 的脉冲，再检查 UART1 是否实际发出 `FD` 位置帧。有目标变化但无帧时，读取 `g_track.fault`、最后发包时刻与目标差值，确认锁存、节流或死区分支。
+4. 对齐 UART1 命令与原始回执。`02` 只表示命令被接受，`9F` 表示驱动器报告到位，`E2/EE` 对应故障分支。日志的 `stp: cur` 是已命令的脉冲位置。实际角度通过 `0x36` 位置查询回包或外部测量确认。此定位顺序来自固定提交，实际台架结果需逐轮记录。
+
+## 具体排查流程
+
+### 故障定位决策树
 
 ```mermaid
 flowchart TD
@@ -1743,28 +1805,26 @@ flowchart TD
     U -->|是| E["解码接受、到位、错误和位置回执"]
 ```
 
-## 分层排查速查表
+### 分步排查与速查表
 
 | 阶段 | 观测点与日志 | 正常基线 | 异常根因 | 处理 |
 | --- | --- | --- | --- | --- |
-| 视觉算法 | K230 画面、ROI、最终 UART 文本 | 有球发 `$cx,cy#`；移出 ROI 发 `$-1,-1#` | 光照、ROI、检测框中心出界 | 先看脚本实际发帧和图像坐标 |
-| UART0 | PA10 TX/PA11 RX，115200 bit/s | 合法帧经 ISR 入环，主循环解析 | 接线、共地、位速率、FIFO/环溢出 | 以十六进制捕获起止符与间隔 |
-| 组帧 | `g_uart0_data.fresh/valid`、解析错误和溢出计数 | x=0–799、y=0–479，或同时 -1 | 坏字段、中间重置、超长 | 重放一帧确定发布是否发生 |
-| 无球 | `K230:(-1,-1) ok=0`、`s_ball_miss_cnt` | 合法帧刷新时间，第 8 帧清 PID/历史并设零目标 | 只观察 `valid` 就误判为断线 | 将帧龄和丢球计数同时记录 |
-| 断流 | `SM[ARM] ... TO`、`g_k230_last_rx_ms` | 到 `>=150 ms` 设置无效零目标，下一新帧清超时 | 线断、K230 停帧、持续解析失败 | 验证同一帧龄时钟与坏帧计数 |
-| 按键 | PA12、PA13 下降沿，`SM[ARM]` / `SM[OFF]` | PA13 解除武装并发一次 `FE`，PA12 重武装 | 停止后尚未重新武装、按键异常 | 看引脚电平和实际一帧停机命令 |
-| PID 与执行接口 | `ang: tgt=`、`stp: tgt=` | 先毫度再计算脉冲，分别限幅和节流 | 中心/方向错、命令值小于死区、未发新位置 | 记录输入、PID 输出、目标与绝对位置帧 |
-| 串口电机 | UART1 PA8 TX/PA9 RX，`rx=` | `FD` 位置帧；`02` 表示接受、`9F` 到位、`E2/EE` 故障 | 接错 UART2、固件协议错、到位应答未启用 | 抓原始帧并核对 Emm/X 固件和配置 |
-| 零位 | `boot=` 和 `0x36` 位置应答 | 回读已有实际角度；无回复显示 `NO`，零点校验失败有 `?` | 电机未回包或装配零点偏离 | 对照绝对坐标和机械参考，按基准位置复测 |
-
-调试打印每 200 ms 才服务一次，单条日志可能跨过 150 ms 判断边沿。用串口采样时刻与板端 `tick_ms` 对齐。`stp: cur` 来自已命令位置，实测角度需要单独的位置回包或仪器。
+| 系统武装 | PA12、PA13 下降沿，`SM[ARM]` / `SM[OFF]` | PA13 解除武装并发一次 `FE`，PA12 重武装 | 停止后尚未重新武装、按键异常 | 看引脚电平和实际停机帧 |
+| UART0 新帧 · 视觉 | K230 画面、ROI、最终 UART 文本 | 有球发 `$cx,cy#`；无球发 `$-1,-1#` | 光照、ROI、检测框中心出界 | 看脚本实际发帧和图像坐标 |
+| UART0 新帧 · 线路 | PA10 TX/PA11 RX，115200 bit/s | 合法帧经 ISR 入环，主循环解析 | 接线、共地、位速率、FIFO/环溢出 | 捕获原始字节的起止符与间隔 |
+| UART0 新帧 · 组帧 | `g_uart0_data.fresh/valid`、解析错误和溢出计数 | x=0–799、y=0–479，或同时 -1 | 坏字段、中间重置、超长 | 重放一帧确定发布是否发生 |
+| 目标有效性与超时 · 无球 | `K230:(-1,-1) ok=0`、`s_ball_miss_cnt` | 合法帧刷新时间，第 8 帧清 PID 和历史并设零目标 | 脱离 ROI 或漏检 | 将帧龄和丢球计数同时记录 |
+| 目标有效性与超时 · 断流 | `SM[ARM] ... TO`、`g_k230_last_rx_ms` | 达到 150 ms 设置无效零目标，下一合法帧清超时 | 线断、K230 停帧、持续解析失败 | 核对板端帧龄与坏帧计数 |
+| 位置命令 | `ang: tgt=`、`stp: tgt=`、UART1 的 `FD` 帧 | 先算毫度，再算脉冲，按限幅与节流下发 | 方向错、死区、故障锁存 | 核对 PID 输出、目标差值及实际位置帧 |
+| 串口回执 · 状态 | UART1 PA8 TX/PA9 RX，`rx=` | `02` 接受；有到位应答时 `9F`；`E2/EE` 故障 | 线路、固件协议不符、到位应答未启用 | 抓原始帧并核对 Emm/X 固件和配置 |
+| 串口回执 · 零位 | `boot=` 和 `0x36` 位置应答 | 回读实际角度；无回复显示 `NO`，零点校验失败有 `?` | 电机未回包或装配零点偏离 | 对照绝对坐标和机械参考复测 |
 
 ## 关键源码测点
 
 | 路径 | 测点 |
 | --- | --- |
 | [视觉脚本](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/k230_ball_balance.py) | 实际 `uart.write` 前的坐标或无球帧 |
-| [UART0 IRQ](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/bsp_k230_uart.c)、[组帧](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/bsp_uart0_proto.c) | FIFO→环→解析发布，`uart0_parse_frame` |
+| [UART0 IRQ 与组帧](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/bsp_uart0_proto.c)、[历史 K230 接口](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/bsp_k230_uart.c) | 当前 FIFO→环→`UART0_Proto_Poll`→`uart0_parse_frame` |
 | [主循环](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/mian.c) | `g_system_armed`，`s_ball_miss_cnt`，`g_k230_timeout`，`StepperTrack_SetTarget` |
 | [角度跟踪](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/application/app_stepper_track.c) | `StepperTrack_Update`、`fault`、`target_angle_mdeg`、位置发出点 |
 | [驱动协议](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/emmv5.c) | `EMMV5_RX_Poll`、`0x36` 定长接收、`0x6B` 帧尾 |

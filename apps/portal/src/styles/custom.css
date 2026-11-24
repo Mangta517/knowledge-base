@@ -397,6 +397,115 @@ main:has(.kb-home, .kb-graph, .kb-notfound) footer .meta:empty {
   margin-right: 0.2rem;
 }
 
+.kb-doc-flow-link {
+  text-decoration: none;
+  padding: 0.1rem 0.44rem;
+  border-radius: 0.32rem;
+  background: var(--kb-type-soft, var(--sl-color-accent-low));
+  border: 1px solid color-mix(in srgb, var(--kb-type-color, var(--kb-accent)) 35%, var(--kb-border));
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.kb-doc-flow-link:hover {
+  border-color: var(--kb-type-color, var(--kb-accent));
+  text-decoration: underline;
+}
+
+/* Troubleshooting Dual-Column Root Cause & Evidence Locator Banner */
+.kb-ts-diagnosis-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+@media (max-width: 48rem) {
+  .kb-ts-diagnosis-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.kb-ts-diag-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.36rem;
+  padding: 0.62rem 0.78rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--kb-border);
+  background: var(--kb-surface-elevated);
+}
+
+.kb-ts-diag-card.is-cause {
+  border-left: 3px solid var(--kb-troubleshooting);
+}
+
+.kb-ts-diag-card.is-locate {
+  border-left: 3px solid var(--kb-accent);
+}
+
+.kb-ts-diag-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+}
+
+.kb-ts-diag-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.kb-ts-diag-card.is-cause .kb-ts-diag-tag {
+  color: var(--kb-troubleshooting-ink);
+}
+
+.kb-ts-diag-card.is-locate .kb-ts-diag-tag {
+  color: var(--kb-project-ink);
+}
+
+.kb-ts-diag-dot {
+  width: 0.44rem;
+  height: 0.44rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.kb-ts-diag-card.is-cause .kb-ts-diag-dot {
+  background: var(--kb-troubleshooting);
+}
+
+.kb-ts-diag-card.is-locate .kb-ts-diag-dot {
+  background: var(--kb-accent);
+}
+
+.kb-ts-diag-jump {
+  color: var(--sl-color-gray-3);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.kb-ts-diag-jump:hover {
+  color: var(--kb-accent);
+  text-decoration: underline;
+}
+
+.kb-ts-diag-body {
+  margin: 0 !important;
+  color: var(--sl-color-gray-1);
+  font-size: 0.84rem;
+  line-height: 1.58;
+}
+
+.kb-ts-repo-bar {
+  gap: 0.42rem;
+}
+
 .kb-doc-flow-step {
   display: inline-flex;
   align-items: center;

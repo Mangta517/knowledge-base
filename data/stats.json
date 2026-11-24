@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-24T10:06:26.756208Z",
+  "generated_at": "2026-11-24T13:55:13.836611Z",
   "counts": {
     "projects": 6,
     "topics": 4,
@@ -7,10 +7,10 @@
     "troubleshooting": 4,
     "synthesis": 1,
     "total_notes": 18,
-    "total_words": 28105,
+    "total_words": 30502,
     "total_mermaids": 22,
     "total_tables": 75,
-    "total_evidence_links": 181
+    "total_evidence_links": 187
   },
   "by_tier": {
     "core": 5,

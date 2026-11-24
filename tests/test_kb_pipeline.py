@@ -209,6 +209,71 @@ class LintTests(TemporaryWorkspace):
         self.assertNotIn("lock", output.getvalue())
 
 
+class TroubleshootingTests(unittest.TestCase):
+    def setUp(self):
+        self.note = lint.Note(Path("wiki/troubleshooting/TS-0001-demo.md"), {
+            "title": "示例", "description": "排障示例", "type": "troubleshooting", "id": "TS-0001-demo",
+            "tags": [], "created": "2026-11-21", "updated": "2026-11-24", "draft": False,
+            "ts_id": "TS-0001", "severity": "medium", "related_projects": [],
+            "phases": ["接收", "校验", "发布"], "root_cause": "缺少结束标记", "located_by": "抓取接收帧",
+        }, REVIEW)
+
+    def test_published_visual_fields_are_required(self):
+        for key in ("phases", "root_cause", "located_by"):
+            del self.note.meta[key]
+        self.assertEqual(list(lint.check_fields(self.note)), [
+            "公开排障页缺少字段 phases",
+            "公开排障页缺少字段 root_cause",
+            "公开排障页缺少字段 located_by",
+        ])
+        self.note.meta["draft"] = True
+        self.assertEqual(list(lint.check_fields(self.note)), [])
+
+    def test_summary_requires_nonempty_single_line_of_at_most_120_chars(self):
+        self.assertEqual(list(lint.check_fields(self.note)), [])
+        for key in ("root_cause", "located_by"):
+            for value in ("", "   ", "第一行\n第二行", "结尾换行\n", ["列表"], 1, None, "字" * 121):
+                with self.subTest(key=key, value=value):
+                    self.note.meta[key] = value
+                    errors = list(lint.check_fields(self.note))
+                    self.assertEqual(len(errors), 1)
+                    self.assertTrue(errors[0].startswith(f"{key} "))
+            self.note.meta[key] = "字" * 120
+        self.assertEqual(list(lint.check_fields(self.note)), [])
+        self.note.meta["draft"] = True
+        self.note.meta["located_by"] = "第一行\n第二行"
+        self.assertEqual(list(lint.check_fields(self.note)), ["located_by 必须是非空单行字符串"])
+
+    def test_phases_requires_three_to_five_single_lines(self):
+        for value in ("接收", [], ["接收"] * 2, ["接收"] * 6, ["接收", " ", "发布"], ["接收", "校\n验", "发布"]):
+            with self.subTest(value=value):
+                self.note.meta["phases"] = value
+                self.assertEqual(list(lint.check_fields(self.note)), ["phases 必须含 3–5 个非空单行字符串"])
+        self.note.meta["phases"] = ["接收", "校验", "暂存", "提交", "发布"]
+        self.assertEqual(list(lint.check_fields(self.note)), [])
+
+    def test_core_sections_require_visible_second_level_headings(self):
+        self.note.body = (
+            "### 错误原因与触发机理\n\n"
+            "<!--\n## 错误原因与触发机理\n-->\n\n"
+            "<!-- 备注 -->## 错误原因与触发机理\n\n"
+            "```markdown\n## 定位过程与关键证据\n```\n\n"
+            "> ## 具体排查流程\n\n"
+            + REVIEW.replace("## 个人复盘与后续思考", "## 具体排查流程")
+        )
+        notes = {self.note.path.stem: self.note}
+        errors, warnings = lint.check_content(notes, {"repos": {}})
+        self.assertEqual(warnings, [])
+        self.assertEqual(len(errors), 3)
+        for heading in ("错误原因与触发机理", "定位过程与关键证据", "具体排查流程"):
+            self.assertIn(f"{self.note.path}: 公开排障页缺少二级标题「{heading}」", errors)
+        self.note.meta["draft"] = True
+        self.assertEqual(lint.check_content(notes, {"repos": {}}), ([], []))
+        self.note.meta["draft"] = False
+        self.note.body = "## 错误原因与触发机理\n\n  ## 定位过程与关键证据 ##\n\n## 具体排查流程\n\n" + REVIEW
+        self.assertEqual(lint.check_content(notes, {"repos": {}}), ([], []))
+
+
 class IndexTests(TemporaryWorkspace):
     def test_word_count_removes_markdown_targets_and_keeps_code(self):
         markup = f'''<!-- hidden words -->

@@ -116,6 +116,8 @@ export interface TroubleshootingItem extends ItemMetrics {
   updated: string;
   related_projects: string[];
   phases?: string[];
+  root_cause?: string;
+  located_by?: string;
   route: string;
   source_path: string;
   word_count: number;

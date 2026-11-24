@@ -11,6 +11,8 @@ ts_id: "TS-0001"
 severity: "high"
 related_projects: ["bootloader"]
 phases: ["接收与 CRC", "外部 Flash 暂存", "EEPROM 提交", "片内 Flash 搬运", "向量跳转"]
+root_cause: "公开联调中，LED APP 将 4480 字节 BIN 暂存到 W25Q16 0x001000，板上旧主引导仍只接受首扇区内的起点，在搬运前拒绝元数据。"
+located_by: "用接收长度、CRC OK 和 Update save OK 排除本轮传输与保存失败，再用复位后的 APP metadata error 及其中的地址和长度锁定旧主引导的起点规则。"
 ---
 
 ## 典型现象与触发条件
@@ -25,7 +27,22 @@ CAN 已触发更新但复位后仍运行旧 APP，主引导启动后直接进入
 | 持久化 | W25Q16 的 8 B 元数据和正文首 8 B，EEPROM 的三字节状态 |
 | 结果 | 最后一条板端日志、实际复位后的运行目标 |
 
-## 故障定位决策树
+## 错误原因与触发机理
+
+- **公开联调记录。** 更新 APP 把首个 4 KiB 扇区留给元数据，正文从 W25Q16 的 `0x001000` 写入。实板仍运行扇区 0 的旧主引导，其预检要求 `8 <= start < 0x1000`，读到首扇区以外的正文地址便返回失败，尚未擦除片内 APP。修正提交把起点下限设为 `APP_W25_START_ADDR_MIN=0x001000`，使两个目标遵循同一布局。[修正提交 ca2c823](https://github.com/Mangta517/bootloader/commit/ca2c82397ee94ce1d8c30de2ac03003b6797d058)
+- **更早的接收问题。** 逐帧阻塞打印会干扰 F407 轮询接收节拍。早期联调版取消了接收期间的逐帧打印，改在空闲后汇总长度。此时的长度日志只表示统计到的字节数。[历史提交 957ea1f](https://github.com/Mangta517/bootloader/commit/957ea1fbb9615138a5fd2659dd68efa763e85647)
+- **固定源码的其他分支。** `app_update_save_image` 拒绝 2048 B 及以下的镜像，未打包的 1360 B 单灯 APP 即使 CRC 正确也会在保存阶段失败。首次读到无效 EEPROM 密钥时，主引导写入 `01 5A 6B`，当次 RAM 中的默认 `02` 保留，下一次启动再读取有效标记。若 BIN 链接基址错误或首 8 B 已损坏，故障会落在外部候选向量预检或片内最终跳转校验。
+
+## 定位过程与关键证据
+
+1. 公开记录依次出现 `CAN receive done,len:4480`、`CRC OK` 和 `Update save OK`。长度与发送端一致，CRC 通过，更新 APP 也完成了外部写入与 EEPROM 标记读回，排查转向复位后的主引导。
+2. 复位后首先出现 `APP metadata error: W25=0x00001000 length=4480`。两个值正是新版 APP 写入的起点和长度。在 `App_bootloader_check_meta` 中，该日志位于候选向量读取及片内擦除之前。对照修正提交，`4480` 满足长度约束，`0x001000` 正好触及旧版起点上界，由此锁定主引导与更新 APP 的布局失配。
+3. 公开记录记载更新主引导后用户反馈问题解决。记录范围覆盖串口日志及结果反馈，EEPROM 完成标记独立读回、整段 Flash 内容比对和掉电恢复仍需复测。[固定快照中的联调记录](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/README.md#L192-L200)
+4. 若复测出现 `APP stack pointer error`、`APP reset handler error`，读取 W25Q16 候选 BIN 的首 8 B；若已经完成搬运或串口恢复刚输出 `ok,len:`，再遇到 `Invalid stack pointer` 或 `Invalid reset handler`，读取片内 APP 的首 8 B 并核对 map 的 `0x08008000` 链接基址。
+
+## 具体排查流程
+
+### 故障定位决策树
 
 ```mermaid
 flowchart TD
@@ -47,22 +64,20 @@ flowchart TD
     A --> J
 ```
 
-## 分层排查速查表
+### 分步排查与速查表
 
 | 阶段 | 观测点与日志关键字 | 正常基线 | 异常根因 | 修复与复测 |
 | --- | --- | --- | --- | --- |
-| CAN 触发 | USART1 `cmd`；总线上 `hyf` | 标准 ID 0 / DLC 3 | 命令错工程、接收未置空闲态 | 识别当前工程，重新上电从空闲开始 |
-| CAN BIN | `CAN receive done,len:` | ID 1、DLC 1–8，实际 BIN 计数；最后有效帧后 1000 ms 打印 | 位速率/TX RX 错、超 5120 B、无有效帧 | 双方 200 kbit/s，验证终端、ACK 和最后两帧 |
-| CRC | `CRC OK` 或 `CRC FAIL` | 末帧后 1100 ms 发 ID 1/DLC 4 小端 CRC；最后数据后 2000 ms 超时 | 提前混进 BIN、超时、尾字补法不同 | 核对捕获时间和实际长度，再用主机脚本算 CRC |
-| 暂存正文 | `Update save OK` 或 `Update save FAIL` | 2049–5120 B，先正文再元数据并最后提交 | SPI 写使能、BUSY、页边界、记录读回失败 | 测第一处失败，读 W25Q16 与 EEPROM 实值 |
-| EEPROM | `0x10–0x12` 实际三字节 | `01 5A 6B` 更新，成功后 `02 5A 6B`，`03 5A 6B` 恢复 | WP、电源或密钥无效 | 核对每字节，记录两次启动 |
-| 外部预检 | `APP metadata error`、`APP stack pointer error`、`APP reset handler error` | 起点 `0x1000 <= start < 0x200000`，长度 `0x800 < len <= 0x78000`，不越出 W25Q16 | 地址颠倒、长度字节序错、BIN 向量错误 | 分别解码两个 LE32，核对首 8 B 与链接地址 |
-| 片内擦写 | `APP update error; enter recovery` 或 `APP update ok: length=` | 从扇区 2 擦到 BIN 最后一个字节所在扇区；512 B 分批写半字 | 供电、HAL 擦写失败、外部读超时 | 记失败偏移、擦写返回值和引导落点 |
-| 恢复命令 | `start:len`；`Flash erased; send data` | 长度 1–491520 B，擦除成功且 DMA 已启动 | 长度语法错误、擦除或启动失败 | 先发命令，等日志后再发二进制 |
-| 恢复收尾 | `ok,len:` 或 `RX error; reset` | 长度和接收实际一致，空闲确认后等 2 s | 早发、少发、多发、环处理不及时 | 捕获全部源数据，记录最后字节与 DMA 下标 |
-| 最终跳转 | `Error: Invalid stack pointer in application!`、`Error: Invalid reset handler in application!` 或 `jump error` | MSP 8 B 对齐，Thumb 复位入口在目标分区 | BIN 用错链接地址、向量已损坏 | 比对 map、片内首 8 B、VTOR 和程序实际落点 |
+| 接收与 CRC · 触发 | USART1 `cmd`；总线上 `hyf` | 标准 ID 0 / DLC 3 | 命令错工程、接收未置空闲态 | 识别当前工程，重新上电从空闲开始 |
+| 接收与 CRC · 长度 | `CAN receive done,len:` | ID 1、DLC 1–8，末帧后 1000 ms 打印字节数 | 位速率、接线、超 5120 B、无有效帧 | 双方 200 kbit/s，验证终端、ACK 和最后两帧 |
+| 接收与 CRC · 校验 | `CRC OK` 或 `CRC FAIL` | 末帧后 1100 ms 发 ID 1/DLC 4 小端 CRC；最后数据后 2000 ms 超时 | 提前混进 BIN、超时、尾字补法不同 | 核对捕获时间和实际长度，再用主机脚本算 CRC |
+| 外部 Flash 暂存 | `Update save OK` 或 `Update save FAIL` | 2049–5120 B，先写正文再写元数据，最后提交标记 | 短镜像、SPI 写使能、BUSY、页边界或标记读回失败 | 测第一处失败，读 W25Q16 与 EEPROM 实值 |
+| EEPROM 提交 | `0x10–0x12` 实际三字节 | `01 5A 6B` 更新，成功后 `02 5A 6B`，`03 5A 6B` 恢复 | WP、电源或密钥无效 | 核对每字节，记录两次启动 |
+| 片内 Flash 搬运 · 预检 | `APP metadata error`、`APP stack pointer error`、`APP reset handler error` | `0x1000 <= start < 0x200000`，`0x800 < len <= 0x78000`，不越出 W25Q16 | 主引导版本、地址或长度错误，候选 BIN 向量错误 | 解码两个 LE32，读正文首 8 B 并核对链接地址 |
+| 片内 Flash 搬运 · 擦写 | `APP update error; enter recovery` 或 `APP update ok: length=` | 从扇区 2 擦到 BIN 末字节所在扇区；按 512 B 批次写半字 | 供电、HAL 擦写失败、外部读超时 | 记失败偏移、擦写返回值和引导落点 |
+| 向量跳转 | `Error: Invalid stack pointer in application!`、`Error: Invalid reset handler in application!` 或 `jump error` | MSP 8 B 对齐，Thumb 复位入口在目标分区 | BIN 用错链接地址、向量已损坏 | 比对 map、片内首 8 B、VTOR 和程序实际落点 |
 
-EEPROM 密钥无效时，主引导写 `01 5A 6B`，本次仍用原 RAM 状态。下次状态读回有效后才走升级。串口恢复打印 `ok,len:` 说明接收收尾成功，随后仍要执行独立向量校验。
+若当前运行串口恢复程序，先发送 `start:len`（1–491520 B），等 `Flash erased; send data` 后发送原始 BIN。按声明长度、DMA 下标和末字节时间定位 `RX error; reset`；若出现 `ok,len:`，按表中「向量跳转」继续检查。
 
 ## 关键源码测点
 

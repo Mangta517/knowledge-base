@@ -5,18 +5,20 @@ import {
   DOMAIN_LABELS,
   SEVERITY_LABELS,
   TYPE_LABELS,
+  type ProjectItem,
   getProjectSignalFlow,
   getReadingMinutes,
   loadKbData,
   normalizeDocKey,
   withBase,
+  withDocRoute,
 } from '../lib/kb-data';
 
 const entryId = Astro.locals.starlightRoute?.entry?.id || '';
 const cleanId = normalizeDocKey(entryId);
 const isHome = cleanId === '' || cleanId === 'index';
 
-const { byRouteKey } = loadKbData();
+const { byRouteKey, byId } = loadKbData();
 const doc = byRouteKey.get(cleanId);
 
 const readingMinutes = doc ? getReadingMinutes(doc) : 0;
@@ -44,6 +46,14 @@ const projectSpecs =
       ].slice(0, 4)
     : [];
 const tsPhases = doc?.type === 'troubleshooting' ? doc.phases || [] : [];
+const tsRootCause = doc?.type === 'troubleshooting' ? doc.root_cause?.trim() || '' : '';
+const tsLocatedBy = doc?.type === 'troubleshooting' ? doc.located_by?.trim() || '' : '';
+const tsRelatedProjects: ProjectItem[] =
+  doc?.type === 'troubleshooting'
+    ? (doc.related_projects || [])
+        .map((pid) => byId.get(pid))
+        .filter((item): item is ProjectItem => Boolean(item && item.type === 'project'))
+    : [];
 ---
 
 {!isHome && <DefaultPageTitle {...Astro.props} />}
@@ -147,10 +157,46 @@ const tsPhases = doc?.type === 'troubleshooting' ? doc.phases || [] : [];
         </div>
       )}
 
+      {/* Root Cause & Evidence Locator Summary Cards for Troubleshooting Docs */}
+      {(tsRootCause || tsLocatedBy) && (
+        <div class="kb-ts-diagnosis-grid not-content" aria-label="故障根因与定位证据速览">
+          {tsRootCause && (
+            <div class="kb-ts-diag-card is-cause">
+              <div class="kb-ts-diag-head" data-pagefind-ignore>
+                <span class="kb-ts-diag-tag">
+                  <span class="kb-ts-diag-dot" aria-hidden="true"></span>
+                  错误原因与机理
+                </span>
+                <a class="kb-ts-diag-jump" href="#错误原因与触发机理">
+                  机理详情 ↓
+                </a>
+              </div>
+              <p class="kb-ts-diag-body">{tsRootCause}</p>
+            </div>
+          )}
+          {tsLocatedBy && (
+            <div class="kb-ts-diag-card is-locate">
+              <div class="kb-ts-diag-head" data-pagefind-ignore>
+                <span class="kb-ts-diag-tag">
+                  <span class="kb-ts-diag-dot" aria-hidden="true"></span>
+                  怎么定位到的
+                </span>
+                <a class="kb-ts-diag-jump" href="#定位过程与关键证据">
+                  证据链路 ↓
+                </a>
+              </div>
+              <p class="kb-ts-diag-body">{tsLocatedBy}</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Visual Diagnostic Phase Strip for Troubleshooting Docs */}
       {tsPhases.length > 0 && (
-        <div class="kb-doc-flow-strip kb-blueprint-canvas kb-type-troubleshooting not-content" data-pagefind-ignore aria-label="故障排查阶段">
-          <span class="kb-doc-flow-tag">排查阶梯</span>
+        <div class="kb-doc-flow-strip kb-blueprint-canvas kb-type-troubleshooting not-content" data-pagefind-ignore aria-label="具体排查流程阶段">
+          <a class="kb-doc-flow-tag kb-doc-flow-link" href="#具体排查流程" title="跳转至具体排查流程章节">
+            排查流程 ↓
+          </a>
           {tsPhases.map((phase, idx) => (
             <>
               {idx > 0 && <span class="kb-doc-flow-arrow" aria-hidden="true">→</span>}
@@ -159,6 +205,42 @@ const tsPhases = doc?.type === 'troubleshooting' ? doc.phases || [] : [];
                 {phase}
               </span>
             </>
+          ))}
+        </div>
+      )}
+
+      {/* Associated Firmware Project & Baseline SHA Bar for Troubleshooting Docs */}
+      {tsRelatedProjects.length > 0 && (
+        <div class="kb-doc-repo-bar kb-ts-repo-bar not-content" data-pagefind-ignore>
+          {tsRelatedProjects.map((proj) => (
+            <div class="kb-doc-repo-links">
+              <a class="kb-repo-link" href={withDocRoute(proj.route)}>
+                关联固件：<strong>{proj.title}</strong>
+                {proj.mcu ? ` (${proj.mcu})` : ''} →
+              </a>
+              {proj.synced_commit && (
+                <>
+                  <a
+                    class="kb-commit-link"
+                    href={`${proj.repo_url}/tree/${proj.synced_commit}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`浏览固定提交 ${proj.synced_commit} 下的公开源码树`}
+                  >
+                    基线提交 <code>{proj.synced_commit.slice(0, 8)}</code> ↗
+                  </a>
+                  <button
+                    type="button"
+                    class="kb-copy-btn"
+                    data-copy-text={proj.synced_commit}
+                    aria-label={`复制完整 40 位提交 SHA: ${proj.synced_commit}`}
+                    title={`复制完整 SHA：${proj.synced_commit}`}
+                  >
+                    复制 SHA
+                  </button>
+                </>
+              )}
+            </div>
           ))}
         </div>
       )}

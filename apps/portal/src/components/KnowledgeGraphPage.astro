@@ -139,12 +139,17 @@ const inspectorPayload = Object.fromEntries(
         : doc?.type === 'troubleshooting'
           ? doc.phases || []
           : [];
+    const rootCause = doc?.type === 'troubleshooting' ? doc.root_cause?.trim() || '' : '';
+    const locatedBy = doc?.type === 'troubleshooting' ? doc.located_by?.trim() || '' : '';
     const keywords = [
       node.id,
       node.title,
       doc?.description || '',
+      rootCause,
+      locatedBy,
       ...(doc?.tags || []),
       ...(doc?.type === 'project' ? doc.tech_stack || [] : []),
+      ...flowSteps,
     ]
       .join(' ')
       .toLowerCase();
@@ -163,6 +168,8 @@ const inspectorPayload = Object.fromEntries(
         readingMinutes: doc ? getReadingMinutes(doc) : 1,
         wordCount: doc?.word_count || 0,
         flowSteps,
+        ...(rootCause ? { rootCause } : {}),
+        ...(locatedBy ? { locatedBy } : {}),
         keywords,
         neighbors: rels.map((r) => ({
           id: r.item.id,
@@ -278,6 +285,7 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
         <h2 class="kb-detail-title" data-detail-title></h2>
         <p class="kb-detail-meta" data-detail-meta></p>
         <p class="kb-detail-desc" data-detail-desc></p>
+        <div class="kb-detail-ts-box" data-detail-ts hidden></div>
         <div class="kb-detail-flow" data-detail-flow hidden></div>
         <a class="kb-detail-cta" data-detail-link href="#">阅读完整文档 →</a>
         <div class="kb-detail-rels">
@@ -310,6 +318,8 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
     readingMinutes: number;
     wordCount: number;
     flowSteps?: string[];
+    rootCause?: string;
+    locatedBy?: string;
     keywords: string;
     neighbors: NeighborItem[];
   }
@@ -332,6 +342,7 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
     const detailTitle = root.querySelector<HTMLElement>('[data-detail-title]')!;
     const detailMeta = root.querySelector<HTMLElement>('[data-detail-meta]')!;
     const detailDesc = root.querySelector<HTMLElement>('[data-detail-desc]')!;
+    const detailTs = root.querySelector<HTMLElement>('[data-detail-ts]')!;
     const detailFlow = root.querySelector<HTMLElement>('[data-detail-flow]')!;
     const detailLink = root.querySelector<HTMLAnchorElement>('[data-detail-link]')!;
     const detailRelHeading = root.querySelector<HTMLElement>('[data-detail-rel-heading]')!;
@@ -410,6 +421,34 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
       detailDesc.textContent = info.description;
       detailLink.href = info.href;
       detailRelHeading.textContent = `一跳关联脉络（${info.neighbors.length}）`;
+
+      const tsEntries: Array<{ label: string; text: string; tone: 'cause' | 'locate' }> = [];
+      if (info.rootCause) {
+        tsEntries.push({ label: '错误原因', text: info.rootCause, tone: 'cause' });
+      }
+      if (info.locatedBy) {
+        tsEntries.push({ label: '定位判据', text: info.locatedBy, tone: 'locate' });
+      }
+      if (tsEntries.length > 0) {
+        detailTs.hidden = false;
+        detailTs.replaceChildren(
+          ...tsEntries.map((entry) => {
+            const row = document.createElement('div');
+            row.className = `kb-detail-ts-row is-${entry.tone}`;
+            const key = document.createElement('span');
+            key.className = 'kb-detail-ts-key';
+            key.textContent = entry.label;
+            const val = document.createElement('p');
+            val.className = 'kb-detail-ts-val';
+            val.textContent = entry.text;
+            row.append(key, val);
+            return row;
+          }),
+        );
+      } else {
+        detailTs.hidden = true;
+        detailTs.replaceChildren();
+      }
 
       const steps = info.flowSteps || [];
       if (steps.length > 0) {
@@ -897,6 +936,49 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
     border-radius: 0.75rem;
     background: var(--kb-surface);
     box-shadow: var(--kb-shadow-sm);
+  }
+
+  .kb-detail-ts-box:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.36rem;
+    margin-top: 0.55rem;
+    padding: 0.48rem 0.58rem;
+    border-radius: 0.48rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+  }
+
+  .kb-graph-inspector :global(.kb-detail-ts-row) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.16rem;
+  }
+
+  .kb-graph-inspector :global(.kb-detail-ts-key) {
+    align-self: flex-start;
+    padding: 0.04rem 0.36rem;
+    border-radius: 0.24rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  .kb-graph-inspector :global(.kb-detail-ts-row.is-cause .kb-detail-ts-key) {
+    background: var(--kb-troubleshooting-soft);
+    color: var(--kb-troubleshooting-ink);
+  }
+
+  .kb-graph-inspector :global(.kb-detail-ts-row.is-locate .kb-detail-ts-key) {
+    background: var(--kb-project-soft);
+    color: var(--kb-project-ink);
+  }
+
+  .kb-graph-inspector :global(.kb-detail-ts-val) {
+    margin: 0;
+    color: var(--sl-color-gray-1);
+    font-size: 0.72rem;
+    line-height: 1.5;
   }
 
   .kb-detail-flow:not([hidden]) {

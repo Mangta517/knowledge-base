@@ -34,8 +34,9 @@ FIELDS = {
 COMMON = ("title", "description", "type", "id", "tags", "created", "updated", "draft")
 VISUAL_FIELDS = {
     "project": ("mcu", "signal_flow", "highlights"),
-    "troubleshooting": ("phases",),
+    "troubleshooting": ("phases", "root_cause", "located_by"),
 }
+TROUBLESHOOTING_SECTIONS = ("错误原因与触发机理", "定位过程与关键证据", "具体排查流程")
 READING_TRACKS_PATH = "wiki/reading_tracks.yaml"
 ENUMS = {
     "visibility": {"public", "private"},
@@ -174,6 +175,8 @@ def check_fields(note):
         yield "description 超过 160 字"
     for key in VISUAL_FIELDS.get(kind, ()):
         if key not in meta:
+            if kind == "troubleshooting" and meta.get("draft") is False:
+                yield f"公开排障页缺少字段 {key}"
             continue
         value = meta[key]
         if key == "mcu":
@@ -184,6 +187,11 @@ def check_fields(note):
                 not has_text_fields(item, "label", "value") for item in value
             ):
                 yield "highlights 必须含 2–4 项，每项使用非空单行 label 和 value"
+        elif key in ("root_cause", "located_by"):
+            if not is_text(value):
+                yield f"{key} 必须是非空单行字符串"
+            elif len(value) > 120:
+                yield f"{key} 超过 120 字"
         elif not isinstance(value, list) or not 3 <= len(value) <= 5 or not all(map(is_text, value)):
             yield f"{key} 必须含 3–5 个非空单行字符串"
     valid_dates = {}
@@ -436,6 +444,17 @@ def check_mermaid(note):
                         yield f"{prefix}含括号的节点标签必须使用双引号 ({label})"
 
 
+def check_troubleshooting_sections(note):
+    if note.meta.get("type") != "troubleshooting" or note.meta.get("draft") is not False:
+        return
+    # Keep a block removal from exposing an inline ## as a heading.
+    body = BLOCKS.sub("    ", NOTES.sub("    ", note.body))
+    headings = re.findall(r"^ {0,3}##[ \t]+(.+?)(?:[ \t]+#+)?[ \t]*$", body, re.M)
+    for heading in TROUBLESHOOTING_SECTIONS:
+        if heading not in headings:
+            yield f"{note.path}: 公开排障页缺少二级标题「{heading}」"
+
+
 def check_content(notes, registry):
     errors, warnings = check_links(notes)
     repos = registry["repos"]
@@ -445,6 +464,7 @@ def check_content(notes, registry):
     for note in notes.values():
         errors.extend(check_source_links(note, registered, trees))
         errors.extend(check_mermaid(note))
+        errors.extend(check_troubleshooting_sections(note))
     return errors, warnings
 
 
