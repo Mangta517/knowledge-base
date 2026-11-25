@@ -33,8 +33,8 @@ highlights:
 
 `01_freertos_template.uvprojx`、Cortex-M3 启动汇编、RTE 头文件与旧构建产物组成公开快照。它可以用来审计 Keil 如何组织一个 CMSIS-RTOS2 目标，运行任务的业务定义需要从对应版本的工程源目录补齐。
 
-> [!NOTE]
-> 固定提交源码核对事实。对 `88e3c2fa9133c614d937a5e172fbd0aabd3204b8` 的 [Keil XML](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/01_freertos_template.uvprojx) 解析全部分组，并按该文件所在目录检查依赖文件是否存在。产物中的文件名只作为历史线索。
+> [!NOTE] 工程清单的审计基线
+> 对 `88e3c2fa9133c614d937a5e172fbd0aabd3204b8` 的 [Keil XML](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/01_freertos_template.uvprojx) 解析全部分组，并按该文件所在目录检查依赖文件是否存在。产物中的文件名只作为历史线索。
 
 ## 硬件资源与外设映射
 
@@ -46,7 +46,7 @@ highlights:
 | 板级功能线索 | DshanMCU-F103 分组声明 OLED、MPU6050、LCD、蜂鸣器、按键等 |
 | 引脚与时钟 | 需取得实际 `Core` 和 BSP 定义后，从初始化配置读取 |
 
-`RTE/_01_freertos_template/RTE_Components.h` 将 `CMSIS_device_header` 指向 `stm32f10x.h`。该 RTE 头与 HAL 设备宏分别来自不同层的配置。异机补工程时同时核查器件包和 ST CMSIS 头的选择。[RTE_Components.h](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/RTE/_01_freertos_template/RTE_Components.h)
+`RTE/_01_freertos_template/RTE_Components.h` 将 `CMSIS_device_header` 指向 `stm32f10x.h`。该 RTE 头与 HAL 设备宏分别来自不同层的配置。异机补工程时同时核查器件包和 ST CMSIS 头的选择。[`RTE_Components.h`](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/RTE/_01_freertos_template/RTE_Components.h)
 
 ## 架构与执行机制
 
@@ -81,7 +81,7 @@ flowchart LR
 | `Reset_Handler` | `BLX` 调 `SystemInit`，随后 `BX` 转 `__main` |
 | C 库内存接口 | 按汇编条件汇出 MicroLIB 所需符号或 `__user_initial_stackheap` |
 
-C 运行时保留区与 FreeRTOS `heap_4` 的分配区域由不同定义决定。工程声明 `heap_4.c`，实际 RTOS 堆大小、任务栈余量及 tick 和中断配置都需要 `FreeRTOSConfig.h` 与应用源码。[startup_stm32f103xb.s](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/startup_stm32f103xb.s)
+C 运行时保留区与 FreeRTOS `heap_4` 的分配区域由不同定义决定。工程声明 `heap_4.c`，实际 RTOS 堆大小、任务栈余量及 tick 和中断配置都需要 `FreeRTOSConfig.h` 与应用源码。[`startup_stm32f103xb.s`](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/startup_stm32f103xb.s)
 
 ## 源码入口与核心调用链
 
@@ -94,23 +94,23 @@ C 运行时保留区与 FreeRTOS `heap_4` 的分配区域由不同定义决定�
 | `Middlewares/FreeRTOS` | 10 项，7 个内核源文件及 `cmsis_os2.c`、`heap_4.c`、ARM_CM3 `port.c` | `../Middlewares/Third_Party/FreeRTOS/Source` 引用均缺失 |
 | `Drivers/DshanMCU-F103` | 21 项，板载和外接器件驱动 | `../Drivers/DshanMCU-F103` 引用均缺失 |
 | `nwatch` | 6 项，`draw.c`、`game1.c`、`game2.c`、`resources.c`、`beep.c/.h` | `../nwatch` 引用均缺失 |
-| `::CMSIS` | Keil 组件分组，无 FilePath | RTE 头随仓，组件依设备包解析 |
+| `::CMSIS` | Keil 组件分组，无 `FilePath` | RTE 头随仓，组件依设备包解析 |
 
 存有同名 `.o`、`.d` 或 AXF 的子目录是构建输出。反查 `.uvprojx` 可以确认期望的源路径和组别，补工程时应核对文件实际内容和版本。
 
 ## 构建方式与验证边界
 
-> [!TIP]
-> 历史 README / 产物。[README.md](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/README.md) 是模板式简介，公开树还保留旧 AXF、HEX、map 和链接散布文件。文件存在可确认曾保存构建产物，复现仍需对应源树。
+> [!TIP] 历史构建产物
+> [`README.md`](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/README.md) 是模板式简介，公开树还保留旧 AXF、HEX、map 和链接散布文件。文件存在可确认曾保存构建产物，复现仍需对应源树。
 
 1. 按工程根目录层级恢复 `Core/Inc` 与 `Core/Src`，包含应用入口、FreeRTOS 配置、异常桥接和厂商初始化。
 2. 恢复匹配版本的 STM32F1 HAL、CMSIS、FreeRTOS、CMSIS-RTOS2、RVDS Cortex-M3 port 与 `heap_4`。
 3. 补齐 DshanMCU-F103 板级驱动及 `nwatch` 代码和资源，保持 Keil 文件分组中的相对路径或相应调整工程组织。
 4. 在安装所需器件包及 AC5 的环境打开目标并全量重建，核对 map 的 Flash/RAM 布局、`SystemInit` 和异常处理符号的提供者。
-5. 进调度器前后记录系统时钟、栈和第一次任务切换，逐一确认 SysTick、PendSV、SVC 对应最终链接符号。
+5. 进调度器前后记录系统时钟、栈和第一次任务切换，逐一确认 `SysTick`、`PendSV`、`SVC` 对应最终链接符号。
 
-> [!WARNING]
-> 需实板/仪器验证边界。快照允许审计工程声明与启动汇编。任务数、优先级、周期、内存余量及板级功能要等完整源树和重新构建后核对。
+> [!WARNING] 完整构建与实板验证
+> 快照允许审计工程声明与启动汇编。任务数、优先级、周期、内存余量及板级功能要等完整源树和重新构建后核对。
 
 ## 相关知识
 

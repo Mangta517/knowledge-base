@@ -1,6 +1,21 @@
 :root {
-  --sl-font: "Inter", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
-  --sl-font-mono: "JetBrains Mono", "Cascadia Code", "Consolas", ui-monospace, monospace;
+  /* Scheme C: Long-form Engineering Editorial Typography
+     - Display / Headings: Plus Jakarta Sans + Noto Sans SC Variable
+     - Prose / Tables:     Source Sans 3 + Noto Sans SC Variable
+     - Editorial / Notes:  Source Sans 3 + LXGW WenKai Screen (GB simplified screen-tuned)
+     - Code / Specs:       Maple Mono + CJK sans/mono fallbacks (prevents NSimSun bitmap fallback on Windows) */
+  --kb-font-sans: "Source Sans 3 Variable", "Noto Sans SC Variable", "Source Han Sans SC",
+    "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei UI", system-ui, sans-serif;
+  --kb-font-display: "Plus Jakarta Sans Variable", "Noto Sans SC Variable", "Source Han Sans SC",
+    "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei UI", system-ui, sans-serif;
+  --kb-font-editorial: "Source Sans 3 Variable", "LXGW WenKai Screen", "LXGW WenKai GB Screen",
+    "LXGW WenKai", "Kaiti SC", "STKaiti", "KaiTi", serif;
+
+  --sl-font: var(--kb-font-sans);
+  --sl-font-system: var(--kb-font-sans);
+  --sl-font-mono: "Maple Mono", "Maple Mono NF CN", "Maple Mono CN", "Sarasa Mono SC",
+    "JetBrains Mono", "Cascadia Code", "Noto Sans SC Variable", "Source Han Sans SC",
+    "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei UI", ui-monospace, monospace;
 }
 
 /* Softened Slate Dark Mode (scoped strictly to dark mode so it never overrides light-mode Starlight grays) */
@@ -214,8 +229,149 @@ main:has(.kb-home, .kb-graph, .kb-notfound) footer .meta:empty {
   }
 }
 
+html {
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.site-title,
+.kb-hero-title,
+.kb-detail-title,
+.kb-track-card h3 {
+  font-family: var(--kb-font-display);
+  letter-spacing: -0.015em;
+}
+
 .sl-markdown-content {
-  line-height: 1.78;
+  font-size: 1.015rem;
+  line-height: 1.82;
+  letter-spacing: 0.005em;
+}
+
+.sl-markdown-content h1 {
+  font-weight: 720;
+  letter-spacing: -0.02em;
+}
+
+.sl-markdown-content h2 {
+  font-weight: 670;
+  letter-spacing: -0.016em;
+}
+
+.sl-markdown-content h3 {
+  font-weight: 630;
+  letter-spacing: -0.012em;
+}
+
+.sl-markdown-content h4 {
+  font-weight: 600;
+}
+
+.sl-markdown-content :not(pre) > code {
+  padding: 0.12em 0.38em;
+  border-radius: 0.32rem;
+  border: 1px solid color-mix(in srgb, var(--kb-border) 80%, transparent);
+  font-size: 0.875em;
+  font-weight: 500;
+  font-variant-ligatures: none;
+}
+
+.sl-markdown-content pre code {
+  font-size: 0.86rem;
+  line-height: 1.66;
+}
+
+.sl-markdown-content table,
+.kb-doc-metrics,
+.kb-metric-num,
+.kb-doc-spec-val,
+.kb-backlink-meta,
+.kb-sha {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===========================
+   Scheme C Editorial Accents (LXGW WenKai Screen)
+   Scoped to Callouts, Blockquotes, and Engineer's Personal Notes
+   =========================== */
+.sl-markdown-content .starlight-aside {
+  border-radius: 0.6rem;
+}
+
+.sl-markdown-content .starlight-aside__title {
+  font-family: var(--kb-font-display);
+  font-size: 0.92rem;
+  font-weight: 660;
+  letter-spacing: 0.01em;
+}
+
+.sl-markdown-content .starlight-aside__content {
+  font-family: var(--kb-font-editorial);
+  font-size: 0.995rem;
+  line-height: 1.84;
+  letter-spacing: 0.012em;
+}
+
+.sl-markdown-content blockquote:not(.starlight-aside) {
+  margin: 1.15rem 0;
+  padding: 0.72rem 1.05rem;
+  border-inline-start: 3px solid var(--kb-accent);
+  border-radius: 0 0.55rem 0.55rem 0;
+  background: var(--kb-surface-elevated);
+  color: var(--sl-color-gray-1);
+  font-family: var(--kb-font-editorial);
+  font-size: 1.01rem;
+  line-height: 1.85;
+  letter-spacing: 0.012em;
+}
+
+.sl-markdown-content .kb-human-notes {
+  position: relative;
+  margin: 2rem 0 1.4rem;
+  padding: 1.05rem 1.2rem 1.1rem;
+  border-radius: 0.72rem;
+  border: 1px solid var(--kb-border);
+  border-inline-start: 3.5px solid var(--kb-adr);
+  background: var(--kb-surface);
+  box-shadow: var(--kb-shadow-sm);
+}
+
+.sl-markdown-content .kb-human-notes::before {
+  content: "ENGINEER'S NOTE · 个人复盘手记";
+  display: inline-block;
+  margin-bottom: 0.35rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--kb-adr-soft);
+  color: var(--kb-adr-ink);
+  font-family: var(--sl-font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.sl-markdown-content .kb-human-notes > :is(h2, h3):first-child {
+  margin-top: 0.2rem;
+}
+
+.sl-markdown-content .kb-human-notes :is(p, li) {
+  font-family: var(--kb-font-editorial);
+  font-size: 1.01rem;
+  line-height: 1.86;
+  letter-spacing: 0.014em;
+}
+
+.sl-markdown-content :is(.starlight-aside__content, blockquote, .kb-human-notes) :is(code, pre, kbd, samp) {
+  font-family: var(--sl-font-mono);
+  letter-spacing: 0;
 }
 
 /* Reading Progress Strip Flush with Bottom Edge of Sticky Navbar */

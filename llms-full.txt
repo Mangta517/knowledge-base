@@ -11,34 +11,34 @@
 
 一个 STM32F407VET6 承载三个独立链接目标，STM32F103 提供 CAN 发送端。更换测试 APP 时只部署对应 APP 镜像，主引导和串口恢复保留各自的 Flash 起点。
 
-> [!NOTE]
-> 固定提交源码核对事实。本页对应 `6d5aebc586133f383908581183b44e6572b7be06`。区分 LED APP 的 CAN 缓冲上限和主引导可搬运的分区容量。
+> [!NOTE] 更新与恢复的源码基线
+> 本页对应 `6d5aebc586133f383908581183b44e6572b7be06`。区分 LED APP 的 CAN 缓冲上限和主引导可搬运的分区容量。
 
 | Keil 子工程 | 职责 | 入口或产物 |
 | --- | --- | --- |
-| `stm32f407vet6` | 上电读取状态、检查外部镜像、搬运与跳转 | [stm32f407vet6.uvprojx](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/MDK-ARM/stm32f407vet6.uvprojx) |
-| `stm32f407vet6reset` | 单独运行的 USART1 DMA 恢复程序 | [stm32f407vet6reset.uvprojx](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6reset/MDK-ARM/stm32f407vet6reset.uvprojx) |
-| `stm32f407vet6led` | 正常 APP，等待 `cmd` 后走 CAN 暂存流程 | [stm32f407vet6led.uvprojx](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led/MDK-ARM/stm32f407vet6led.uvprojx) |
-| `STM32F103CAN` | 等待 `hyf`，从本机片内 Flash 提取 BIN 并发送 | [STM32F103CAN.uvprojx](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/STM32F103CAN/MDK-ARM/STM32F103CAN.uvprojx) |
-| `stm32f407vet6led_blink` | 单灯替换样本，PE5 每 500 ms 翻转 | [stm32f407vet6led_blink.uvprojx](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led_blink/MDK-ARM/stm32f407vet6led_blink.uvprojx) |
+| `stm32f407vet6` | 上电读取状态、检查外部镜像、搬运与跳转 | [`stm32f407vet6.uvprojx`](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/MDK-ARM/stm32f407vet6.uvprojx) |
+| `stm32f407vet6reset` | 单独运行的 `USART1` DMA 恢复程序 | [`stm32f407vet6reset.uvprojx`](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6reset/MDK-ARM/stm32f407vet6reset.uvprojx) |
+| `stm32f407vet6led` | 正常 APP，等待 `cmd` 后走 CAN 暂存流程 | [`stm32f407vet6led.uvprojx`](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led/MDK-ARM/stm32f407vet6led.uvprojx) |
+| `STM32F103CAN` | 等待 `hyf`，从本机片内 Flash 提取 BIN 并发送 | [`STM32F103CAN.uvprojx`](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/STM32F103CAN/MDK-ARM/STM32F103CAN.uvprojx) |
+| `stm32f407vet6led_blink` | 单灯替换样本，`PE5` 每 500 ms 翻转 | [`stm32f407vet6led_blink.uvprojx`](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led_blink/MDK-ARM/stm32f407vet6led_blink.uvprojx) |
 
 ## 硬件资源与外设映射
 
 | 资源 | F407 端配置 | F103 或台架侧 |
 | --- | --- | --- |
-| 系统时钟 | 主引导、恢复、LED APP 用 8 MHz HSE，SYSCLK 168 MHz | F103 用 8 MHz HSE，SYSCLK 72 MHz；替换 Blink 用 HSI 16 MHz |
-| USART1 | PA9 TX、PA10 RX，115200 bit/s、8N1 | F103 也用 USART1，串口装载入口在默认流程中未启用 |
-| W25Q16 | SPI1 PB3 SCK、PB4 MISO、PB5 MOSI；PB0 低有效 CS，2 MiB | 文件偏移按字节，页 256 B，扇区 4 KiB |
-| 24C02 | I2C1 PB6 SCL、PB7 SDA，7 位地址 `0x50` | 上拉与低电平 WP 需实物确认 |
-| KEY1 | PE0 / EXTI0 设置本次启动恢复请求 | 观察上电检查窗口内的有效边沿 |
-| LED0 / LED1 | PE5 / PE6，低电平点亮 | 恢复程序 PE6 常亮，更新 APP 空闲交替闪烁 |
-| bxCAN | LED APP 的 CAN1 PB8 RX、PB9 TX；42 MHz / 42 / 5 = 200 kbit/s | F103 PA11 RX、PA12 TX，同为 200 kbit/s；两端收发器和终端电阻 |
+| 系统时钟 | 主引导、恢复、LED APP 用 8 MHz HSE，`SYSCLK` 168 MHz | F103 用 8 MHz HSE，`SYSCLK` 72 MHz；替换 Blink 用 HSI 16 MHz |
+| `USART1` | `PA9` TX、`PA10` RX，115200 bit/s、`8N1` | F103 也用 `USART1`，串口装载入口在默认流程中未启用 |
+| W25Q16 | `SPI1` `PB3` SCK、`PB4` MISO、`PB5` MOSI；`PB0` 低有效 CS，2 MiB | 文件偏移按字节，页 256 B，扇区 4 KiB |
+| 24C02 | `I2C1` `PB6` SCL、`PB7` SDA，7 位地址 `0x50` | 上拉与低电平 WP 需实物确认 |
+| `KEY1` | `PE0` / `EXTI0` 设置本次启动恢复请求 | 观察上电检查窗口内的有效边沿 |
+| `LED0` / `LED1` | `PE5` / `PE6`，低电平点亮 | 恢复程序 `PE6` 常亮，更新 APP 空闲交替闪烁 |
+| bxCAN | LED APP 的 CAN1 `PB8` RX、`PB9` TX；42 MHz / 42 / 5 = 200 kbit/s | F103 `PA11` RX、`PA12` TX，同为 200 kbit/s；两端收发器和终端电阻 |
 
 时钟和复用入口见 [主引导 CubeMX](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/stm32f407vet6.ioc)、[LED APP 接线](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led/CAN_RECEIVE.md)、[F103 CAN 配置](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/STM32F103CAN/CAN_README.md)。
 
 ## 架构与执行机制
 
-| F407 区域 | 字节区间，左闭右开 | 扇区 | 容量 | VTOR 相对 Flash 基址 |
+| F407 区域 | 字节区间，左闭右开 | 扇区 | 容量 | `VTOR` 相对 Flash 基址 |
 | --- | --- | --- | --- | --- |
 | 主 Bootloader | `[0x08000000, 0x08004000)` | 0 | 16 KiB | `0x0000` |
 | 串口恢复 | `[0x08004000, 0x08008000)` | 1 | 16 KiB | `0x4000` |
@@ -54,10 +54,10 @@ APP 扇区 2、3 各 16 KiB，4 为 64 KiB，5–7 各 128 KiB。主引导按最
 | --- | --- | --- | --- |
 | `01` | `5A 6B` | `BOOT_UPDATE`，检查 W25Q16 并更新 | 成功仅写 `0x10=02`；搬运失败保留 `01` 并选恢复入口 |
 | `02` | `5A 6B` | `BOOT_NO_UPDATE`，选择内部 APP | 检查内部向量后跳转 |
-| `03` | `5A 6B` | `BOOT_RESET`，选择串口恢复区 | 可由 KEY1 在 RAM 中设置本次恢复请求 |
+| `03` | `5A 6B` | `BOOT_RESET`，选择串口恢复区 | 可由 `KEY1` 在 RAM 中设置本次恢复请求 |
 | 任意 | 不匹配 | 写入 `01 5A 6B` 并等待 10 ms，RAM 状态维持默认 `02` 或已收到的 `03` | 下次读到有效密钥和 `01` 时才尝试搬运 |
 
-`0x5A6B` 是两字节有效性标记，存储顺序为高字节在前。有效密钥分支在短 PRIMASK 保护区内读取状态，保留已有 KEY1 请求。若状态字节既非 `01` 也非 `03`，最终跳转选择 APP。主引导的清标记调用无读回确认，LED APP 的提交则会比对全部三个字节。[状态定义](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/application/app_bootloader.h)
+`0x5A6B` 是两字节有效性标记，存储顺序为高字节在前。有效密钥分支在短 `PRIMASK` 保护区内读取状态，保留已有 `KEY1` 请求。若状态字节既非 `01` 也非 `03`，最终跳转选择 APP。主引导的清标记调用无读回确认，LED APP 的提交则会比对全部三个字节。[状态定义](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/application/app_bootloader.h)
 
 ## 关键协议、存储布局与算法设计
 
@@ -67,12 +67,12 @@ APP 扇区 2、3 各 16 KiB，4 为 64 KiB，5–7 各 128 KiB。主引导按最
 | --- | --- | --- |
 | `0x000000–0x000003` | 32 位小端正文起点 | `0x001000 <= start < 0x200000` |
 | `0x000004–0x000007` | 32 位小端真实字节数 | `0x0800 < len <= 0x78000`，并且 `len <= 0x200000 - start` |
-| `0x001000` 起 | LED APP 当前写入的 BIN 正文 | 先读首 8 B 检查初始 MSP、复位入口 |
-| 以 `4480 B` 为例 | 元数据 `00 10 00 00 80 11 00 00` | CRC 和 CRC 计算填充值均不随暂存记录写入 |
+| `0x001000` 起 | LED APP 当前写入的 BIN 正文 | 先读首 8 B 检查初始 `MSP`、复位入口 |
+| 以 4480 B 为例 | 元数据 `00 10 00 00 80 11 00 00` | CRC 和 CRC 计算填充值均不随暂存记录写入 |
 
 LED APP 先擦元数据扇区和正文覆盖扇区，按页写正文，最后发布元数据并读回 EEPROM。主引导将正文分批读入 512 B 静态缓冲。Flash 按小端半字写，只有奇数长度尾块在 RAM 中补一个 `0xFF`，偏移仍按真实字节数前进。外部读取或片内编程失败会退出搬运并选择恢复。
 
-### CAN 更新与 USART1 恢复
+### CAN 更新与 `USART1` 恢复
 
 ```mermaid
 sequenceDiagram
@@ -94,7 +94,7 @@ sequenceDiagram
 
 | CAN 阶段 | 检查 | 失败走向 |
 | --- | --- | --- |
-| 开始 | USART IDLE 收 `cmd`，空闲状态才触发 `hyf` | 其他命令不推进更新 |
+| 开始 | USART `IDLE` 收 `cmd`，空闲状态才触发 `hyf` | 其他命令不推进更新 |
 | 收 BIN | 标准数据帧 ID 1，DLC 1–8，以实际 DLC 加入 5120 B 缓冲 | 无关帧不刷新时限；溢出、无有效数据转错误 |
 | 等 CRC | 1 s 边界先于 FIFO 读取判断，CRC 必须 ID 1 且 DLC 4 | 最后有效数据后 2 s 未通过则清本轮缓存、回空闲 |
 | 校验与保存 | CRC 多项式 `0x04C11DB7`、初值 `0xFFFFFFFF`，按小端 32 位字输入，尾字零补齐；保存长度 2049–5120 B | `CRC FAIL` 或 `Update save FAIL` 对应不同阶段 |
@@ -124,27 +124,27 @@ sequenceDiagram
 2. [更新状态机](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led/application/app_update.c)从 `app_update_work` 进入接收、`app_crc_cal` 和 `app_update_save_image`。成功时保持完成态，复位由外部发起。
 3. [F103 CAN 发送](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/STM32F103CAN/appliaction/app_update.c)处理 `hyf`、源镜像验证、数据帧逐次发送和延后 CRC。
 4. [恢复状态机](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6reset/application/app_reset.c)解析命令、启动 DMA、收尾并调用恢复工程的跳转接口。
-5. [主引导跳转接口](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/interface/int_bootloader.c)检查对齐后的 MSP 落在 `(0x20000000, 0x20020000]` 或 `(0x10000000, 0x10010000]`，并检查复位向量 Thumb 位及目标分区范围。外部预检查另以实际镜像长度约束入口，检查精度与最终跳转入口不同。
+5. [主引导跳转接口](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/interface/int_bootloader.c)检查对齐后的 `MSP` 落在 `(0x20000000, 0x20020000]` 或 `(0x10000000, 0x10010000]`，并检查复位向量 Thumb 位及目标分区范围。外部预检查另以实际镜像长度约束入口，检查精度与最终跳转入口不同。
 
-跳转关闭 IRQ，调用 `HAL_DeInit`，清 SysTick、NVIC 及系统挂起状态，写 VTOR 后做 DSB/ISB，再切 MSP 调目标入口。现有目标入口负责重新开启全局中断，失败时打印落点并留在当前主循环。恢复入口可用时，单独的 KEY1 请求可协助确认是搬运失败还是 APP 无法启动。
+跳转关闭 IRQ，调用 `HAL_DeInit`，清 `SysTick`、NVIC 及系统挂起状态，写 `VTOR` 后做 `DSB` / `ISB`，再切 `MSP` 调目标入口。现有目标入口负责重新开启全局中断，失败时打印落点并留在当前主循环。恢复入口可用时，单独的 `KEY1` 请求可协助确认是搬运失败还是 APP 无法启动。
 
 ## 构建方式与验证边界
 
-> [!TIP]
-> 历史 README / 调参记录。[构建与联调记录](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/README.md)使用 Keil µVision 5、Arm Compiler 5.06 update 5 build 528。LED APP 的 After Build 工具路径需在异机按安装位置配置。Blink 的旧记录中 1360 B 原始镜像补到 4480 B，当前打包时以实际构建产物为准。
+> [!TIP] 历史构建与联调记录
+> [构建与联调记录](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/README.md)使用 Keil µVision 5、Arm Compiler 5.06 update 5 build 528。LED APP 的 After Build 工具路径需在异机按安装位置配置。Blink 的旧记录中 1360 B 原始镜像补到 4480 B，当前打包时以实际构建产物为准。
 
 | 验证工具 | 证据对象 |
 | --- | --- |
-| [test_bootloader_jump.py](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/tools/test_bootloader_jump.py) | 目标分区与向量拒绝、跳转准备 |
-| [test_update_crc.py](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led/tools/test_update_crc.py) | CRC、帧时限、页/扇区、元数据和提交失败 |
-| [test_uart_ring.py](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6reset/tools/test_uart_ring.py) | USART DMA 环形缓存与接收边界 |
-| [test_app_update.py](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/STM32F103CAN/tools/test_app_update.py) 与 [test_app_flash.py](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/STM32F103CAN/tools/test_app_flash.py) | 发送端和装载路径的独立回归 |
-| [make_update_bin.py](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led_blink/tools/make_update_bin.py) | 目标向量与 4480 B 替换样本 |
+| [`test_bootloader_jump.py`](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/tools/test_bootloader_jump.py) | 目标分区与向量拒绝、跳转准备 |
+| [`test_update_crc.py`](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led/tools/test_update_crc.py) | CRC、帧时限、页/扇区、元数据和提交失败 |
+| [`test_uart_ring.py`](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6reset/tools/test_uart_ring.py) | USART DMA 环形缓存与接收边界 |
+| [`test_app_update.py`](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/STM32F103CAN/tools/test_app_update.py) 与 [`test_app_flash.py`](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/STM32F103CAN/tools/test_app_flash.py) | 发送端和装载路径的独立回归 |
+| [`make_update_bin.py`](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led_blink/tools/make_update_bin.py) | 目标向量与 4480 B 替换样本 |
 
-各脚本用 Python 3 调用主机 GCC 和模拟桩。Keil 工程分别构建后核对 map 中的链接地址与 BIN 的向量字。主机回归覆盖逻辑路径，实板还需确认擦写电压、收发器、KEY1 和启动时序。
+各脚本用 Python 3 调用主机 GCC 和模拟桩。Keil 工程分别构建后核对 map 中的链接地址与 BIN 的向量字。主机回归覆盖逻辑路径，实板还需确认擦写电压、收发器、`KEY1` 和启动时序。
 
-> [!WARNING]
-> 需实板/仪器验证边界。分别在提交前、片内擦除后、最后一个半字写入后和清标记时记录掉电点。重启观察状态字、外部元数据、实际跳转分区与 APP 的可运行性。留存更新标志只提示重试，搬运过程中原 APP 可能已被擦除。
+> [!WARNING] 掉电与跳转的实板验证
+> 分别在提交前、片内擦除后、最后一个半字写入后和清标记时记录掉电点。重启观察状态字、外部元数据、实际跳转分区与 APP 的可运行性。留存更新标志只提示重试，搬运过程中原 APP 可能已被擦除。
 
 ## 相关知识
 
@@ -163,32 +163,32 @@ sequenceDiagram
 
 `flight_hal` 和 `flight_remote_hal` 分别构建飞控端和遥控端。两端共享射频帧约定，各自持有输入或输出设备的状态。飞控从 IMU 姿态测量计算电机输出，遥控端产生摇杆和按键命令并显示回包。
 
-> [!NOTE]
-> 固定提交源码核对事实。本页采用 `8b05c39baa1731cf4873d2caaa0db34a61b63e2c` 的实际宏和任务体。周期以 1 kHz FreeRTOS tick 换算，代表任务请求的节奏。
+> [!NOTE] 飞控时基与源码基线
+> 本页采用 `8b05c39baa1731cf4873d2caaa0db34a61b63e2c` 的实际宏和任务体。周期以 1 kHz FreeRTOS tick 换算，代表任务请求的节奏。
 
 | 工程 | 输入 | 输出与入口 |
 | --- | --- | --- |
-| `flight_hal` | 射频控制帧、MPU6050、SPL006 | TIM2 PWM；[飞控 main](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/Core/Src/main.c) |
-| `flight_remote_hal` | 四路摇杆、按键、飞控回包 | SPI2 射频、OLED、蜂鸣器；[遥控 main](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_remote_hal/Core/Src/main.c) |
+| `flight_hal` | 射频控制帧、MPU6050、SPL006 | `TIM2` PWM；[飞控 main](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/Core/Src/main.c) |
+| `flight_remote_hal` | 四路摇杆、按键、飞控回包 | `SPI2` 射频、OLED、蜂鸣器；[遥控 main](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_remote_hal/Core/Src/main.c) |
 
 ## 硬件资源与外设映射
 
 | 端 | 资源 | 固件配置 |
 | --- | --- | --- |
-| 飞控 | MPU6050、SPL006 | I2C1 PB6 SCL / PB7 SDA，400 kHz；7 位地址 `0x68`、`0x77` |
-| 两端 | nRF24L01P | SPI2 PB13 SCK、PB14 MISO、PB15 MOSI；PB12 NSS、PA11 EN |
-| 飞控 | 电机 PWM | TIM2 四路，PSC=8、ARR=999，位置见混控表 |
-| 飞控 | 板载指示与调试 | PB1、PB9 LED；USART3 PB10 TX、PB11 RX |
-| 遥控 | 摇杆 | ADC 输入 PA0–PA3；处理函数发布 0–1000 控制量 |
-| 遥控 | OLED | I2C1 PB8 SCL、PB9 SDA |
-| 遥控 | 按键 | PA6、PA7、PA15、PB11、PC14、PC15 |
-| 遥控 | 蜂鸣器 | PA12 `BUZZ`；告警任务读取回包故障位 |
+| 飞控 | MPU6050、SPL006 | `I2C1` `PB6` SCL / `PB7` SDA，400 kHz；7 位地址 `0x68`、`0x77` |
+| 两端 | nRF24L01P | `SPI2` `PB13` SCK、`PB14` MISO、`PB15` MOSI；`PB12` NSS、`PA11` EN |
+| 飞控 | 电机 PWM | `TIM2` 四路，`PSC=8`、`ARR=999`，位置见混控表 |
+| 飞控 | 板载指示与调试 | `PB1`、`PB9` LED；`USART3` `PB10` TX、`PB11` RX |
+| 遥控 | 摇杆 | ADC 输入 `PA0`–`PA3`；处理函数发布 0–1000 控制量 |
+| 遥控 | OLED | `I2C1` `PB8` SCL、`PB9` SDA |
+| 遥控 | 按键 | `PA6`、`PA7`、`PA15`、`PB11`、`PC14`、`PC15` |
+| 遥控 | 蜂鸣器 | `PA12` `BUZZ`；告警任务读取回包故障位 |
 
 引脚来源为 [飞控 CubeMX](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/flight_hal.ioc)、[遥控 CubeMX](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_remote_hal/filght_remote_hal.ioc)。机械机头、实际电机接线和桨转向需在台架与 PWM 输出对照。
 
 ## 架构与执行机制
 
-### 飞行任务与 I2C1
+### 飞行任务与 `I2C1`
 
 ```mermaid
 flowchart LR
@@ -210,7 +210,7 @@ flowchart LR
 | 飞控 `flight_task` | 3 | 128 | `vTaskDelayUntil` 2 tick | 连接边沿校准、IMU、姿态环、气压分频、混控 |
 | 飞控 `led_task` | 1 | 128 | `vTaskDelayUntil` 100 tick | 显示飞控状态 |
 | 飞控 `flight_remote_control_task` | 4 | 128 | `vTaskDelay` 10 tick | 射频 RX、回包、连接状态、飞行状态 |
-| 飞控 `power_task` | 4 | 128 | `ulTaskNotifyTake` 无限等通知 | 处理开关请求，关断时写四路 CCR 为 0 |
+| 飞控 `power_task` | 4 | 128 | `ulTaskNotifyTake` 无限等通知 | 处理开关请求，关断时写四路 `CCR` 为 0 |
 | 遥控 `remote_control_task` | 4 | 128 | `vTaskDelay` 10 tick | 发布摇杆和命令，发包后等待回包 |
 | 遥控 `key_get_task` | 3 | 128 | `vTaskDelayUntil` 20 tick | 读取按键事件 |
 | 遥控 `joystick_task` | 3 | 128 | `vTaskDelayUntil` 6 tick | ADC 输入与中点处理 |
@@ -236,14 +236,14 @@ flowchart LR
 
 ### 姿态控制、气压定高与限幅
 
-| 控制环 | 输入 → 输出 | Kp / Ki / Kd | 积分限幅 | 输出限幅字段 |
+| 控制环 | 输入 → 输出 | `Kp` / `Ki` / `Kd` | 积分限幅 | 输出限幅字段 |
 | --- | --- | --- | --- | --- |
-| PITCH 外环 | 俯仰角 → Y 角速度目标 | 2.5 / 0 / 0.3 | 5000 | 120 |
-| ROLL 外环 | 横滚角 → X 角速度目标 | 2.5 / 0 / 0.3 | 5000 | 120 |
-| YAW 外环 | 航向角误差 → Z 角速度目标 | 0.5 / 0 / 0.5 | 5000 | 120 |
-| PITCH 内环 | Y 角速度误差 → 俯仰混控量 | 1.5 / 0.5 / 0.18 | 500 | 500 |
-| ROLL 内环 | X 角速度误差 → 横滚混控量 | 1.5 / 0.5 / 0.18 | 500 | 500 |
-| YAW 内环 | Z 角速度误差 → 偏航混控量 | 0.5 / 0.5 / 0 | 500 | 500 |
+| `PITCH` 外环 | 俯仰角 → Y 角速度目标 | 2.5 / 0 / 0.3 | 5000 | 120 |
+| `ROLL` 外环 | 横滚角 → X 角速度目标 | 2.5 / 0 / 0.3 | 5000 | 120 |
+| `YAW` 外环 | 航向角误差 → Z 角速度目标 | 0.5 / 0 / 0.5 | 5000 | 120 |
+| `PITCH` 内环 | Y 角速度误差 → 俯仰混控量 | 1.5 / 0.5 / 0.18 | 500 | 500 |
+| `ROLL` 内环 | X 角速度误差 → 横滚混控量 | 1.5 / 0.5 / 0.18 | 500 | 500 |
+| `YAW` 内环 | Z 角速度误差 → 偏航混控量 | 0.5 / 0.5 / 0 | 500 | 500 |
 | 定高 | 进入定高时的补偿气压 → 公共混控量 | 0.3 / 0 / 0.5 | 5000 | 初始化未设专用值 |
 
 积分和输出字段取自 [PID 初始化](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/application/application_flight.c)。任务只在 `NORMAL` 或 `FIX_HEIGHT` 且油门至少 50 时推进姿态 PID；油门低于 50 时最终四路输出清零。解锁进入正常状态以及故障回空闲时重置 PID，低油门仅阻止该循环推进姿态环。定高按压力目标工作，首次 `dt` 取 6 ms，后续按 tick 差换成秒并约束到 5–50 ms。
@@ -252,23 +252,23 @@ flowchart LR
 
 | X 布局位置 | PWM | 限幅前表达式 |
 | --- | --- | --- |
-| 左前 LT | TIM2 CH3 / PA2 | `T + P - R + Y + H` |
-| 右前 RT | TIM2 CH2 / PA1 | `T + P + R - Y + H` |
-| 左后 LD | TIM2 CH4 / PA3 | `T - P - R - Y + H` |
-| 右后 RD | TIM2 CH1 / PA0 | `T - P + R + Y + H` |
+| 左前 LT | `TIM2` `CH3` / `PA2` | `T + P - R + Y + H` |
+| 右前 RT | `TIM2` `CH2` / `PA1` | `T + P + R - Y + H` |
+| 左后 LD | `TIM2` `CH4` / `PA3` | `T - P - R - Y + H` |
+| 右后 RD | `TIM2` `CH1` / `PA0` | `T - P + R + Y + H` |
 
-> [!WARNING]
-> 需实板/仪器验证边界。`APP_FLIGHT_MOTOR_MAX_SPEED=1000` 对应比较量上限。偏航取反依据当前装向调试记录，观察时先拆桨校对通道、方向和 PWM，再解释机体的姿态响应。
+> [!WARNING] 电机通道与混控验证
+> `APP_FLIGHT_MOTOR_MAX_SPEED=1000` 对应比较量上限。偏航取反依据当前装向调试记录，观察时先拆桨校对通道、方向和 PWM，再解释机体的姿态响应。
 
 ### 17 B 射频帧及失联状态
 
 | 字节 | 控制帧含义 | 飞控回包含义 |
 | --- | --- | --- |
 | 0–2 | ASCII `hyf` | 字节 0 为 `FAIL` 位，1–2 为俯仰角 |
-| 3–6 | 两个大端 uint16，油门、偏航 | 两个大端 int16，横滚、偏航 |
-| 7–10 | 两个大端 uint16，俯仰、横滚 | 当前回包未填入其他业务字段 |
+| 3–6 | 两个大端 `uint16`，油门、偏航 | 两个大端 `int16`，横滚、偏航 |
+| 7–10 | 两个大端 `uint16`，俯仰、横滚 | 当前回包未填入其他业务字段 |
 | 11–12 | 关机翻转命令、定高命令 | 同上 |
-| 13–16 | 前 13 B 的简单字节和，大端 uint32 | 回包路径无对应应用层求和 |
+| 13–16 | 前 13 B 的简单字节和，大端 `uint32` | 回包路径无对应应用层求和 |
 
 姿态回包按度乘 100 后取整。摇杆以 500 为中心，`STICK_DEADZONE=15`；死区和杆量到角度的变换在飞控端。飞控在底层收包成功后尝试回包，随后才判控制帧帧头和求和。遥控端发包成功后最多等 10 ms；飞控以连续 8 次收帧失败触发 `REMOTE_DISCONNECTED` 与 `FAIL`。其墙钟延迟取决于任务、射频重试和轮询开销。定高命令在正常与定高间切换，故障路径回 `IDLE` 并重置积分。
 
@@ -276,11 +276,11 @@ flowchart LR
 
 连接从断开转为连接时调用 `my_mpu6050_zero_offset`，此处存在阻塞校准。`IDLE` 时三轴陀螺原始值绝对值均小于 50 才累计静止计数，达到 250 拍后，按 100 个样本求均值并调整零点。按名义 2 ms 计算，250 拍约 500 ms，100 样本约 200 ms，实测还受调度和 I2C 耗时影响。
 
-> [!TIP]
-> 历史 README / 调参记录。[调参表](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/README.md)记录了前漂方向、俯仰区间二分和横滚正负值对照。每次实验只改一个配平轴，并记录对应固件与漂移方向。
+> [!TIP] 历史配平实验记录
+> [调参表](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/README.md)记录了前漂方向、俯仰区间二分和横滚正负值对照。每次实验只改一个配平轴，并记录对应固件与漂移方向。
 
-> [!WARNING]
-> 固定提交的 [实际配平宏](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/application/application_flight.h) 是 PITCH `2.75f`、ROLL `0.0f`。README 的 `3.0f` 源码描述和 `−7.0°` 试飞记录均为历史值。内环积分限幅以源码的 500 为准。
+> [!WARNING] 当前配平参数
+> 固定提交的 [实际配平宏](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/application/application_flight.h) 是 `PITCH` `2.75f`、`ROLL` `0.0f`。README 的 `3.0f` 源码描述和 −7.0 ° 试飞记录均为历史值。内环积分限幅以源码的 500 为准。
 
 ## 源码入口与核心调用链
 
@@ -292,9 +292,9 @@ flowchart LR
 
 | 验证层级 | 入口及检查点 |
 | --- | --- |
-| 飞控构建 | [flight_hal.uvprojx](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/flight_hal.uvprojx)，确认 I2C1、TIM2 和 SPI2 初始化均进入目标 |
-| 遥控构建 | [filght_remote_hal.uvprojx](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_remote_hal/MDK-ARM/filght_remote_hal.uvprojx)，保留工程文件实际拼写 |
-| 主机单测 | [test_application_flight.c](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/tests/test_application_flight.c)，检查 IMU/电机初始化次序、参数、独立通道、重复初始化和多余调用 |
+| 飞控构建 | [`flight_hal.uvprojx`](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/flight_hal.uvprojx)，确认 `I2C1`、`TIM2` 和 `SPI2` 初始化均进入目标 |
+| 遥控构建 | [`filght_remote_hal.uvprojx`](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_remote_hal/MDK-ARM/filght_remote_hal.uvprojx)，保留工程文件实际拼写 |
+| 主机单测 | [`test_application_flight.c`](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/tests/test_application_flight.c)，检查 IMU/电机初始化次序、参数、独立通道、重复初始化和多余调用 |
 | 台架 | 同步记录飞行任务间隔、统计 I2C 超时和射频重试，核对输出范围与失联响应 |
 | 实机 | 固定以上版本与配平值，记录漂移、定高偏差及可重复性 |
 
@@ -315,8 +315,8 @@ flowchart LR
 
 `01_freertos_template.uvprojx`、Cortex-M3 启动汇编、RTE 头文件与旧构建产物组成公开快照。它可以用来审计 Keil 如何组织一个 CMSIS-RTOS2 目标，运行任务的业务定义需要从对应版本的工程源目录补齐。
 
-> [!NOTE]
-> 固定提交源码核对事实。对 `88e3c2fa9133c614d937a5e172fbd0aabd3204b8` 的 [Keil XML](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/01_freertos_template.uvprojx) 解析全部分组，并按该文件所在目录检查依赖文件是否存在。产物中的文件名只作为历史线索。
+> [!NOTE] 工程清单的审计基线
+> 对 `88e3c2fa9133c614d937a5e172fbd0aabd3204b8` 的 [Keil XML](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/01_freertos_template.uvprojx) 解析全部分组，并按该文件所在目录检查依赖文件是否存在。产物中的文件名只作为历史线索。
 
 ## 硬件资源与外设映射
 
@@ -328,7 +328,7 @@ flowchart LR
 | 板级功能线索 | DshanMCU-F103 分组声明 OLED、MPU6050、LCD、蜂鸣器、按键等 |
 | 引脚与时钟 | 需取得实际 `Core` 和 BSP 定义后，从初始化配置读取 |
 
-`RTE/_01_freertos_template/RTE_Components.h` 将 `CMSIS_device_header` 指向 `stm32f10x.h`。该 RTE 头与 HAL 设备宏分别来自不同层的配置。异机补工程时同时核查器件包和 ST CMSIS 头的选择。[RTE_Components.h](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/RTE/_01_freertos_template/RTE_Components.h)
+`RTE/_01_freertos_template/RTE_Components.h` 将 `CMSIS_device_header` 指向 `stm32f10x.h`。该 RTE 头与 HAL 设备宏分别来自不同层的配置。异机补工程时同时核查器件包和 ST CMSIS 头的选择。[`RTE_Components.h`](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/RTE/_01_freertos_template/RTE_Components.h)
 
 ## 架构与执行机制
 
@@ -363,7 +363,7 @@ flowchart LR
 | `Reset_Handler` | `BLX` 调 `SystemInit`，随后 `BX` 转 `__main` |
 | C 库内存接口 | 按汇编条件汇出 MicroLIB 所需符号或 `__user_initial_stackheap` |
 
-C 运行时保留区与 FreeRTOS `heap_4` 的分配区域由不同定义决定。工程声明 `heap_4.c`，实际 RTOS 堆大小、任务栈余量及 tick 和中断配置都需要 `FreeRTOSConfig.h` 与应用源码。[startup_stm32f103xb.s](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/startup_stm32f103xb.s)
+C 运行时保留区与 FreeRTOS `heap_4` 的分配区域由不同定义决定。工程声明 `heap_4.c`，实际 RTOS 堆大小、任务栈余量及 tick 和中断配置都需要 `FreeRTOSConfig.h` 与应用源码。[`startup_stm32f103xb.s`](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/startup_stm32f103xb.s)
 
 ## 源码入口与核心调用链
 
@@ -376,23 +376,23 @@ C 运行时保留区与 FreeRTOS `heap_4` 的分配区域由不同定义决定�
 | `Middlewares/FreeRTOS` | 10 项，7 个内核源文件及 `cmsis_os2.c`、`heap_4.c`、ARM_CM3 `port.c` | `../Middlewares/Third_Party/FreeRTOS/Source` 引用均缺失 |
 | `Drivers/DshanMCU-F103` | 21 项，板载和外接器件驱动 | `../Drivers/DshanMCU-F103` 引用均缺失 |
 | `nwatch` | 6 项，`draw.c`、`game1.c`、`game2.c`、`resources.c`、`beep.c/.h` | `../nwatch` 引用均缺失 |
-| `::CMSIS` | Keil 组件分组，无 FilePath | RTE 头随仓，组件依设备包解析 |
+| `::CMSIS` | Keil 组件分组，无 `FilePath` | RTE 头随仓，组件依设备包解析 |
 
 存有同名 `.o`、`.d` 或 AXF 的子目录是构建输出。反查 `.uvprojx` 可以确认期望的源路径和组别，补工程时应核对文件实际内容和版本。
 
 ## 构建方式与验证边界
 
-> [!TIP]
-> 历史 README / 产物。[README.md](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/README.md) 是模板式简介，公开树还保留旧 AXF、HEX、map 和链接散布文件。文件存在可确认曾保存构建产物，复现仍需对应源树。
+> [!TIP] 历史构建产物
+> [`README.md`](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/README.md) 是模板式简介，公开树还保留旧 AXF、HEX、map 和链接散布文件。文件存在可确认曾保存构建产物，复现仍需对应源树。
 
 1. 按工程根目录层级恢复 `Core/Inc` 与 `Core/Src`，包含应用入口、FreeRTOS 配置、异常桥接和厂商初始化。
 2. 恢复匹配版本的 STM32F1 HAL、CMSIS、FreeRTOS、CMSIS-RTOS2、RVDS Cortex-M3 port 与 `heap_4`。
 3. 补齐 DshanMCU-F103 板级驱动及 `nwatch` 代码和资源，保持 Keil 文件分组中的相对路径或相应调整工程组织。
 4. 在安装所需器件包及 AC5 的环境打开目标并全量重建，核对 map 的 Flash/RAM 布局、`SystemInit` 和异常处理符号的提供者。
-5. 进调度器前后记录系统时钟、栈和第一次任务切换，逐一确认 SysTick、PendSV、SVC 对应最终链接符号。
+5. 进调度器前后记录系统时钟、栈和第一次任务切换，逐一确认 `SysTick`、`PendSV`、`SVC` 对应最终链接符号。
 
-> [!WARNING]
-> 需实板/仪器验证边界。快照允许审计工程声明与启动汇编。任务数、优先级、周期、内存余量及板级功能要等完整源树和重新构建后核对。
+> [!WARNING] 完整构建与实板验证
+> 快照允许审计工程声明与启动汇编。任务数、优先级、周期、内存余量及板级功能要等完整源树和重新构建后核对。
 
 ## 相关知识
 
@@ -413,8 +413,8 @@ C 运行时保留区与 FreeRTOS `heap_4` 的分配区域由不同定义决定�
 
 野火霸天虎 V2（STM32F407ZGT6）在 FreeRTOS 下同时运行 lwIP、Goodix 触摸画板和状态灯。Keil 目标、BSP 与 lwIP 移植目录共同确定当前运行模式，LCD、外部存储与网口各保留独立驱动入口。
 
-> [!NOTE]
-> 固定提交源码核对事实。以 `eb966f2289c240fd18d5b670aea3057d5f73e3f8` 中的 `main.c`、`app_task.c` 和 `lwipopts.h` 为准。`NO_SYS=0`，网络输入经 `tcpip_input` 提交。
+> [!NOTE] lwIP 移植的源码基线
+> 以 `eb966f2289c240fd18d5b670aea3057d5f73e3f8` 中的 `main.c`、`app_task.c` 和 `lwipopts.h` 为准。`NO_SYS=0`，网络输入经 `tcpip_input` 提交。
 
 | 路径 | 工程角色 |
 | --- | --- |
@@ -428,15 +428,15 @@ C 运行时保留区与 FreeRTOS `heap_4` 的分配区域由不同定义决定�
 
 | 设备 | 接口与实际配置 | 检查点 |
 | --- | --- | --- |
-| STM32F407ZGT6 | HSE 25 MHz、SYSCLK 168 MHz | 以时钟树和编译目标为准 |
-| LAN8720A 时钟与复位 | PA1 接 REFCLKO 50 MHz；nRST 接板级 NRST | MAC 初始化等待 50 ms 后，PHY 驱动走 MDIO 软件复位 |
-| LAN8720A 管理接口 | PA2 MDIO、PC1 MDC | 参考地址常量 `0`；初始化扫描 PHY 地址并按 ID 匹配 |
-| RMII RX | PA7 CRS_DV，PC4 RXD0，PC5 RXD1 | ETH AF11，DMA 从内置 SRAM 获取缓冲 |
-| RMII TX | PG11 TX_EN、PG13 TXD0、PG14 TXD1 | ETH AF11，MAC 速率/双工按 PHY 状态重配 |
-| NT35510 | FSMC NE3，命令 `0x68000000` / 数据 `0x68000002` | 独立于 SRAM 片选时序 |
-| Goodix GT5xx | 软件 I2C PD7 SCL、PD3 SDA；PD6 RST、PG8 INT | 复位时 INT 低选择 `0x5D`，总线接口传 `0xBA` |
-| 外部 SRAM | FSMC NE4 / PG12，`0x6C000000`，1 MiB | 文件保留 `bsp_sdram` 名称，实际使用静态存储控制器 |
-| W25Q128 | SPI1 PB3/4/5，PG6 CS | BSP 提供字库路径，`0x4E6000` 为中文资源起点 |
+| STM32F407ZGT6 | HSE 25 MHz、`SYSCLK` 168 MHz | 以时钟树和编译目标为准 |
+| LAN8720A 时钟与复位 | `PA1` 接 `REFCLKO` 50 MHz；`nRST` 接板级 `NRST` | MAC 初始化等待 50 ms 后，PHY 驱动走 MDIO 软件复位 |
+| LAN8720A 管理接口 | `PA2` MDIO、`PC1` MDC | 参考地址常量 `0`；初始化扫描 PHY 地址并按 ID 匹配 |
+| RMII RX | `PA7` `CRS_DV`，`PC4` `RXD0`，`PC5` `RXD1` | ETH `AF11`，DMA 从内置 SRAM 获取缓冲 |
+| RMII TX | `PG11` `TX_EN`、`PG13` `TXD0`、`PG14` `TXD1` | ETH `AF11`，MAC 速率/双工按 PHY 状态重配 |
+| NT35510 | FSMC `NE3`，命令 `0x68000000` / 数据 `0x68000002` | 独立于 SRAM 片选时序 |
+| Goodix GT5xx | 软件 I2C `PD7` SCL、`PD3` SDA；`PD6` RST、`PG8` INT | 复位时 INT 低选择 `0x5D`，总线接口传 `0xBA` |
+| 外部 SRAM | FSMC `NE4` / `PG12`，`0x6C000000`，1 MiB | 文件保留 `bsp_sdram` 名称，实际使用静态存储控制器 |
+| W25Q128 | `SPI1` `PB3`–`PB5`，`PG6` CS | BSP 提供字库路径，`0x4E6000` 为中文资源起点 |
 
 固定配置入口 [ETH 引脚](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/ETHERNET/ethernet.h)、[PHY 识别和协商](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/ETHERNET/ethernet_chip.c)、[触摸引脚](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/touch/bsp_i2c_touch.h)、[SRAM 映射](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/sdram/bsp_sdram.h)。
 
@@ -446,7 +446,7 @@ C 运行时保留区与 FreeRTOS `heap_4` 的分配区域由不同定义决定�
 | --- | --- | --- | --- |
 | `start_task` | 4 / 512 | 网络初始化失败最多尝试 3 次，间隔 500 ms | 创建业务任务后自删除 |
 | `TCP/IP` | 5 / 1024 | mailbox | lwIP 核心线程，执行输入和网络定时器 |
-| `eth_thread` | 6 / 512 | 等二值 RX 信号量 | 调 `HAL_ETH_ReadData`，将 pbuf 交给 `netif->input` |
+| `eth_thread` | 6 / 512 | 等二值 RX 信号量 | 调 `HAL_ETH_ReadData`，将 `pbuf` 交给 `netif->input` |
 | `eth_link` | 3 / 384 | 每轮后延时 100 ms | 读 PHY、设置 MAC 链路、触发 link callback |
 | `eth_dhcp` | 2 / 384 | 每轮后延时 250 ms | `LWIP_DHCP=1` 才创建，推进地址状态 |
 | `touch` | 2 / 512 | 每轮后延时 10 ms | GT5xx 采样并更新画板 |
@@ -475,14 +475,14 @@ flowchart TD
 | `NO_SYS` / `SYS_LIGHTWEIGHT_PROT` | 0 / 1 | OS 模式及轻量保护 |
 | `LWIP_DHCP` / `LWIP_NETCONN` / `LWIP_SOCKET` | 0 / 1 / 0 | 默认静态地址，启用 Netconn |
 | `MEM_SIZE` / `MEM_ALIGNMENT` | 16 KiB / 4 B | lwIP 堆 |
-| `MEMP_NUM_PBUF` / `PBUF_POOL_SIZE` / `PBUF_POOL_BUFSIZE` | 10 / 8 / 1524 B | lwIP 自己的 pbuf 头与数据池配置 |
+| `MEMP_NUM_PBUF` / `PBUF_POOL_SIZE` / `PBUF_POOL_BUFSIZE` | 10 / 8 / 1524 B | lwIP 自己的 `pbuf` 头与数据池配置 |
 | `MEMP_NUM_TCP_PCB` / `MEMP_NUM_UDP_PCB` | 10 / 6 | 连接控制块池 |
 | `TCPIP_MBOX_SIZE` / `MEMP_NUM_TCPIP_MSG_INPKT` | 8 / 8 | 核心邮箱深度与输入消息池 |
 | `ETH_RX_DESC_CNT` / `ETH_TX_DESC_CNT` | 4 / 4 | HAL ETH 头的描述符默认数量 |
 | `ETH_RX_BUFFER_CNT` / `ETH_RX_BUFFER_SIZE` | 10 / 1536 B | 驱动自定义 RX 池，独立于 lwIP 通用池 |
 | `configTOTAL_HEAP_SIZE` | 32 KiB | FreeRTOS `heap_4`，另计于 lwIP 堆 |
 
-描述符、RX 自定义池和每个 TX 描述符的独占缓冲须放在 ETH DMA 可达的内部 SRAM。`0x10000000` 起的 CCM 与外部 SRAM 各有不同的总线访问条件。TX 将 pbuf 链合并，再交 DMA；等待上限 20 ms 后仍通过描述符 OWN / `PacketAddress` 约束复用。RX 将 DMA 缓冲包装成 `pbuf_custom`，由引用释放回调归还自定义池，空池恢复时可重新唤醒 RX 处理。
+描述符、RX 自定义池和每个 TX 描述符的独占缓冲须放在 ETH DMA 可达的内部 SRAM。`0x10000000` 起的 CCM 与外部 SRAM 各有不同的总线访问条件。TX 将 `pbuf` 链合并，再交 DMA；等待上限 20 ms 后仍通过描述符 `OWN` / `PacketAddress` 约束复用。RX 将 DMA 缓冲包装成 `pbuf_custom`，由引用释放回调归还自定义池，空池恢复时可重新唤醒 RX 处理。
 
 ```mermaid
 flowchart LR
@@ -512,7 +512,7 @@ IP、TCP、UDP、ICMP 的软件校验生成/检查关闭，源码配置 MAC 校�
 
 ## 源码入口与核心调用链
 
-1. [main.c](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Core/Src/main.c) 初始化板级 SRAM、LCD、画板与触摸，移交 `App_Task_Create/Start`。
+1. [`main.c`](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Core/Src/main.c) 初始化板级 SRAM、LCD、画板与触摸，移交 `App_Task_Create/Start`。
 2. `app_start_task →` [lwip_comm_init](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwip_comm.c) `→ tcpip_init → netif_add`，以 `ethernetif_init` 注册驱动，以 `tcpip_input` 注册输入。
 3. [MAC 初始化](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/ETHERNET/ethernet.c)建描述符环，[PHY 寄存器](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/ETHERNET/ethernet_chip.h)定义 ID 和协商结果，[以太网适配](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/ethernetif.c)注册 RX/TX 回调。
 4. [GT5xx](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/touch/gt5xx.c)通过 [软件 I2C](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/touch/bsp_i2c_touch.c)取触点，由 [画板](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/touch/palette.c)绘制到 [NT35510](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/lcd/bsp_nt35510_lcd.c)。
@@ -520,13 +520,13 @@ IP、TCP、UDP、ICMP 的软件校验生成/检查关闭，源码配置 MAC 校�
 
 ## 构建方式与验证边界
 
-Keil 入口为 [lwip.uvprojx](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/MDK-ARM/lwip.uvprojx)。复核编译清单及链接 map 中的 DMA 对象地址，确认 `lwipopts.h` 与实际编译宏一致。应用侧用 `[ETH]` 和 `[NET]` 日志分辨初始化、链路及地址状态，再对照 PHY 和抓包。
+Keil 入口为 [`lwip.uvprojx`](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/MDK-ARM/lwip.uvprojx)。复核编译清单及链接 map 中的 DMA 对象地址，确认 `lwipopts.h` 与实际编译宏一致。应用侧用 `[ETH]` 和 `[NET]` 日志分辨初始化、链路及地址状态，再对照 PHY 和抓包。
 
-> [!TIP]
-> 历史 README / 移植记录。[BSP 与旧联调说明](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/README-lwIP.md)记录接线、内存和早期启动方式。当前入口、调用上下文及重试流程以本页列出的代码为准。
+> [!TIP] 早期 BSP 移植记录
+> [BSP 与旧联调说明](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/README-lwIP.md)记录接线、内存和早期启动方式。当前入口、调用上下文及重试流程以本页列出的代码为准。
 
-> [!WARNING]
-> 版本演进与实板边界。顶层 [README](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/README.md) 保留旧裸机阶段背景，当前为 FreeRTOS + `NO_SYS=0`。网口指示灯、RMII 50 MHz、ARP 响应、DHCP 租约和触摸并发负载都需台架独立确认。
+> [!WARNING] 版本演进与网口实测
+> 顶层 [README](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/README.md) 保留旧裸机阶段背景，当前为 FreeRTOS + `NO_SYS=0`。网口指示灯、RMII 50 MHz、ARP 响应、DHCP 租约和触摸并发负载都需台架独立确认。
 
 ## 相关知识
 
@@ -546,31 +546,31 @@ Keil 入口为 [lwip.uvprojx](https://github.com/Mangta517/Iwip/blob/eb966f2289c
 
 MSPM0G3507 用裸机主循环消费 K230 钢珠坐标，运行平衡 PID，并经 Emm_V5 串口控制摆杆。K230 脚本负责视觉识别及像素编码。源码还保留直流电机、循迹、云台和调参等模块，是否参与默认路径由入口和编译条件决定。
 
-> [!NOTE]
-> 固定提交源码核对事实。本页以 `d0232ccc9a7e31693e8fa0d1f234f242cd282856` 为基线。入口文件实际拼写为 `mian.c`。
+> [!NOTE] 平衡工程的源码基线
+> 本页以 `d0232ccc9a7e31693e8fa0d1f234f242cd282856` 为基线。入口文件实际拼写为 `mian.c`。
 
 | 构建或执行入口 | 任务 |
 | --- | --- |
 | [CCS 工程描述](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/.ccsproject)、[编译配置](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/.cproject) | CCS / TI Arm Clang，Cortex-M0+ 工程 |
 | [SysConfig](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/main.syscfg) | MSPM0G3507 LQFP-64(PM)，SDK 2.05.01.00，SysConfig 1.24.0 |
-| [mian.c](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/mian.c) | `SYSCFG_DL_init`、毫秒时基和各应用模块 |
+| [`mian.c`](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/mian.c) | `SYSCFG_DL_init`、毫秒时基和各应用模块 |
 | [K230 视觉入口](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/k230_ball_balance.py) | K230 侧检测区域过滤、坐标归一化与串口发送 |
 
 ## 硬件资源与外设映射
 
 | 配置实例 | MCU 引脚 / 参数 | 用途 |
 | --- | --- | --- |
-| `UART_0` | UART0 TX PA10 / RX PA11，115200 bit/s | K230 收发，视觉输入组帧 |
-| `UART_2` | UART2 TX PB15 / RX PB16，SysConfig 115200 bit/s，入口改为 19200 | JY901S 初始化，默认轮询停用 |
-| `UART_1` | UART1 TX PA8 / RX PA9，115200 bit/s、FIFO | Emm_V5 TTL，位置命令与回执 |
-| UART3 | PB12 TX / PB13 RX，115200 bit/s | 由 ~bsp_uart2_proto.c~ 手工配置，供无线调参 | 
-| SysTick | `CPUCLK_FREQ / 1000` | 毫秒 tick，主循环消费及看门狗检查 |
-| PA12 | 上拉输入，按下低电平 | 重新武装、发送 K230 HOME 命令 |
-| PA13 | 上拉输入，按下低电平 | 解除武装，进入一次性停机分支 |
-| `I2C1` / `I2C0` | PB2 SCL / PB3 SDA；PA1 SCL / PA0 SDA | 板级 OLED 及其他 I2C 设备配置 |
-| PWM / 电机 GPIO | PWM 引脚 PB17、PA16、PA26；另有方向及循迹 GPIO | 保留的轮式电机及脉冲测试资源 |
+| `UART_0` | `UART0` TX `PA10` / RX `PA11`，115200 bit/s | K230 收发，视觉输入组帧 |
+| `UART_2` | `UART2` TX `PB15` / RX `PB16`，SysConfig 115200 bit/s，入口改为 19200 bit/s | JY901S 初始化，默认轮询停用 |
+| `UART_1` | `UART1` TX `PA8` / RX `PA9`，115200 bit/s、FIFO | Emm_V5 TTL，位置命令与回执 |
+| `UART3` | `PB12` TX / `PB13` RX，115200 bit/s | 由 `bsp_uart2_proto.c` 手工配置，供无线调参 |
+| `SysTick` | `CPUCLK_FREQ / 1000` | 毫秒 tick，主循环消费及看门狗检查 |
+| `PA12` | 上拉输入，按下低电平 | 重新武装、发送 K230 `HOME` 命令 |
+| `PA13` | 上拉输入，按下低电平 | 解除武装，进入一次性停机分支 |
+| `I2C1` / `I2C0` | `PB2` SCL / `PB3` SDA；`PA1` SCL / `PA0` SDA | 板级 OLED 及其他 I2C 设备配置 |
+| PWM / 电机 GPIO | PWM 引脚 `PB17`、`PA16`、`PA26`；另有方向及循迹 GPIO | 保留的轮式电机及脉冲测试资源 |
 
-配置表使用 SysConfig 的实例名称与建议映射。部分注释写 UART1 或 UART3，应结合驱动实际引用的 `UART_*_INST` 解读。[毫秒时基](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/MSPM0/clock.c) [步进电机串口驱动](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/emmv5.c)
+配置表使用 SysConfig 的实例名称与建议映射。部分注释写 `UART1` 或 `UART3`，应结合驱动实际引用的 `UART_*_INST` 解读。[毫秒时基](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/MSPM0/clock.c) [步进电机串口驱动](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/emmv5.c)
 
 ## 架构与执行机制
 
@@ -578,10 +578,10 @@ MSPM0G3507 用裸机主循环消费 K230 钢珠坐标，运行平衡 PID，并�
 | --- | --- | --- |
 | `STEPPER_SPIN_TEST` | `0` | 默认走 K230 平衡分支，脉冲单测分支保留 |
 | `EMMV5_SPIN_TEST` | `0` | 位置往返测试未启用 |
-| `g_system_armed` | 全局初值 `false`，初始化结束时设为 `true` | 上电后有数据即可跟踪，PA12 可重武装，PA13 可取消 |
+| `g_system_armed` | 全局初值 `false`，初始化结束时设为 `true` | 上电后有数据即可跟踪，`PA12` 可重武装，`PA13` 可取消 |
 | `app_stepper_track` | 默认跟踪路径 | 机械限幅、位置命令及回执 |
 | `app_line_follow`、`track` | 保留初始化及循迹代码 | 循迹业务分支受 `#if 0` 控制 |
-| `app_gimbal_track`、`lock` | 保留云台/锁相关模块 | 当前 main 的平衡环不通过该路径 |
+| `app_gimbal_track`、`lock` | 保留云台/锁相关模块 | 当前 `main` 的平衡环不通过该路径 |
 | `pid_tuning`、`bsp_uart2_proto` | 主循环消费调参命令 | 参数用于本地 PID，运行时可改 |
 | `stall_protect` | 轮式编码电机逻辑保留 | 初始化不代表步进跟踪依赖该模块 |
 | `common_filter` | 通用滤波模块 | 平衡路径的球速低通可从 `mian.c` 直接定位 |
@@ -594,7 +594,7 @@ MSPM0G3507 用裸机主循环消费 K230 钢珠坐标，运行平衡 PID，并�
 
 | 线上输入 | 解析结果 | 上层交接 |
 | --- | --- | --- |
-| `$400,240#` | ASCII 十进制 `cx,cy`；左上为原点，x 右正，y 下正 | `fresh=1, valid=1`；有效范围 x=0–799、y=0–479 |
+| `$400,240#` | ASCII 十进制 `cx,cy`；左上为原点，`x` 向右为正，`y` 向下为正 | `fresh=1, valid=1`；有效范围为 `x` 取 0–799、`y` 取 0–479 |
 | `$-1,-1#` | 正常发布无球状态 | `fresh=1, valid=0`；武装时同样刷新最近帧时间 |
 | `$400,240,100#` | 兼容可选第三字段，范围 ±90000 mdeg | 保留传入角记录，默认控制用 `cx` 重算目标 |
 | 分隔或范围错误 | 丢帧并累加解析错误 | 无新数据提交，旧帧的有效位不等于新鲜 |
@@ -620,19 +620,19 @@ flowchart LR
 | 环节 | 固定提交参数或算法 | 单位 |
 | --- | --- | --- |
 | 误差 | `cx - 400`，显示 `cy` 仅供观测 | px |
-| 球速 | 差分要求 `0 < dt < 1000 ms`，限幅 ±2，低通系数 0.15 | px/ms |
+| 球速 | 差分时间 `dt` 大于 0 ms 且小于 1000 ms，限幅 ±2，低通系数 0.15 | px/ms |
 | 增益调度 | 50 px 内从近区到远区线性插值，近区 `Kp=0.70,Kd=0.15`；远区 `8.5,0.60`，`Ki=0.8` 来自 `PIDTune_Init` | 本地 PID |
-| 前馈 | `vx_filtered * 8 ms * Kp_eff` | mdeg 控制量 |
-| 控制输出 | 调参默认 ±3500 mdeg，60% 以上压缩，误差 8–50 px 可施加 500 mdeg 破静摩擦量；每有效帧最大步长 550 mdeg | mdeg |
+| 前馈 | `vx_filtered` × 8 ms × `Kp_eff` | mdeg 控制量 |
+| 控制输出 | 调参默认 ±3500 mdeg，60 % 以上压缩，误差 8–50 px 可施加 500 mdeg 破静摩擦量；每有效帧最大步长 550 mdeg | mdeg |
 | 跟踪输出 | 摆杆 ±10000 mdeg，换算系数 `6400 / (360 × 1000)`；脉冲再限制 ±200，位置命令间隔至少 10 ms | 摆杆 mdeg / 电机轴脉冲 |
 
 PID 先用原始坐标，前馈随后叠加。`mian.c` 顶部的部分宏在有效分支再次定义，分析近期输出时应读使用位置的最终值。`StepperTrack` 接收候选角，把电机已命令的位置、启动读回的实际零点和实时回复分开保存。[启动参数](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/application/pid_tuning.c) [PID 实现](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/common/pid.c) [跟踪实现](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/application/app_stepper_track.c)
 
 | Emm_V5 帧 | 主要字段 | 固件处理 |
 | --- | --- | --- |
-| `0xFD` 位置，13 B | 地址、命令、方向、速度 BE16、加速度、脉冲 BE32、绝对位 `1`、同步位、`0x6B` | 地址默认为 1 |
+| `0xFD` 位置，13 B | 地址、命令、方向、速度 `BE16`、加速度、脉冲 `BE32`、绝对位 `1`、同步位、`0x6B` | 地址默认为 1 |
 | 短回执，4 B | 地址、功能、状态、`0x6B` | `02` 接受，`9F` 到位，`E2/EE` 锁存错误 |
-| `0x36` 位置读取应答，8 B | 地址、功能、符号、BE32、`0x6B` | 按已知长度接收；Emm 回读角度按 `360000 / 65536` 换算为 mdeg |
+| `0x36` 位置读取应答，8 B | 地址、功能、符号、`BE32`、`0x6B` | 按已知长度接收；Emm 回读角度按 `360000 / 65536` 换算为 mdeg |
 | `0xFE` 停止，5 B | 地址、`FE 98`、同步位、`6B` | 未武装或驱动故障路径使用 |
 
 ### 丢球、超时和保护状态
@@ -657,12 +657,12 @@ flowchart LR
 | --- | --- | --- |
 | 持续合法无球帧 | 可按最后速度短预测，最长 160 ms；第 8 个连续无效帧清 PID 与历史，置无效零目标 | 看无球帧计数，下一有效帧重新计算 |
 | 150 ms 无成功解析并消费的新帧 | `g_k230_timeout=true`，调用 `StepperTrack_SetTarget(0,false)` 并继续跟踪更新 | 下一协议帧清超时；路径产生回中目标 |
-| PA13 解除武装 | 丢弃新目标，调用一次 `StepperTrack_EmergencyStop` | PA12 重武装；记录实际 `FE` 帧 |
-| Emm `E2/EE` | 跟踪层锁存 fault、清目标并发送停止 | 由显式重武装重新使能，不能只看视觉帧 |
-| 编码直流电机堵转 | `common/stall_protect.c` 按占空比与编码脉冲判定，常量为 10%、2 s、冷却 3 s | 与 Emm 回执故障属于不同执行器路径 |
+| `PA13` 解除武装 | 丢弃新目标，调用一次 `StepperTrack_EmergencyStop` | `PA12` 重武装；记录实际 `FE` 帧 |
+| Emm `E2/EE` | 跟踪层锁存 `fault`、清目标并发送停止 | 由显式重武装重新使能，不能只看视觉帧 |
+| 编码直流电机堵转 | `common/stall_protect.c` 按占空比与编码脉冲判定，常量为 10 %、2 s、冷却 3 s | 与 Emm 回执故障属于不同执行器路径 |
 
-> [!TIP]
-> 历史 README / 调参记录。头部注释描述先按键开始以及较早的 3 帧丢球门限。当前入口上电初始化后自动武装，实际丢球分支按 8 帧以及独立的时间限制执行。
+> [!TIP] 历史武装与丢球门限
+> 头部注释描述先按键开始以及较早的 3 帧丢球门限。当前入口上电初始化后自动武装，实际丢球分支按 8 帧以及独立的时间限制执行。
 
 ## 源码入口与核心调用链
 
@@ -675,8 +675,8 @@ flowchart LR
 
 CCS 导入目标后配置相匹配的 SDK 和 SysConfig，生成 `ti_msp_dl_config.c/.h`。固定提交静态审计看到 SysConfig 与 XDS110 目标配置，生成文件和可烧录文件需在构建后获取。K230 脚本、模型和显示尺寸需在视觉设备侧配套部署。
 
-> [!WARNING]
-> 需实板/仪器验证边界。分别记录 K230 发帧、MSPM0 目标毫度、UART1 位置命令与回执，并核对电机固件、绝对坐标零点、限位和方向。测试无球、断链和 PA13 时分别记录回中、停止和锁存状态。
+> [!WARNING] 回中与停机的实板验证
+> 分别记录 K230 发帧、MSPM0 目标毫度、`UART1` 位置命令与回执，并核对电机固件、绝对坐标零点、限位和方向。测试无球、断链和 `PA13` 时分别记录回中、停止和锁存状态。
 
 ## 相关知识
 
@@ -695,25 +695,25 @@ CCS 导入目标后配置相匹配的 SDK 和 SysConfig，生成 `ti_msp_dl_conf
 
 STM32F411CEU6 上同时运行 LVGL 界面、环境与运动传感器、RTC、蓝牙和电源管理。设备端通过 KT6368A 输出诊断帧，手机调试器解析帧并导出 CSV。固件可分析从供电到首帧、采样和后台模块就绪的事件序列。
 
-> [!NOTE]
-> 固定提交源码核对事实。本页以 `fbd89280178acf4a51e80f919e7f96468b4967f0` 为基线。启动字段取自实际 `app_diag.h`，屏幕 DMA 完成和可见首帧另外测量。
+> [!NOTE] 启动诊断的源码基线
+> 本页以 `fbd89280178acf4a51e80f919e7f96468b4967f0` 为基线。启动字段取自实际 `app_diag.h`，屏幕 DMA 完成和可见首帧另外测量。
 
 ## 硬件资源与外设映射
 
 | 设备 | MCU 资源 | 配置与职责 |
 | --- | --- | --- |
-| ST7789 LCD | SPI1 PB3 SCK / PB5 MOSI；DMA2 Stream2 Channel 2 | PB7 复位、PB8 片选、PB9 DC；PB0 TIM3 CH3 背光；240×280 |
-| CST816 触摸 | PB6 SCL / PB4 SDA，PA15 复位 | 探测 7 位地址 `0x15` 与 `0x14`；LVGL 输入路径 |
-| MPU6050 | SENSOR 软件 I2C，PB14 SCL / PB13 SDA；PB12 EXTI | `0x68`；±4 g、±1000 °/s，100 Hz 配置 |
-| LSM303DLHC 磁力计 | SENSOR I2C | `0x1E`；75 Hz 连续转换，读 DRDY 后取 X/Z/Y 原始数据 |
+| ST7789 LCD | `SPI1` `PB3` SCK / `PB5` MOSI；`DMA2` `Stream2` Channel 2 | `PB7` 复位、`PB8` 片选、`PB9` DC；`PB0` `TIM3` `CH3` 背光；240×280 |
+| CST816 触摸 | `PB6` SCL / `PB4` SDA，`PA15` 复位 | 探测 7 位地址 `0x15` 与 `0x14`；LVGL 输入路径 |
+| MPU6050 | SENSOR 软件 I2C，`PB14` SCL / `PB13` SDA；`PB12` EXTI | `0x68`；±4 g、±1000 °/s，100 Hz 配置 |
+| LSM303DLHC 磁力计 | SENSOR I2C | `0x1E`；75 Hz 连续转换，读 `DRDY` 后取 X/Z/Y 原始数据 |
 | SPL006 气压计 | SENSOR I2C | `0x76`；器件 1 Hz，任务每 250 ms 检查就绪 |
 | AHT21 温湿度 | SENSOR I2C | `0x38`；约 2 s 触发一轮，跨循环等待转换 |
-| EM7028 心率 | SENSOR I2C；PB15 照明控制 | `0x24`；开启心率后按 30 ms 软件下限读取 |
-| BL24C02 | 独立软件 I2C，PA12 SCL / PA11 SDA | `0x50`，256 B、16 B 页；保存两类校准数据 |
-| KT6368A | USART1 PA9 TX / PA10 RX，PA8 电源使能 | 115200 bit/s，UART RX 中断，启动配置与异步诊断发送 |
-| 电池 | ADC1 PA1 | 每 1000 ms 服务读数，启动阶段发布一次 |
-| RTC | LSE PC14 / PC15 | 由 LVGL 任务推进就绪和配置 |
-| 电源与按键 | PA3 自保持、PA4 WAKE、PA5 KEY_1 | 主入口尽早拉高 PA3 |
+| EM7028 心率 | SENSOR I2C；`PB15` 照明控制 | `0x24`；开启心率后按 30 ms 软件下限读取 |
+| BL24C02 | 独立软件 I2C，`PA12` SCL / `PA11` SDA | `0x50`，256 B、16 B 页；保存两类校准数据 |
+| KT6368A | `USART1` `PA9` TX / `PA10` RX，`PA8` 电源使能 | 115200 bit/s，UART RX 中断，启动配置与异步诊断发送 |
+| 电池 | `ADC1` `PA1` | 每 1000 ms 服务读数，启动阶段发布一次 |
+| RTC | LSE `PC14` / `PC15` | 由 LVGL 任务推进就绪和配置 |
+| 电源与按键 | `PA3` 自保持、`PA4` WAKE、`PA5` `KEY_1` | 主入口尽早拉高 `PA3` |
 
 复用和默认电平见 [CubeMX 配置](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/f411ceu6.ioc)、[引脚宏](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/Core/Inc/main.h)。三个软件 I2C 用途分别是触摸、SENSOR 和 EEPROM，抓波形时需先确认总线。
 
@@ -737,7 +737,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | `lvgl` | 3 / 1024 字 | 每轮服务后 `vTaskDelay` 5 ms | 独占 LVGL 与触摸，消费各应用快照，推进 RTC/蓝牙及诊断 |
 | `sensor` | 2 / 512 字 | `vTaskDelayUntil` 10 ms | 独占 SENSOR 总线，推进 IMU、磁校准、心率、环境及电池 |
-| 内核 IDLE | 由内核创建 | 可运行时 | 用于诊断 CPU 统计，任务创建表仍为上述两项应用任务 |
+| 内核 `IDLE` | 由内核创建 | 可运行时 | 用于诊断 CPU 统计，任务创建表仍为上述两项应用任务 |
 
 MPU 和磁力计随每拍服务，低频气压使用 25 拍计数。AHT21、心率和电池由各应用模块按毫秒计时。`App_IMU_Service` 生产 `app_imu` 快照，互斥保护结构体的短读写，采样、计算和慢速保存留在锁外。磁力计数据包含机体坐标场强、校准和参考状态。UI 经快照读取姿态、传感器值与有效位，蓝牙业务及诊断用各自缓冲。
 
@@ -772,7 +772,7 @@ sequenceDiagram
 
 | 记录 | 槽位与预留 | 实际记录格式 | 加载及更新 |
 | --- | --- | --- | --- |
-| MPU `MPU1` | `0x60` / `0x80`，各 32 B | 28 B，小端标识、序号、量程、六个 int16 零偏、CRC32 | 校验 CRC 与量程，恢复较新有效记录；写另一槽并读回 |
+| MPU `MPU1` | `0x60` / `0x80`，各 32 B | 28 B，小端标识、序号、量程、六个 `int16` 零偏、CRC32 | 校验 CRC 与量程，恢复较新有效记录；写另一槽并读回 |
 | 磁力计 `MAG1` | `0x00` / `0x30`，各 48 B | 36 B，小端标识、序号、三轴 `offset_uT`、三轴 `scale`、CRC32 | 校验系数及 CRC；写另一槽，完整读回确认 |
 | 余量 | `0xA0–0xFF` | 两种记录均不使用 | 避免与其他应用的 EEPROM 区域混用 |
 
@@ -780,7 +780,7 @@ MPU 恢复成功时发布 `MPU6050_CAL_RESTORED`，完成时间立即记录。�
 
 ### 16 个启动诊断字段
 
-以下顺序对应 `WDG1` type 4。名字均含 `APP_BOOT_` 前缀，时间为板端 `HAL_GetTick()` 毫秒。未写入时间和结果字段以 `0xFFFFFFFF` 初始化。
+以下顺序对应 `WDG1` 的 `type=4` 帧。名字均含 `APP_BOOT_` 前缀，时间为板端 `HAL_GetTick()` 毫秒。未写入时间和结果字段以 `0xFFFFFFFF` 初始化。
 
 | 索引 | 字段后缀 | 含义 |
 | --- | --- | --- |
@@ -793,7 +793,7 @@ MPU 恢复成功时发布 `MPU6050_CAL_RESTORED`，完成时间立即记录。�
 | 10–12 | `CAL_BEGIN_MS`, `CAL_END_MS`, `CAL_RESULT` | MPU 校准时间窗及结果 0/1/2 |
 | 13–15 | `CAL_STATE`, `CAL_FRAMES`, `CAL_STABLE_FRAMES` | 校准状态、累计帧数、静止计数 |
 
-裸字节帧结构是 4 B ASCII `WDG1`、type/id 各 1 B、序号 uint16、板端快照时间 uint32、N 个 uint32 字段、CRC16。多字节小端，CRC-16/CCITT-FALSE 覆盖头与数据。Type 1/2/3/4/5/6 的字段数为 14/10/16/16/4/16。Type 5 补充 MPU 保存阶段、错误、地址和耗时，type 6 补充校准判定。手机调试器走 SPP 读取，诊断每 100 ms 最多发一帧，异步发送结果与采样状态各自记录。[诊断枚举](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_diag.h) [采集和打包](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_diag.c) [诊断及 CSV](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/diagnostics.md)
+裸字节帧结构是 4 B ASCII `WDG1`、`type` / `id` 各 1 B、序号 `uint16`、板端快照时间 `uint32`、N 个 `uint32` 字段、CRC16。多字节小端，CRC-16/CCITT-FALSE 覆盖头与数据。`type` 取值为 1–6 时，字段数依次为 14/10/16/16/4/16。`type=5` 补充 MPU 保存阶段、错误、地址和耗时，`type=6` 补充校准判定。手机调试器走 SPP 读取，诊断每 100 ms 最多发一帧，异步发送结果与采样状态各自记录。[诊断枚举](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_diag.h) [采集和打包](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_diag.c) [诊断及 CSV](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/diagnostics.md)
 
 ### KT6368A 启动与字节流
 
@@ -803,28 +803,28 @@ MPU 恢复成功时发布 `MPU6050_CAL_RESTORED`，完成时间立即记录。�
 | `BOOT` | 由 tick 差观察 1200 ms 上电等待 |
 | `QUERY` / `REPLY` | `AT+TM`、`AT+T4`、`AT+T5` 查询，回复超时预算 500 ms |
 | `SAVE` | 需要改值时写名称、`AT+B401`、`AT+B501`，等待保存再重新上电确认 |
-| 正常收发 | USART1 RX 回调入 1024 B 环形缓冲，满时推进旧数据尾指针；任务侧消费并解析 |
+| 正常收发 | `USART1` RX 回调入 1024 B 环形缓冲，满时推进旧数据尾指针；任务侧消费并解析 |
 
-> [!TIP]
-> 历史 README / 调参记录。[蓝牙文档](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/bluetooth.md)保留 BLE-only 小节。此次基线查询并要求 BLE、SPP 开关均为 `01`。[启动优化记录](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/startup-optimization.md)的时序数据应随当次固件和板卡复测。
+> [!TIP] 蓝牙配置与启动记录
+> [蓝牙文档](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/bluetooth.md)保留 BLE-only 小节。此次基线查询并要求 BLE、SPP 开关均为 `01`。[启动优化记录](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/startup-optimization.md)的时序数据应随当次固件和板卡复测。
 
 ## 源码入口与核心调用链
 
 | 链路 | 源码与实际检查点 |
 | --- | --- |
-| 上电 → 调度 | [main.c](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/Core/Src/main.c) 拉高 PA3，初始化 GPIO、DMA、SPI、TIM、USART 和 ADC，进入 `App_Task_Create/Start` |
-| 显示与 UI | [app_display.c](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_display.c) 注册显示和触摸，随后 [app_ui.c](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_ui.c) 调度页面数据及交互 |
-| 运动 | [mpu6050.c](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/mpu6050.c) 与 [lsm303dlhc.c](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/lsm303dlhc.c) → [app_imu.c](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_imu.c) 校准、坐标变换及快照 |
-| 其他感知 | [app_baro.c](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_baro.c)、[app_aht21.c](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_aht21.c)、[app_heart.c](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_heart.c)、[app_battery.c](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_battery.c) 各自定义采样或等待条件 |
-| 分阶段模块 | [watch_rtc.c](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/watch_rtc.c) 与 [kt6368a.c](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/kt6368a.c) 由 LVGL 服务推进，[app_clock.c](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_clock.c) 负责应用校时路径 |
-| 相关说明 | [watch-ui.md](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/watch-ui.md)、[imu-eeprom.md](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/imu-eeprom.md)、[magnetometer.md](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/magnetometer.md)、[aht21.md](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/aht21.md)、[em7028.md](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/em7028.md) |
+| 上电 → 调度 | [`main.c`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/Core/Src/main.c) 拉高 `PA3`，初始化 GPIO、DMA、SPI、TIM、USART 和 ADC，进入 `App_Task_Create/Start` |
+| 显示与 UI | [`app_display.c`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_display.c) 注册显示和触摸，随后 [`app_ui.c`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_ui.c) 调度页面数据及交互 |
+| 运动 | [`mpu6050.c`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/mpu6050.c) 与 [`lsm303dlhc.c`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/lsm303dlhc.c) → [`app_imu.c`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_imu.c) 校准、坐标变换及快照 |
+| 其他感知 | [`app_baro.c`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_baro.c)、[`app_aht21.c`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_aht21.c)、[`app_heart.c`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_heart.c)、[`app_battery.c`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_battery.c) 各自定义采样或等待条件 |
+| 分阶段模块 | [`watch_rtc.c`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/watch_rtc.c) 与 [`kt6368a.c`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/kt6368a.c) 由 LVGL 服务推进，[`app_clock.c`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_clock.c) 负责应用校时路径 |
+| 相关说明 | [`watch-ui.md`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/watch-ui.md)、[`imu-eeprom.md`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/imu-eeprom.md)、[`magnetometer.md`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/magnetometer.md)、[`aht21.md`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/aht21.md)、[`em7028.md`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/em7028.md) |
 
 ## 构建方式与验证边界
 
-Keil 入口为 [f411ceu6.uvprojx](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/MDK-ARM/f411ceu6.uvprojx)。[传感器主机测试](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/tests/sensors/run.py)以模拟 I2C/HAL/RTOS 核对传感器驱动、记录恢复及数据有效性。测试完成后可在实际设备抓取冷启动时间戳、采样统计和 UART 帧。诊断快照的 UART 成功计数只观察到模块接口，手机需独立核对帧序号和 CRC。
+Keil 入口为 [`f411ceu6.uvprojx`](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/MDK-ARM/f411ceu6.uvprojx)。[传感器主机测试](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/tests/sensors/run.py)以模拟 I2C/HAL/RTOS 核对传感器驱动、记录恢复及数据有效性。测试完成后可在实际设备抓取冷启动时间戳、采样统计和 UART 帧。诊断快照的 UART 成功计数只观察到模块接口，手机需独立核对帧序号和 CRC。
 
-> [!WARNING]
-> 需实板/仪器验证边界。`FIRST_FRAME_MS` 不是背光、DMA 或可见首帧时间。比较 PA3、SPI 传输、传感器首个成功读数、RTC/蓝牙结束和 EEPROM 保存结果，手机连接和 CSV 到达时间用单独时基。
+> [!WARNING] 首帧与启动时序测点
+> `FIRST_FRAME_MS` 不是背光、DMA 或可见首帧时间。比较 `PA3`、SPI 传输、传感器首个成功读数、RTC/蓝牙结束和 EEPROM 保存结果，手机连接和 CSV 到达时间用单独时基。
 
 ## 相关知识
 
@@ -849,7 +849,7 @@ UART DMA 回调、蓝牙通知包和 CAN 报文各自带有传输边界。升级
 | 传输完成 | 一段字节或一帧已进缓冲 | DMA 回调、UART FIFO、CAN DLC |
 | 语法完整 | 帧头、字段、帧尾及长度范围满足 | 看到 `$`、逗号、`#` 后成功解析 |
 | 业务有效 | 消费者可以用它执行对应操作 | 有球坐标、完整 BIN 的 CRC 匹配 |
-| 超时失效 | 从最近一次合格事件起的时限已到 | K230 回中、CAN verify 回空闲、AT 启动失败 |
+| 超时失效 | 从最近一次合格事件起的时限已到 | K230 回中、CAN `verify` 回空闲、AT 启动失败 |
 
 合法无球消息会更新链路新鲜度及业务有效位。不能用 `valid` 代替最近合法帧时刻，否则实物移出画面和 UART 断线会被计成同一种现象。
 
@@ -874,9 +874,9 @@ flowchart TD
 | 项目 | 片段来源 | 消息结束与校验 | 超时和重同步 |
 | --- | --- | --- | --- |
 | [F407 CAN 更新](./projects/bootloader/) | 标准 ID 1，DLC 1–8 | BIN 先结束，再接 ID 1/DLC 4 的小端 CRC | 1 s 无有效数据后切状态，2 s 等不到 CRC 则回空闲 |
-| [F407 USART 恢复](./projects/bootloader/) | USART1 DMA 环形接收 | `start:len` 给长度，等 `Flash erased; send data` 后发原始 BIN | 长度、2 s 空闲、多余数据和错误标记形成收尾 |
+| [F407 USART 恢复](./projects/bootloader/) | `USART1` DMA 环形接收 | `start:len` 给长度，等 `Flash erased; send data` 后发原始 BIN | 长度、2 s 空闲、多余数据和错误标记形成收尾 |
 | [MSPM0 UART0](./projects/mspm0g3507/) | RX 中断 → 128 B 环 → 主循环 | `$cx,cy#`，范围检查；无球帧同样符合语法 | 内嵌 `$` 重新同步，超长及环溢出丢候选，150 ms 未消费新帧则回中 |
-| [KT6368A](./projects/watch/) | USART1 RX 完成中断 → 1024 B 环 | 阶段式 AT 查询匹配期望前缀；SPP 诊断有自己的头、类型和 CRC | AT 查询预算 500 ms；环满时丢最旧字节，诊断端按帧协议恢复 |
+| [KT6368A](./projects/watch/) | `USART1` RX 完成中断 → 1024 B 环 | 阶段式 AT 查询匹配期望前缀；SPP 诊断有自己的头、类型和 CRC | AT 查询预算 500 ms；环满时丢最旧字节，诊断端按帧协议恢复 |
 
 对应 [CAN 分阶段接收](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led/application/app_update.c)、[恢复命令](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6reset/application/app_reset.c)、[视觉串流](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/bsp_uart0_proto.c)、[蓝牙 UART 与 AT](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/kt6368a.c)。
 
@@ -945,11 +945,11 @@ void frame_poll(frame_parser_struct *parser)
 | 测试输入 | 注入点 | 观察 | 预期 |
 | --- | --- | --- | --- |
 | 合法帧逐字节拆分 | 任意 ISR、DMA 或通知边界 | 发布计数、字段 | 只发布一次，字段一致 |
-| 两个帧紧邻 | 连续输入，中间无串口 IDLE | 每次解析结果 | 两个语法完整事件可先后识别 |
+| 两个帧紧邻 | 连续输入，中间无串口 `IDLE` | 每次解析结果 | 两个语法完整事件可先后识别 |
 | 超长和环溢出 | 越过缓存上限后立即发新合法帧 | 错误计数、重同步 | 旧候选作废，下一帧可用 |
 | 字段乱码/出界 | 有完整起止符 | `fresh`、最近成功时刻 | 时钟不刷新，不覆盖上次合法记录 |
 | 合法无球连发 | 先发有效，再连发无球 | `fresh`、`valid`、帧龄 | 链路继续推进，业务无球 |
-| CAN CRC 太早/太晚 | 相对最后数据帧扫边界 | BIN 长度与状态转换 | 只有 verify 窗口内的独立 CRC 参与比较 |
+| CAN CRC 太早/太晚 | 相对最后数据帧扫边界 | BIN 长度与状态转换 | 只有 `verify` 窗口内的独立 CRC 参与比较 |
 | 静止后恢复 | 停发跨超时边界再发正确帧 | 无效动作、首帧处理 | 按各应用策略回中、回空闲或恢复接收 |
 
 对照 [CAN 与串口恢复排障](./troubleshooting/ts-0001-bootloader-update-phase/)、[视觉无球及超时定位](./troubleshooting/ts-0004-k230-vision-timeout/) 的日志和信号记录验证。
@@ -985,10 +985,10 @@ flowchart LR
 
 | 参考项目与层级 | 核心文件 | 状态或证据 | 常见故障表现 | 检查方式 |
 | --- | --- | --- | --- | --- |
-| Iwip · PHY | `Drivers/BSP/ETHERNET/ethernet_chip.c` | BSR 链路、LAN8720A ID 与 PHYSCSR 协商结果 | LED 不亮、速率未确认、MDIO 常读 `0xFFFF` | 示波器量 PA1 50 MHz，读取 0x02/0x03 和 0x1F |
-| Iwip · MAC/DMA | `ethernet.c`、`ethernetif.c` | MAC speed/duplex、描述符 OWN、RX 中断/信号量 | 交换机可见链路，收帧计数不增 | 核对描述符在内部 SRAM，分别统计中断、读包、输入错误 |
-| Iwip · netif / IPv4 | `lwip_comm.c`、`lwipopts.h` | link/up、地址、ARP、DHCP 与回退 | 没租约、ARP 无回复或使用旧 IP | 对照 `[NET]`、`g_lwipdev` 和两端抓包 |
-| Iwip · 协议服务 | lwIP ICMP、Netconn 接口及应用代码 | Echo Reply、连接状态或监听端口 | ARP 通而 ping 不通，或 ping 通但端口未开放 | 按协议抓包，核对实际编译选项与监听者 |
+| Iwip · PHY | `Drivers/BSP/ETHERNET/ethernet_chip.c` | `BSR` 链路、LAN8720A ID 与 `PHYSCSR` 协商结果 | LED 不亮、速率未确认、MDIO 常读 `0xFFFF` | 示波器量 `PA1` 50 MHz，读取 `0x02`/`0x03` 和 `0x1F` |
+| Iwip · MAC/DMA | `ethernet.c`、`ethernetif.c` | MAC speed/duplex、描述符 `OWN`、RX 中断/信号量 | 交换机可见链路，收帧计数不增 | 核对描述符在内部 SRAM，分别统计中断、读包、输入错误 |
+| Iwip · `netif` / IPv4 | `lwip_comm.c`、`lwipopts.h` | link/up、地址、ARP、DHCP 与回退 | 没租约、ARP 无回复或使用旧 IP | 对照 `[NET]`、`g_lwipdev` 和两端抓包 |
+| Iwip · 协议服务 | lwIP ICMP、Netconn 接口及应用代码 | Echo Reply、连接状态或监听端口 | ARP 通而 `ping` 不通，或 `ping` 通但端口未开放 | 按协议抓包，核对实际编译选项与监听者 |
 | [手表](./projects/watch/) · 系统对照 | SPI DMA 与蓝牙 UART | 模块就绪、字节发送、手机收到各有计数 | 字节交给模块后，远端仍可丢帧 | 对照发送端计数与接收序号，沿层级收集证据 |
 
 源码参照 [PHY 层](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/ETHERNET/ethernet_chip.c)、[MAC 与网络数据交接](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/ethernetif.c)、[地址管理](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwip_comm.c)。第五行从另一个项目对照同类观测问题，前四行关注同一个网口的不同层。
@@ -1029,7 +1029,7 @@ void app_netif_apply_policy(struct netif *netif, uint8_t use_dhcp)
 }
 ```
 
-仅在链路边沿或策略切换时调用上述骨架。DHCP 分支需在编译启用后接入，回退由地址状态模块决定。轮询中反复启动 DHCP 会重置申请进度。应用使用 RAW API 时沿 TCP/IP 核心或允许的核心锁路径执行，跨任务共享同一连接还需遵循对应 API 的并发约束。配置参考 [lwipopts.h](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwipopts.h) 与 [移植层](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/sys_arch.c)。
+仅在链路边沿或策略切换时调用上述骨架。DHCP 分支需在编译启用后接入，回退由地址状态模块决定。轮询中反复启动 DHCP 会重置申请进度。应用使用 RAW API 时沿 TCP/IP 核心或允许的核心锁路径执行，跨任务共享同一连接还需遵循对应 API 的并发约束。配置参考 [`lwipopts.h`](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwipopts.h) 与 [移植层](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/sys_arch.c)。
 
 | 主机操作 | Wireshark 显示过滤 | 用途 |
 | --- | --- | --- |
@@ -1043,11 +1043,11 @@ void app_netif_apply_policy(struct netif *netif, uint8_t use_dhcp)
 
 | 场景 | 刺激 | 记录 | 预期 |
 | --- | --- | --- | --- |
-| 静态地址，链路良好 | 同网段主机访问默认 IP | PHY、MAC、netif、ARP、ICMP | 逐层向上出现对应可观测事件 |
+| 静态地址，链路良好 | 同网段主机访问默认 IP | PHY、MAC、`netif`、ARP、ICMP | 逐层向上出现对应可观测事件 |
 | PHY 链路断开后恢复 | 插拔线缆一次 | 协商、MAC 启停、link flag、恢复后包 | 新链路后重新收发 |
 | DHCP 可用 | 编入 DHCP，接支持 DHCP 的测试网段 | 地址状态及四步报文 | 获取租约并用真实地址访问 |
 | DHCP 无应答 | 编入 DHCP，隔离服务器 | 请求重试计数、回退日志 | 超过配置门限后使用静态地址 |
-| RX 缓冲压力 | 合法测试流量，保留并释放 pbuf 引用 | 池计数、RBUS、输入错误 | 在引用释放后恢复 |
+| RX 缓冲压力 | 合法测试流量，保留并释放 `pbuf` 引用 | 池计数、`RBUS`、输入错误 | 在引用释放后恢复 |
 | 与触摸并行 | 收包或回包时连续操作画板 | 触摸响应间隔、线程高水位、RTT | 时间和内存满足产品预算 |
 
 硬件排障顺序见 [网线已连但 IPv4 不可达](./troubleshooting/ts-0003-ethernet-link-without-ip/)。系统模式取舍详见 [lwIP OS 模式](./adr/adr-0003-run-lwip-in-rtos-mode/)。
@@ -1085,9 +1085,9 @@ flowchart LR
 
 | 项目 | 原始量和坐标 | 有效性与恢复 | 输出和观测 |
 | --- | --- | --- | --- |
-| [飞控](./projects/flight/) | MPU6050 六轴与 SPL006 压力/温度，角度与 °/s 分开 | 连接边沿校零，IDLE 静止修正，油门和状态门控 | X 布局混控的 TIM2 CCR 与实际姿态响应 |
-| [手表](./projects/watch/) | MPU6050、LSM303DLHC，后者按 X/Z/Y 读取并换成机体 μT | EEPROM 双槽、量程和 CRC；无有效磁参考时六轴递推 | UI 快照与 WDG1 诊断，保存失败可与当前 RAM 校准并存 |
-| [视觉平衡](./projects/mspm0g3507/) | 800×480 像素，中心 x=400，速度 px/ms | UART 解析、`fresh/valid`、无球与 150 ms 超时 | 摆杆 mdeg → 电机脉冲 → 到位/故障回执 |
+| [飞控](./projects/flight/) | MPU6050 六轴与 SPL006 压力/温度，角度与 °/s 分开 | 连接边沿校零，`IDLE` 静止修正，油门和状态门控 | X 布局混控的 `TIM2` `CCR` 与实际姿态响应 |
+| [手表](./projects/watch/) | MPU6050、LSM303DLHC，后者按 X/Z/Y 读取并换成机体 μT | EEPROM 双槽、量程和 CRC；无有效磁参考时六轴递推 | UI 快照与 `WDG1` 诊断，保存失败可与当前 RAM 校准并存 |
+| [视觉平衡](./projects/mspm0g3507/) | 800×480 像素，中心 `x=400`，速度 px/ms | UART 解析、`fresh/valid`、无球与 150 ms 超时 | 摆杆 mdeg → 电机脉冲 → 到位/故障回执 |
 
 对应 [飞控控制环](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/application/application_flight.c)、[姿态生产及磁有效性](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_imu.c)、[视觉到角度命令](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/mian.c)。飞控的姿态环和定高环有各自 `dt`。当前手表磁校准只建立轴向比例与偏置，画图审计时可用磁数据椭球与航向变化判断是否还有轴间误差。
 
@@ -1190,9 +1190,9 @@ sequenceDiagram
 
 | 项目 | 所有者与拍点 | 交接原语 | 容易混淆的观测 |
 | --- | --- | --- | --- |
-| [STM32 飞控](./projects/flight/) | 飞行任务独占 I2C1，2 tick，SPL006 每 3 拍 | 遥控器输入有 mutex；飞控侧读取 `volatile` 结构的局部副本 | 固定 2 ms 唤醒计划与实际执行起点；飞控侧副本仍可能被发布方抢占 |
-| [F411 手表](./projects/watch/) | `sensor` 独占共享 SENSOR I2C，10 ms，气压每 25 拍 | IMU 快照 mutex；PB12 EXTI 置位，SPI 完成由 DMA ISR 告知显示层 | EXTI 边沿、驱动读成功、UI 消费和首帧完成分别计 |
-| [F407 以太网](./projects/iwip/) | `eth_thread` 消费中断唤醒，`eth_link` 100 ms 轮询 | RX/TX 二值信号量、核心邮箱、自定义 pbuf 回收 | RX/Tx 完成事件和最后引用释放分别约束缓冲 |
+| [STM32 飞控](./projects/flight/) | 飞行任务独占 `I2C1`，2 tick，SPL006 每 3 拍 | 遥控器输入有 mutex；飞控侧读取 `volatile` 结构的局部副本 | 固定 2 ms 唤醒计划与实际执行起点；飞控侧副本仍可能被发布方抢占 |
+| [F411 手表](./projects/watch/) | `sensor` 独占共享 SENSOR I2C，10 ms，气压每 25 拍 | IMU 快照 mutex；`PB12` EXTI 置位，SPI 完成由 DMA ISR 告知显示层 | EXTI 边沿、驱动读成功、UI 消费和首帧完成分别计 |
+| [F407 以太网](./projects/iwip/) | `eth_thread` 消费中断唤醒，`eth_link` 100 ms 轮询 | RX/TX 二值信号量、核心邮箱、自定义 `pbuf` 回收 | RX/Tx 完成事件和最后引用释放分别约束缓冲 |
 | [F103 学习工程](./projects/freertos-beginer/) | 工程声明 RTOS port 和板级依赖 | 仅可见工程分组与启动向量 | 缺 `freertos.c`、`FreeRTOSConfig.h`，实际任务资源归属待补证 |
 
 固定证据可从 [飞控任务](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/application/application_freertos_task.c)、[手表任务](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_task.c)、[快照保护](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_imu.c)、[网络驱动](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/ethernetif.c) 与 [F103 工程清单](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/01_freertos_template.uvprojx)进入。
@@ -1251,7 +1251,7 @@ void sensor_snapshot_read(sensor_snapshot_struct *out)
 | --- | --- | --- |
 | 多任务直接对同一 HAL I2C 句柄发起事务 | 句柄忙、重试风暴、器件状态混杂 | 将事务交给唯一拥有者，或用有限时间的资源锁 |
 | 低优先级持锁读器件，高优先级等待 | 中优先级持续抢占时形成优先级反转 | 缩短锁区，确需共享时核对 mutex 优先级继承 |
-| ISR 拿长锁，在持锁区等待完成中断 | ISR 不能按任务方式阻塞，可能死锁 | ISR 使用允许的 FromISR 原语，只登记或唤醒 |
+| ISR 拿长锁，在持锁区等待完成中断 | ISR 不能按任务方式阻塞，可能死锁 | ISR 使用允许的 `FromISR` 原语，只登记或唤醒 |
 | 仅用 `volatile` 标记跨字段快照 | 多字段来源于不同帧 | 使用共同的短锁、队列按值发布或其他明确同步 |
 | DMA 提交后立即写入同一发送区 | 线上可能出现新旧帧混合 | 以完成归还或独占描述符确认生命周期 |
 
@@ -1301,7 +1301,7 @@ flowchart LR
     B -->|检查或搬运失败| R["选择串口恢复"]
 ```
 
-CRC 过后先擦外部目标扇区，正文完整后写小端地址和长度，最后写入 `01 5A 6B` 并读回。主引导预检首两个向量字，按镜像末地址确定擦除范围，使用 512 B 缓冲搬运。片内成功后仅将状态改为 `02`。失败时 RAM 选择恢复路径，EEPROM 标记保留，独立恢复工程可走 USART1 覆盖 APP。
+CRC 过后先擦外部目标扇区，正文完整后写小端地址和长度，最后写入 `01 5A 6B` 并读回。主引导预检首两个向量字，按镜像末地址确定擦除范围，使用 512 B 缓冲搬运。片内成功后仅将状态改为 `02`。失败时 RAM 选择恢复路径，EEPROM 标记保留，独立恢复工程可走 `USART1` 覆盖 APP。
 
 ## 备选方案对比
 
@@ -1341,7 +1341,7 @@ CRC 仅用于传输校验，外部元数据只保存地址和长度。暂存介�
 
 ## 背景与硬约束
 
-[飞控](./projects/flight/) 的 MPU6050 和 SPL006 同挂 I2C1。[手表](./projects/watch/) 的 SENSOR 软件 I2C 挂五种器件，另有 LVGL/触摸对交互响应的要求。两者都需要在高频拍内执行感知计算，并以低频事务让设备完成自己的转换节奏。
+[飞控](./projects/flight/) 的 MPU6050 和 SPL006 同挂 `I2C1`。[手表](./projects/watch/) 的 SENSOR 软件 I2C 挂五种器件，另有 LVGL/触摸对交互响应的要求。两者都需要在高频拍内执行感知计算，并以低频事务让设备完成自己的转换节奏。
 
 | 系统 | 高频预算 | 低频分配 | 可量化约束 |
 | --- | --- | --- | --- |
@@ -1418,7 +1418,7 @@ CRC 仅用于传输校验，外部元数据只保存地址和长度。暂存介�
 
 ## 决策与落地机制
 
-采用 FreeRTOS 下的 `NO_SYS=0`。`start_task` 初始化 lwIP 和网口、创建触摸与 LED 后自删除。PHY 协商由独立任务轮询。ETH IRQ 用信号量交给输入线程，输入线程把收到的 pbuf 投到 TCP/IP 核心。
+采用 FreeRTOS 下的 `NO_SYS=0`。`start_task` 初始化 lwIP 和网口、创建触摸与 LED 后自删除。PHY 协商由独立任务轮询。ETH IRQ 用信号量交给输入线程，输入线程把收到的 `pbuf` 投到 TCP/IP 核心。
 
 ```mermaid
 flowchart LR
@@ -1429,7 +1429,7 @@ flowchart LR
     START["启动任务完成创建"] --> UI["Goodix 与 LCD 任务"]
 ```
 
-RAW 回调在核心执行，跨任务使用核心支持的调用路径，例如 `tcpip_callback` 或 port 允许的核心锁。对单个 socket 或 netconn 对象的并行访问还需核对对应 API 的约束。当前驱动在配置 MAC 和更新 link 标志时使用核心锁，DHCP 状态推进也有同样保护。ISR 只用适配的 RTOS 原语报告事件。
+RAW 回调在核心执行，跨任务使用核心支持的调用路径，例如 `tcpip_callback` 或 port 允许的核心锁。对单个 socket 或 `netconn` 对象的并行访问还需核对对应 API 的约束。当前驱动在配置 MAC 和更新 link 标志时使用核心锁，DHCP 状态推进也有同样保护。ISR 只用适配的 RTOS 原语报告事件。
 
 ## 备选方案对比
 
@@ -1443,7 +1443,7 @@ RAW 回调在核心执行，跨任务使用核心支持的调用路径，例如 
 
 默认常驻网络栈字数为 `1024+512+384=1920`，约 7.5 KiB，仅统计核心、输入、链路三个线程栈。开启 DHCP 另约 1.5 KiB，测试启动峰值再计启动任务栈 2 KiB。这些栈通常来自 32 KiB FreeRTOS 堆，内存预算总表避免重复相加。
 
-TX 4×1536 B 和 RX 10×1536 B 的 payload 合计约 21 KiB，还要加自定义 pbuf 头、DMA 描述符等结构。16 KiB lwIP 堆与通用 pbuf 池也有独立占用。使用链接 map 核对总占用和内部 SRAM 放置，再以运行高水位评估最坏路径。
+TX 4×1536 B 和 RX 10×1536 B 的 payload 合计约 21 KiB，还要加自定义 `pbuf` 头、DMA 描述符等结构。16 KiB lwIP 堆与通用 `pbuf` 池也有独立占用。使用链接 map 核对总占用和内部 SRAM 放置，再以运行高水位评估最坏路径。
 
 分线程减小慢 LCD 操作对收包的直接阻碍。长时间网络负载仍可能增加 UI 等待、耗尽 RX 池或填满邮箱。网络回调内长阻塞和持核心锁做慢操作也会影响其他流。若实际内存不够、触摸在可复现负载下持续错过预算，或新产品需要网络与主控故障隔离，可重做调度和模块取舍。
 
@@ -1461,7 +1461,7 @@ TX 4×1536 B 和 RX 10×1536 B 的 payload 合计约 21 KiB，还要加自定义
 ## 源码证据
 
 - [模式、邮箱和 API](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwipopts.h)、[FreeRTOS 适配](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/sys_arch.c)定义执行边界。
-- [业务任务调度](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/application/app_task.c)、[ETH 收包及核心锁](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/ethernetif.c)与 [netif 和 DHCP](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwip_comm.c)给出落地机制。
+- [业务任务调度](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/application/app_task.c)、[ETH 收包及核心锁](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/ethernetif.c)与 [`netif` 和 DHCP](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwip_comm.c)给出落地机制。
 - [历史入口说明](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/README.md)记录较早的裸机阶段。当前链路与地址的台架核对见 [以太网分层](./topics/networking/ethernet-link-and-ip/) 和 [网口排障](./troubleshooting/ts-0003-ethernet-link-without-ip/)。
 
 ---
@@ -1478,7 +1478,7 @@ CAN 已触发更新但复位后仍运行旧 APP，主引导启动后直接进入
 | 复现记录 | 应记录的内容 |
 | --- | --- |
 | 当前镜像 | 对应 F407 目标、APP 链接基址、原始 BIN 字节数 |
-| 触发与电源 | `cmd`、KEY1、`start:实际字节数` 或上电复位 |
+| 触发与电源 | `cmd`、`KEY1`、`start:实际字节数` 或上电复位 |
 | 传输 | CAN ID/DLC、最后有效帧与 CRC 时间；USART 命令和原始数据长度 |
 | 持久化 | W25Q16 的 8 B 元数据和正文首 8 B，EEPROM 的三字节状态 |
 | 结果 | 最后一条板端日志、实际复位后的运行目标 |
@@ -1524,14 +1524,14 @@ flowchart TD
 
 | 阶段 | 观测点与日志关键字 | 正常基线 | 异常根因 | 修复与复测 |
 | --- | --- | --- | --- | --- |
-| 接收与 CRC · 触发 | USART1 `cmd`；总线上 `hyf` | 标准 ID 0 / DLC 3 | 命令错工程、接收未置空闲态 | 识别当前工程，重新上电从空闲开始 |
+| 接收与 CRC · 触发 | `USART1` `cmd`；总线上 `hyf` | 标准 ID 0 / DLC 3 | 命令错工程、接收未置空闲态 | 识别当前工程，重新上电从空闲开始 |
 | 接收与 CRC · 长度 | `CAN receive done,len:` | ID 1、DLC 1–8，末帧后 1000 ms 打印字节数 | 位速率、接线、超 5120 B、无有效帧 | 双方 200 kbit/s，验证终端、ACK 和最后两帧 |
 | 接收与 CRC · 校验 | `CRC OK` 或 `CRC FAIL` | 末帧后 1100 ms 发 ID 1/DLC 4 小端 CRC；最后数据后 2000 ms 超时 | 提前混进 BIN、超时、尾字补法不同 | 核对捕获时间和实际长度，再用主机脚本算 CRC |
-| 外部 Flash 暂存 | `Update save OK` 或 `Update save FAIL` | 2049–5120 B，先写正文再写元数据，最后提交标记 | 短镜像、SPI 写使能、BUSY、页边界或标记读回失败 | 测第一处失败，读 W25Q16 与 EEPROM 实值 |
+| 外部 Flash 暂存 | `Update save OK` 或 `Update save FAIL` | 2049–5120 B，先写正文再写元数据，最后提交标记 | 短镜像、SPI 写使能、`BUSY`、页边界或标记读回失败 | 测第一处失败，读 W25Q16 与 EEPROM 实值 |
 | EEPROM 提交 | `0x10–0x12` 实际三字节 | `01 5A 6B` 更新，成功后 `02 5A 6B`，`03 5A 6B` 恢复 | WP、电源或密钥无效 | 核对每字节，记录两次启动 |
-| 片内 Flash 搬运 · 预检 | `APP metadata error`、`APP stack pointer error`、`APP reset handler error` | `0x1000 <= start < 0x200000`，`0x800 < len <= 0x78000`，不越出 W25Q16 | 主引导版本、地址或长度错误，候选 BIN 向量错误 | 解码两个 LE32，读正文首 8 B 并核对链接地址 |
+| 片内 Flash 搬运 · 预检 | `APP metadata error`、`APP stack pointer error`、`APP reset handler error` | `0x1000 <= start < 0x200000`，`0x800 < len <= 0x78000`，不越出 W25Q16 | 主引导版本、地址或长度错误，候选 BIN 向量错误 | 解码两个 `LE32`，读正文首 8 B 并核对链接地址 |
 | 片内 Flash 搬运 · 擦写 | `APP update error; enter recovery` 或 `APP update ok: length=` | 从扇区 2 擦到 BIN 末字节所在扇区；按 512 B 批次写半字 | 供电、HAL 擦写失败、外部读超时 | 记失败偏移、擦写返回值和引导落点 |
-| 向量跳转 | `Error: Invalid stack pointer in application!`、`Error: Invalid reset handler in application!` 或 `jump error` | MSP 8 B 对齐，Thumb 复位入口在目标分区 | BIN 用错链接地址、向量已损坏 | 比对 map、片内首 8 B、VTOR 和程序实际落点 |
+| 向量跳转 | `Error: Invalid stack pointer in application!`、`Error: Invalid reset handler in application!` 或 `jump error` | `MSP` 8 B 对齐，Thumb 复位入口在目标分区 | BIN 用错链接地址、向量已损坏 | 比对 map、片内首 8 B、`VTOR` 和程序实际落点 |
 
 若当前运行串口恢复程序，先发送 `start:len`（1–491520 B），等 `Flash erased; send data` 后发送原始 BIN。按声明长度、DMA 下标和末字节时间定位 `RX error; reset`；若出现 `ok,len:`，按表中「向量跳转」继续检查。
 
@@ -1539,23 +1539,23 @@ flowchart TD
 
 | 路径 | 函数或变量 | 捕获内容 |
 | --- | --- | --- |
-| [CAN 接收 APP](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led/application/app_update.c) | `app_update_state`、`can_rx_len`、`app_update_save_image` | verify 转移、CRC 与外部提交时刻 |
+| [CAN 接收 APP](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led/application/app_update.c) | `app_update_state`、`can_rx_len`、`app_update_save_image` | `verify` 转移、CRC 与外部提交时刻 |
 | [CAN 发送端](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/STM32F103CAN/appliaction/app_update.c) | `send_offset`、帧间和 CRC 等待 | 最后一帧数据和 CRC 的时间差 |
 | [启动状态机](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/application/app_bootloader.c) | `bootloader_check_update_status`、`w25_app_start_addr`、`app_size_bytes` | 密钥、更新标志、外部元数据、片内擦写 |
 | [向量跳转](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/interface/int_bootloader.c) | `app_stack_ptr`、`app_reset_handle`、`SCB->VTOR` | 目标地址与是否完成交接 |
 | [恢复状态机](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6reset/application/app_reset.c) | `boot_state`、`uart1_rx_app_len`、`uart1_rx_full_len`、`uart1_rx_complete_tick` | 声明、接收、空闲、收尾与异常复位 |
 
-向量检查时，最终 APP 分区上界为 `0x08080000`，恢复分区上界为 `0x08008000`。初始 MSP 必须在 `(0x20000000,0x20020000]` 或 `(0x10000000,0x10010000]`。复位地址为 Thumb，且在所选入口基址加 8 字节至分区上界前。外部候选预检以上次暂存的真实镜像长度作为复位字上界。
+向量检查时，最终 APP 分区上界为 `0x08080000`，恢复分区上界为 `0x08008000`。初始 `MSP` 必须在 `(0x20000000,0x20020000]` 或 `(0x10000000,0x10010000]`。复位地址为 Thumb，且在所选入口基址加 8 字节至分区上界前。外部候选预检以上次暂存的真实镜像长度作为复位字上界。
 
 ## 验证闭环与边界
 
 1. 正常 CAN 样本从 `cmd` 开始，关联总线捕获、暂存内容和 EEPROM 提交，最后记录复位后 APP 入口。
-2. 分别模拟缺 CRC、串口短发和错向量。先确认错误归属到 verify、DMA 收尾或跳转，再用正确样本复测。
+2. 分别模拟缺 CRC、串口短发和错向量。先确认错误归属到 `verify`、DMA 收尾或跳转，再用正确样本复测。
 3. 台架掉电测试需分别在暂存、标记、擦除、写入和清标记边界执行。保留独立恢复镜像与有线调试手段。
 4. 恢复验证先记录命令及声明长度，等 `Flash erased; send data` 后才送 BIN，最后核对 `ok,len:` 和实际 APP 入口。
 
-> [!WARNING]
-> 需实板/仪器验证边界。`CRC OK` 验证 CAN 传输，`Update save OK` 验证外部提交，`APP update ok` 指示片内写入流程结束。最终需由向量、实际启动和实验记录确认。
+> [!WARNING] 升级各阶段的验证边界
+> `CRC OK` 验证 CAN 传输，`Update save OK` 验证外部提交，`APP update ok` 指示片内写入流程结束。最终需由向量、实际启动和实验记录确认。
 
 相关机制见 [镜像暂存决策](./adr/adr-0001-stage-image-before-boot/)、[串流组帧](./topics/embedded/embedded-stream-framing/)。
 
@@ -1568,13 +1568,13 @@ flowchart TD
 
 ## 典型现象与触发条件
 
-[F411 手表](./projects/watch/) 上电时背光亮但画面延后，画面正常却无传感数据，或初次启动时蓝牙/RTC 比采样晚完成。另一种情况是姿态值到达但零偏尚在收敛。分别记录板端启动时钟和手机侧接收时钟，以当次固件的 WDG1 和仪表测点作为基线。
+[F411 手表](./projects/watch/) 上电时背光亮但画面延后，画面正常却无传感数据，或初次启动时蓝牙/RTC 比采样晚完成。另一种情况是姿态值到达但零偏尚在收敛。分别记录板端启动时钟和手机侧接收时钟，以当次固件的 `WDG1` 和仪表测点作为基线。
 
 | 现场条件 | 记录项 |
 | --- | --- |
 | 启动方式 | 冷启动或复位，RTC 备份域是否保留 |
-| 电源 | PA3 自保持的上升沿和供电稳定时间 |
-| 屏幕 | 背光、首次 SPI 总线活动、DMA flush 完成及可见画面 |
+| 电源 | `PA3` 自保持的上升沿和供电稳定时间 |
+| 屏幕 | 背光、首次 SPI 总线活动、DMA `flush` 完成及可见画面 |
 | 传感器 | EEPROM 是否有有效校准，手表是否保持静止 |
 | 蓝牙 | 配置是否已匹配，手机何时建立 SPP、CSV 是否丢帧 |
 
@@ -1582,16 +1582,16 @@ flowchart TD
 
 以下分支来自固定提交的启动代码和诊断文档，可分别解释画面、采样和校准三种延迟。
 
-- **画面延迟。** `app_lvgl_task` 在 `lv_refr_now(NULL)` 返回后立即记录 `FIRST_FRAME_MS`，接着创建 sensor 任务。像素由 SPI1 TX 的 DMA2 Stream2 异步发送，`HAL_SPI_TxCpltCallback` 推进 flush 完成。首帧提交、末个刷屏块发送完成和面板显像各有独立的测量时刻。
+- **画面延迟。** `app_lvgl_task` 在 `lv_refr_now(NULL)` 返回后立即记录 `FIRST_FRAME_MS`，接着创建 `sensor` 任务。像素由 `SPI1` TX 的 `DMA2` `Stream2` 异步发送，`HAL_SPI_TxCpltCallback` 推进 `flush` 完成。首帧提交、末个刷屏块发送完成和面板显像各有独立的测量时刻。
 - **RTC 与蓝牙晚就绪。** LVGL 循环运行 LSE 及 AT 状态机，传感器任务可并行。LSE 以 `LSERDY` 判断起振，等待上限为 5000 ms。KT6368A 有 20 ms 放电、1200 ms 上电等待和每次查询 500 ms 应答窗口。配置变化还可能触发模块重启和再次查询。[LSE 配置](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/Core/Inc/stm32f4xx_hal_conf.h) [AT 时序定义](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/kt6368a.h)
-- **姿态迟迟未稳定。** BL24C02 的两槽 `MPU1` 记录都无效时（空白、量程不符或 CRC 不通过），sensor 任务进入运行期静止采样校准。有有效副本时进入 `MPU6050_CAL_RESTORED` 并立即应用零偏。运行期校准期间，传感器仍可能发布尚未应用本次零偏的数据。
+- **姿态迟迟未稳定。** BL24C02 的两槽 `MPU1` 记录都无效时（空白、量程不符或 CRC 不通过），`sensor` 任务进入运行期静止采样校准。有有效副本时进入 `MPU6050_CAL_RESTORED` 并立即应用零偏。运行期校准期间，传感器仍可能发布尚未应用本次零偏的数据。
 
 ## 定位过程与关键证据
 
-1. 先记录 PA3、VDD 与 NRST。供电锁存和复位均正常后，再把首次 SPI 活动、末个首帧 DMA 完成回调及可见画面标在同一条测量时间轴上。若 `FIRST_FRAME_MS` 已写入而 SPI 迟迟未完成，转查 LCD flush、DMA 配置与回调。若所有像素已发完仍未显像，继续检查面板侧。
-2. 使用编译时设置 `APP_DEBUG_TELEMETRY=1` 的诊断固件，从 SPP 导出 WDG1 type 4 的 16 个启动字段。固定提交默认值为 `0`，板端调试可改读内存中的测点。[诊断开关与字段](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_diag.h)
-3. 以同次启动的 `HAL_GetTick()` 为时基，剔除 `0xFFFFFFFF` 未置字段，再求 `SENSOR_READY_MS - SENSOR_BEGIN_MS`、`RTC_END_MS - RTC_BEGIN_MS` 和 `BT_END_MS - BT_BEGIN_MS`。若采样已开始，且各器件成功计数在增长，RTC 或蓝牙的长等待可单独归到对应后台模块。通过 `RTC_RESULT`、`BT_RESULT` 与 `LSERDY`、USART1 波形辨别等待成功与超时。
-4. 若采样稳定却仍有零偏，读 `CAL_STATE` 与 `CAL_RESULT`。状态为恢复时直接检查载入记录和姿态；出现静止或平均阶段时核对帧计数；结果为 `2` 时，本次 RAM 校准已成功，按 type 5 的保存阶段与错误码定位 EEPROM 写入或读回失败。实际各段耗时由复测填入。
+1. 先记录 `PA3`、`VDD` 与 `NRST`。供电锁存和复位均正常后，再把首次 SPI 活动、末个首帧 DMA 完成回调及可见画面标在同一条测量时间轴上。若 `FIRST_FRAME_MS` 已写入而 SPI 迟迟未完成，转查 LCD `flush`、DMA 配置与回调。若所有像素已发完仍未显像，继续检查面板侧。
+2. 使用编译时设置 `APP_DEBUG_TELEMETRY=1` 的诊断固件，从 SPP 导出 `WDG1` 中 `type=4` 帧的 16 个启动字段。固定提交默认值为 `0`，板端调试可改读内存中的测点。[诊断开关与字段](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_diag.h)
+3. 以同次启动的 `HAL_GetTick()` 为时基，剔除 `0xFFFFFFFF` 未置字段，再求 `SENSOR_READY_MS - SENSOR_BEGIN_MS`、`RTC_END_MS - RTC_BEGIN_MS` 和 `BT_END_MS - BT_BEGIN_MS`。若采样已开始，且各器件成功计数在增长，RTC 或蓝牙的长等待可单独归到对应后台模块。通过 `RTC_RESULT`、`BT_RESULT` 与 `LSERDY`、`USART1` 波形辨别等待成功与超时。
+4. 若采样稳定却仍有零偏，读 `CAL_STATE` 与 `CAL_RESULT`。状态为恢复时直接检查载入记录和姿态；出现静止或平均阶段时核对帧计数；结果为 `2` 时，本次 RAM 校准已成功，按 `type=5` 的保存阶段与错误码定位 EEPROM 写入或读回失败。实际各段耗时由复测填入。
 
 ## 具体排查流程
 
@@ -1616,16 +1616,16 @@ flowchart TD
 
 | 阶段 | 观测点与日志 | 正常基线 | 异常根因 | 处理 |
 | --- | --- | --- | --- | --- |
-| 供电锁存 | PA3、VDD、复位 | PA3 在板级初始化前拉高 | 自保持接线、电压下跌 | 共时钟量 PA3、VDD、NRST |
+| 供电锁存 | `PA3`、`VDD`、复位 | `PA3` 在板级初始化前拉高 | 自保持接线、电压下跌 | 共时钟量 `PA3`、`VDD`、`NRST` |
 | 首帧提交 · 创建任务 | `App_Task_Create`、`App_Display_Init` | 优先级 3、1024 字栈，正常进入任务 | 分配失败、板级初始化阻塞 | 看错误入口、堆和控制流 |
 | 首帧提交 | `FIRST_FRAME_MS` | `lv_refr_now` 返回后记录 | 屏初始化、刷屏路径阻塞 | 单独量函数入出时刻 |
-| DMA 完成与可见刷新 | DMA2 Stream2、`HAL_SPI_TxCpltCallback` / flush 回调 | 每块传输完成后调用对应回调；一帧可能含多个块 | SPI、DMA 配置或无完成回调 | 同看时钟、片选、回调与可见变化 |
-| 采样就绪 · 初始化 | `SENSOR_BEGIN_MS`、`SENSOR_READY_MS` | 首帧提交后创建任务，初始化流程走完后记 ready | I2C 事务、EEPROM 读取、分配 | 按 SDA/SCL 和驱动返回定位 |
-| 采样就绪 · 正常采集 | `SAMPLING_BEGIN_MS` 与各 sensor 记录 | 循环开始后逐器件出现有效读数 | 未就绪、NACK、循环延迟 | 比较成功数、样本年龄和采样间隔 |
-| 后台模块与校准 · RTC | `RTC_BEGIN_MS`、`RTC_END_MS`、`RTC_RESULT` | LSE 就绪后完成配置；等待上限 5000 ms | LSE 未起振或时钟配置失败 | 查 LSERDY、电源、晶振与负载 |
-| 后台模块与校准 · 蓝牙 | `BT_BEGIN_MS`、`BT_END_MS`、`BT_RESULT` | 20 ms 放电、1200 ms 上电等待、每次查询 500 ms 窗口 | 模块供电、UART、AT 未匹配 | 抓 PA8 和 USART1，核对 T4/T5 |
+| DMA 完成与可见刷新 | `DMA2` `Stream2`、`HAL_SPI_TxCpltCallback` / `flush` 回调 | 每块传输完成后调用对应回调；一帧可能含多个块 | SPI、DMA 配置或无完成回调 | 同看时钟、片选、回调与可见变化 |
+| 采样就绪 · 初始化 | `SENSOR_BEGIN_MS`、`SENSOR_READY_MS` | 首帧提交后创建任务，初始化流程走完后记录就绪时间 | I2C 事务、EEPROM 读取、分配 | 按 SDA/SCL 和驱动返回定位 |
+| 采样就绪 · 正常采集 | `SAMPLING_BEGIN_MS` 与各 `sensor` 记录 | 循环开始后逐器件出现有效读数 | 未就绪、NACK、循环延迟 | 比较成功数、样本年龄和采样间隔 |
+| 后台模块与校准 · RTC | `RTC_BEGIN_MS`、`RTC_END_MS`、`RTC_RESULT` | LSE 就绪后完成配置；等待上限 5000 ms | LSE 未起振或时钟配置失败 | 查 `LSERDY`、电源、晶振与负载 |
+| 后台模块与校准 · 蓝牙 | `BT_BEGIN_MS`、`BT_END_MS`、`BT_RESULT` | 20 ms 放电、1200 ms 上电等待、每次查询 500 ms 窗口 | 模块供电、UART、AT 未匹配 | 抓 `PA8` 和 `USART1`，核对 `T4` / `T5` |
 | 后台模块与校准 · MPU | `CAL_STATE`、`CAL_FRAMES`、`CAL_STABLE_FRAMES`、`CAL_RESULT` | 有效记录立即恢复，否则按静止及平均阶段累计 | 板子在动、I2C 失败、记录无效 | 平放重启并核对 CAL 开始/结束 |
-| 后台模块与校准 · 保存 | WDG1 type 5 与 `CAL_RESULT` | 成功态 `0`，校准失败 `1`，RAM 成功保存失败 `2` | WP、地址/页边界、写后读回 | 先确认写入阶段与地址，再断电复测 |
+| 后台模块与校准 · 保存 | `WDG1` 的 `type=5` 与 `CAL_RESULT` | 成功态 `0`，校准失败 `1`，RAM 成功保存失败 `2` | WP、地址/页边界、写后读回 | 先确认写入阶段与地址，再断电复测 |
 
 设备基线不同。MPU 周期目标 10 ms，SPL006 每 250 ms 轮询 1 Hz 器件，AHT21 约 2 s 一次，心率开启后软件最低读间隔 30 ms。`SAMPLING_BEGIN_MS` 表示进入服务循环，首包应从各项的成功计数与首样本时间证据确认。
 
@@ -1635,23 +1635,23 @@ flowchart TD
 | --- | --- |
 | [启动入口](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/Core/Src/main.c) | `POWER_EN`、创建任务前各 `MX_*_Init` |
 | [任务启动](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_task.c) | `lv_refr_now` 后登记 `FIRST_FRAME_MS`；紧接 `xTaskCreate(sensor)` |
-| [LCD SPI](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/lcd.c) | `LCD_Color_Fill_DMA`、`HAL_SPI_TxCpltCallback`、flush 完成回调 |
+| [LCD SPI](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/lcd.c) | `LCD_Color_Fill_DMA`、`HAL_SPI_TxCpltCallback`、`flush` 完成回调 |
 | [字段定义](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_diag.h)、[打包服务](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_diag.c) | 启动 16 槽，发送 `WDG1`，字段和序号小端 |
 | [RTC 服务](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/watch_rtc.c)、[AT 推进](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/kt6368a.c) | LSE 与 AT 等待、完成状态 |
 | [EEPROM 记录](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_imu_store.c)、[保存细分状态](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/imu-eeprom.md) | 双副本恢复、量程、CRC、保存读回 |
 
-启动字段的时间戳都是板端 HAL 毫秒。差值如 `BT_END_MS - BT_BEGIN_MS` 采用 32 位无符号计算，先排除 `0xFFFFFFFF` 未置值。RTC 和蓝牙结果按 HAL 返回值判断，MPU 状态和结果按应用枚举。若需区分零偏恢复是否已完成，结合 `CAL_STATE` 和 type 5 保存阶段，避免把未执行保存解释为失败。
+启动字段的时间戳都是板端 HAL 毫秒。差值如 `BT_END_MS - BT_BEGIN_MS` 采用 32 位无符号计算，先排除 `0xFFFFFFFF` 未置值。RTC 和蓝牙结果按 HAL 返回值判断，MPU 状态和结果按应用枚举。若需区分零偏恢复是否已完成，结合 `CAL_STATE` 和 `type=5` 保存阶段，避免把未执行保存解释为失败。
 
 ## 验证闭环与边界
 
 1. 在静止且固定接线条件下重复冷启动，保留同一 SHA、首次通电和后续上电的区别。
-2. 以示波器或逻辑分析仪记录 VDD、PA3、LCD SPI。标记 LVGL 开始、首帧提交、各 DMA 完成和首张画面的可见时刻。
+2. 以示波器或逻辑分析仪记录 `VDD`、`PA3`、LCD SPI。标记 LVGL 开始、首帧提交、各 DMA 完成和首张画面的可见时刻。
 3. 用启用诊断的固件从 SPP 导出启动、任务、传感器、MPU EEPROM 和校准记录，对同一次板端时间轴做差。
 4. 分别以已有有效 EEPROM 与需要校准的状态复测；临时遮断蓝牙或 RTC 时观察传感器是否继续采集。
 5. 连接手机后确认帧序号及 CRC。采样成功、UART 发送成功和手机接收分别观察。
 
-> [!WARNING]
-> 需实板/仪器验证边界。没有 DMA、可见首帧或所有器件首有效样本的内置启动字段，可加仪器触发或临时测点。实际缩短量以同一硬件多次冷启动的分布为准。
+> [!WARNING] 冷启动的实板测量边界
+> 没有 DMA、可见首帧或所有器件首有效样本的内置启动字段，可加仪器触发或临时测点。实际缩短量以同一硬件多次冷启动的分布为准。
 
 [旧启动流程与测量口径](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/startup-optimization.md)、[当前诊断协议及 CSV](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/diagnostics.md)及 [传感反馈链与校准状态](./topics/embedded/sensor-feedback-pipeline/)。
 
@@ -1664,12 +1664,12 @@ flowchart TD
 
 ## 典型现象与触发条件
 
-交换机与 PHY 指示灯显示已接线，开发板却无租约、无 ARP 回复或 ping 不通。默认静态固件使用 `192.168.1.30/24`，接入的测试 PC 需使用同网段未占用地址。只有实际编入 DHCP 路径时才预期出现租约申请。
+交换机与 PHY 指示灯显示已接线，开发板却无租约、无 ARP 回复或 `ping` 不通。默认静态固件使用 `192.168.1.30/24`，接入的测试 PC 需使用同网段未占用地址。只有实际编入 DHCP 路径时才预期出现租约申请。
 
 | 初始记录 | 需要的证据 |
 | --- | --- |
 | 固件和模式 | SHA、Keil 目标、`LWIP_DHCP`、`[NET] Mode:` 日志 |
-| 物理链路 | 开发板、交换机端口、线缆和 PA1 时钟 |
+| 物理链路 | 开发板、交换机端口、线缆和 `PA1` 时钟 |
 | 测试网络 | PC 网卡、IP/掩码、VLAN、是否有 DHCP 服务器 |
 | 快照变量 | MDIO 地址、PHY 协商结果、`g_lwipdev`、`g_lwip_netif` |
 | 包级证据 | 同一时间窗口的 ARP、ICMP 和可选 DHCP 抓包 |
@@ -1679,14 +1679,14 @@ flowchart TD
 固定提交支持以下分支。以实际固件的模式、地址和收包证据判定当前是哪一支。
 
 - **等不到租约。** `LWIP_DHCP` 默认是 `0`，`lwip_comm_init` 直接将静态 IPv4 地址设置为 `192.168.1.30/24`。在这套固件上等待 DHCP Discover 会一直没有结果。测试 PC 地址在另一个网段或 VLAN 时，也可能无法发起有效的同链路 ARP。
-- **物理有链路，协议栈还未就绪。** `eth_link` 每 100 ms 检查一次 PHY。LAN8720A 的 BSR 链路位低电平锁存，驱动连读两次，再通过 PHYSCSR 取得协商后的速率与双工。MAC 成功设置并运行 `HAL_ETH_Start_IT` 后才调用 `netif_set_link_up`。
+- **物理有链路，协议栈还未就绪。** `eth_link` 每 100 ms 检查一次 PHY。LAN8720A 的 `BSR` 链路位低电平锁存，驱动连读两次，再通过 `PHYSCSR` 取得协商后的速率与双工。MAC 成功设置并运行 `HAL_ETH_Start_IT` 后才调用 `netif_set_link_up`。
 - **PHY 与 MAC 已启动，DMA 收不到数据。** DMA 描述符和 RX 缓冲要位于 ETH DMA 可访问的 SRAM。若链接布局把它们放入 F407 从 `0x10000000` 开始的 CCM RAM，PHY 仍能亮灯，DMA 却无法访问这些地址。查最终 map 才能确认是否发生了这种放置错误。[DMA 描述符分配](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/ETHERNET/ethernet.c)
 
 ## 定位过程与关键证据
 
 1. 读取串口 `[NET] Mode:`。静态固件对照实际 IP、掩码和主机网段；DHCP 固件对照租约或超时回退日志。先用模式确定该等待什么流量。
-2. 测 PA1 是否有稳定的 50 MHz RMII 时钟。用 MDIO 检查 ID1/ID2 和 BSR 双读结果，再看 PHYSCSR 协商完成和双工。通过后读取 `g_lwip_netif` 的 `link_up` 标志；PHY 正常且该位未置时，沿 `ethernetif_link_check_state` 检查 MAC 配置和启动返回值。
-3. 链路已置位后，用同网段 PC 的 ARP 请求或同一轮 DHCP 租约回复作为已知输入。按 ETH RX IRQ → `HAL_ETH_RxCpltCallback` 释放 `s_rx_semaphore` → `eth_thread` 醒来 → `HAL_ETH_ReadData` → `netif->input` 逐点记录。第一个缺失处对应中断、描述符/缓冲、线程调度或输入交接问题。结合描述符地址、OWN 位与 RX 池状态验证。
+2. 测 `PA1` 是否有稳定的 50 MHz RMII 时钟。用 MDIO 检查 `ID1`/`ID2` 和 `BSR` 双读结果，再看 `PHYSCSR` 协商完成和双工。通过后读取 `g_lwip_netif` 的 `link_up` 标志；PHY 正常且该位未置时，沿 `ethernetif_link_check_state` 检查 MAC 配置和启动返回值。
+3. 链路已置位后，用同网段 PC 的 ARP 请求或同一轮 DHCP 租约回复作为已知输入。按 ETH RX IRQ → `HAL_ETH_RxCpltCallback` 释放 `s_rx_semaphore` → `eth_thread` 醒来 → `HAL_ETH_ReadData` → `netif->input` 逐点记录。第一个缺失处对应中断、描述符/缓冲、线程调度或输入交接问题。结合描述符地址、`OWN` 位与 RX 池状态验证。
 4. 收包进入栈后，分别核对 `netif_is_up`、`netif_is_link_up` 和实际 IPv4 地址。DHCP 模式追踪租约交换或静态回退；地址确定后，按 ARP 请求/应答、ICMP 请求/应答依次确认。固定源码给出了这些判据，具体丢包点以同轮抓包为准。
 
 ## 具体排查流程
@@ -1714,10 +1714,10 @@ flowchart TD
 | --- | --- | --- | --- | --- |
 | 地址配置 | `LWIP_DHCP`、`[NET] Mode: Static` 或 `[NET] Mode: DHCP` | 默认 0，IP `192.168.1.30`、掩码 `255.255.255.0`、网关 `192.168.1.1` | 固件模式或主机网段不符 | 对照 Keil 宏与开机日志 |
 | RMII 时钟与 PHY · 启动 | `[ETH] lwIP(FreeRTOS) init ok`、`g_lwip_init_status` | 初始化可在未插线时成功 | PHY 初始化失败或分配失败 | 对照 `lwip_comm_init failed` 及重试 |
-| RMII 时钟与 PHY · 时钟 | PA1 50 MHz、PHY nRST、MDC/MDIO | PHY 输出 RMII REFCLKO，稳定复位释放 | 时钟方向错误、复位未释放 | 用示波器测 PA1 |
-| RMII 时钟与 PHY · 协商 | ID1 `0x0007`，ID2 mask `0xFFF0` 得 `0xC0F0` | BSR 地址 `0x01` 的 link 位有效，PHYSCSR 地址 `0x1F` 有协商结果 | MDIO 地址、连线、协商或 MAC 启动失败 | 核对协商、`HAL_ETH_Start_IT` 和 link 标志 |
-| DMA 收包 | `HAL_ETH_ReadData`、ISR、`eth_thread` 和描述符 OWN | IRQ 唤醒 RX 线程；pbuf 消费完后归还 RX 池 | DMA 地址进 CCM、池耗尽、未收到中断 | 检查 map，在 ISR、信号量和 pbuf 分配/回收处记计数 |
-| netif 状态 | `netif_is_link_up` / `netif_is_up` / IPv4 | link 与 up 各有标志，IPv4 为静态配置或租约 | 网卡管理状态或地址未更新 | 对照 `netif_set_up`、link 回调和地址状态机 |
+| RMII 时钟与 PHY · 时钟 | `PA1` 50 MHz、PHY `nRST`、MDC/MDIO | PHY 输出 RMII `REFCLKO`，稳定复位释放 | 时钟方向错误、复位未释放 | 用示波器测 `PA1` |
+| RMII 时钟与 PHY · 协商 | `ID1` `0x0007`，`ID2` mask `0xFFF0` 得 `0xC0F0` | `BSR` 地址 `0x01` 的链路位有效，`PHYSCSR` 地址 `0x1F` 有协商结果 | MDIO 地址、连线、协商或 MAC 启动失败 | 核对协商、`HAL_ETH_Start_IT` 和链路标志 |
+| DMA 收包 | `HAL_ETH_ReadData`、ISR、`eth_thread` 和描述符 `OWN` | IRQ 唤醒 RX 线程；`pbuf` 消费完后归还 RX 池 | DMA 地址进 CCM、池耗尽、未收到中断 | 检查 map，在 ISR、信号量和 `pbuf` 分配/回收处记计数 |
+| `netif` 状态 | `netif_is_link_up` / `netif_is_up` / IPv4 | 链路与管理状态各有标志，IPv4 为静态配置或租约 | 网卡管理状态或地址未更新 | 对照 `netif_set_up`、链路回调和地址状态机 |
 | 协议应答 · DHCP | `[NET] DHCP IP:` 或 `[NET] DHCP timeout, static IP:` | 模式开启时申请；`tries>4` 走静态回退 | 服务器、广播隔离、包未送栈 | 判断四步交换中断位置，用实际地址复测 |
 | 协议应答 · ARP/ICMP | ARP Request/Reply，再看 Echo | 邻居缓存无条目时先解析 MAC，后有 Echo Reply | 地址冲突、回包路径、主机防火墙 | 对照两端抓包及 PC 邻居缓存 |
 | 协议应答 · 服务 | 实际业务端口、Netconn 编译选项 | 有监听者后才有应用响应 | 地址已通但服务未启用 | 用服务端日志和 TCP 连接对照 |
@@ -1727,7 +1727,7 @@ flowchart TD
 ## 关键源码测点
 
 - [编译配置](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwipopts.h)确认 OS 模式、DHCP 和校验开关。
-- [PHY 识别与链路](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/ETHERNET/ethernet_chip.c)查看 MDIO 扫描、BCR reset、BSR 读取和 PHYSCSR 速率双工。
+- [PHY 识别与链路](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/ETHERNET/ethernet_chip.c)查看 MDIO 扫描、`BCR` reset、`BSR` 读取和 `PHYSCSR` 速率双工。
 - [输入和链路状态](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/ethernetif.c)查看 `ethernetif_link_check_state`、`ethernetif_input` 与 `pbuf_free_custom`。
 - [地址状态机](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwip_comm.c)查看 `lwip_link_status_updated`、`lwip_dhcp_process`、`g_lwipdev` 和 `g_lwip_netif`。
 - [网络启动与应用并行](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/application/app_task.c)查看 `start_task` 的多次尝试及触摸任务是否仍运行。
@@ -1741,12 +1741,12 @@ flowchart TD
 | 邻居解析后看 ICMP | `icmp and ip.addr == 192.168.1.30`，替换为实际 IP | Echo Request/Reply，结果与发起主机一致 |
 | 存在业务服务时看端口 | `tcp.port == 端口号`，代入数值 | 连接握手和服务响应各自明确 |
 
-链路刚恢复时先确认 PHY 返回 10/100 Mbit/s 与预期双工，再核对 MAC 配置。BSR 的链路状态需要按驱动的读取方式解释，协商未完成先等待下一个 100 ms 链路检查。
+链路刚恢复时先确认 PHY 返回 10/100 Mbit/s 与预期双工，再核对 MAC 配置。`BSR` 的链路状态需要按驱动的读取方式解释，协商未完成先等待下一个 100 ms 链路检查。
 
 在 PC 侧记录 `Get-NetNeighbor -AddressFamily IPv4` 和 `ping` 结果。若交换机隔离流量，按需要从能看到广播和目标单播的位置抓包。插拔线缆复测链路、地址与恢复后首次应答，并在触摸并发负载下复测。
 
-> [!WARNING]
-> 需实板/仪器验证边界。link LED 亮只提供物理线索，完整连通性按 PHY、DMA、接口、地址和协议响应逐层证实。
+> [!WARNING] 链路与协议应答的实板验证
+> 链路 LED 亮只提供物理线索，完整连通性按 PHY、DMA、接口、地址和协议响应逐层证实。
 
 通过标准为同一测试轮中记录成功的 ARP 和 ICMP，DHCP 固件另需解释租约或回退后的地址来源。
 
@@ -1767,22 +1767,22 @@ flowchart TD
 | --- | --- | --- |
 | 有目标 | `$410,260#` | `fresh=1, valid=1`，产生新控制量 |
 | 持续无球 | `$-1,-1#` 连发 | `fresh=1, valid=0`；最近接收时刻继续刷新 |
-| UART0 断流 | 停发送达到 150 ms，或只有坏帧 | 无合格新帧，超时设置无效零目标 |
-| PA13 停止 | PA13 从高到低 | `g_system_armed=false`，进入一次性停止 |
+| `UART0` 断流 | 停发送达到 150 ms，或只有坏帧 | 无合格新帧，超时设置无效零目标 |
+| `PA13` 停止 | `PA13` 从高到低 | `g_system_armed=false`，进入一次性停止 |
 | 驱动故障 | Emm 回 `E2` 或 `EE` | 锁存故障并发送停止，需明确重新武装 |
 
 ## 错误原因与触发机理
 
-- **合法无球帧触发回中。** UART0 解析 `$-1,-1#` 后发布 `fresh=1, valid=0`。武装主循环仍刷新 `g_k230_last_rx_ms`，并累计 `s_ball_miss_cnt`。短时可以预测或保持，第 8 个连续无球帧会清 PID 和历史，并设为无效零目标。
-- **UART0 断流或持续坏帧也触发回中。** 武装期间距最后一次消费合法帧达到 150 ms，`g_k230_timeout` 置真并调用 `StepperTrack_SetTarget(0, false)`。下一条合法帧清除超时标志，后续动作由该帧的目标有效性决定。
-- **解除武装、驱动故障和发包节流会表现为无动作。** PA13 下降沿使系统解除武装，主循环发送一次 `FE` 停止。Emm_V5 对已知命令的合法 `E2/EE` 回复会使 `StepperTrack_Update` 锁存 `fault` 并停止，后续视觉帧不能清除锁存，需排除故障后按 PA12 重新武装。无锁存时也可能因为目标仍在死区，或运动中偏差较小且距上次发包不足 10 ms，而暂不发新命令。[节流与死区定义](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/application/app_stepper_track.h)
+- **合法无球帧触发回中。** `UART0` 解析 `$-1,-1#` 后发布 `fresh=1, valid=0`。武装主循环仍刷新 `g_k230_last_rx_ms`，并累计 `s_ball_miss_cnt`。短时可以预测或保持，第 8 个连续无球帧会清 PID 和历史，并设为无效零目标。
+- **`UART0` 断流或持续坏帧也触发回中。** 武装期间距最后一次消费合法帧达到 150 ms，`g_k230_timeout` 置真并调用 `StepperTrack_SetTarget(0, false)`。下一条合法帧清除超时标志，后续动作由该帧的目标有效性决定。
+- **解除武装、驱动故障和发包节流会表现为无动作。** `PA13` 下降沿使系统解除武装，主循环发送一次 `FE` 停止。Emm_V5 对已知命令的合法 `E2/EE` 回复会使 `StepperTrack_Update` 锁存 `fault` 并停止，后续视觉帧不能清除锁存，需排除故障后按 `PA12` 重新武装。无锁存时也可能因为目标仍在死区，或运动中偏差较小且距上次发包不足 10 ms，而暂不发新命令。[节流与死区定义](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/application/app_stepper_track.h)
 
 ## 定位过程与关键证据
 
-1. 抓 UART0 原始流并记录帧间隔。若 `$-1,-1#` 仍持续出现且解析后帧龄不断刷新，可排除本轮断流，转查 K230 的检测结果或 ROI。若字节存在但无 `fresh`，核对组帧、坐标范围与溢出计数。
-2. 同时记录 `SM[ARM]` / `SM[OFF]`。武装状态下用调试器或临时测点读取 `s_ball_miss_cnt` 和 `g_k230_last_rx_ms`。计数达到 8、帧龄仍在刷新是无球路径。帧龄达到 150 ms 且 `TO` 置位是超时路径。200 ms 的无线调试打印可能跨过超时边沿，按 UART0 采样时间和板端 `tick_ms` 定位触发点。
-3. 比较 `ang: tgt=` 的毫度与 `stp: tgt=` 的脉冲，再检查 UART1 是否实际发出 `FD` 位置帧。有目标变化但无帧时，读取 `g_track.fault`、最后发包时刻与目标差值，确认锁存、节流或死区分支。
-4. 对齐 UART1 命令与原始回执。`02` 只表示命令被接受，`9F` 表示驱动器报告到位，`E2/EE` 对应故障分支。日志的 `stp: cur` 是已命令的脉冲位置。实际角度通过 `0x36` 位置查询回包或外部测量确认。此定位顺序来自固定提交，实际台架结果需逐轮记录。
+1. 抓 `UART0` 原始流并记录帧间隔。若 `$-1,-1#` 仍持续出现且解析后帧龄不断刷新，可排除本轮断流，转查 K230 的检测结果或 ROI。若字节存在但无 `fresh`，核对组帧、坐标范围与溢出计数。
+2. 同时记录 `SM[ARM]` / `SM[OFF]`。武装状态下用调试器或临时测点读取 `s_ball_miss_cnt` 和 `g_k230_last_rx_ms`。计数达到 8、帧龄仍在刷新是无球路径。帧龄达到 150 ms 且 `TO` 置位是超时路径。200 ms 的无线调试打印可能跨过超时边沿，按 `UART0` 采样时间和板端 `tick_ms` 定位触发点。
+3. 比较 `ang: tgt=` 的毫度与 `stp: tgt=` 的脉冲，再检查 `UART1` 是否实际发出 `FD` 位置帧。有目标变化但无帧时，读取 `g_track.fault`、最后发包时刻与目标差值，确认锁存、节流或死区分支。
+4. 对齐 `UART1` 命令与原始回执。`02` 只表示命令被接受，`9F` 表示驱动器报告到位，`E2/EE` 对应故障分支。日志的 `stp: cur` 是已命令的脉冲位置。实际角度通过 `0x36` 位置查询回包或外部测量确认。此定位顺序来自固定提交，实际台架结果需逐轮记录。
 
 ## 具体排查流程
 
@@ -1809,14 +1809,14 @@ flowchart TD
 
 | 阶段 | 观测点与日志 | 正常基线 | 异常根因 | 处理 |
 | --- | --- | --- | --- | --- |
-| 系统武装 | PA12、PA13 下降沿，`SM[ARM]` / `SM[OFF]` | PA13 解除武装并发一次 `FE`，PA12 重武装 | 停止后尚未重新武装、按键异常 | 看引脚电平和实际停机帧 |
-| UART0 新帧 · 视觉 | K230 画面、ROI、最终 UART 文本 | 有球发 `$cx,cy#`；无球发 `$-1,-1#` | 光照、ROI、检测框中心出界 | 看脚本实际发帧和图像坐标 |
-| UART0 新帧 · 线路 | PA10 TX/PA11 RX，115200 bit/s | 合法帧经 ISR 入环，主循环解析 | 接线、共地、位速率、FIFO/环溢出 | 捕获原始字节的起止符与间隔 |
-| UART0 新帧 · 组帧 | `g_uart0_data.fresh/valid`、解析错误和溢出计数 | x=0–799、y=0–479，或同时 -1 | 坏字段、中间重置、超长 | 重放一帧确定发布是否发生 |
+| 系统武装 | `PA12`、`PA13` 下降沿，`SM[ARM]` / `SM[OFF]` | `PA13` 解除武装并发一次 `FE`，`PA12` 重武装 | 停止后尚未重新武装、按键异常 | 看引脚电平和实际停机帧 |
+| `UART0` 新帧 · 视觉 | K230 画面、ROI、最终 UART 文本 | 有球发 `$cx,cy#`；无球发 `$-1,-1#` | 光照、ROI、检测框中心出界 | 看脚本实际发帧和图像坐标 |
+| `UART0` 新帧 · 线路 | `PA10` TX/`PA11` RX，115200 bit/s | 合法帧经 ISR 入环，主循环解析 | 接线、共地、位速率、FIFO/环溢出 | 捕获原始字节的起止符与间隔 |
+| `UART0` 新帧 · 组帧 | `g_uart0_data.fresh/valid`、解析错误和溢出计数 | `x` 为 0–799、`y` 为 0–479，或两者均为 `-1` | 坏字段、中间重置、超长 | 重放一帧确定发布是否发生 |
 | 目标有效性与超时 · 无球 | `K230:(-1,-1) ok=0`、`s_ball_miss_cnt` | 合法帧刷新时间，第 8 帧清 PID 和历史并设零目标 | 脱离 ROI 或漏检 | 将帧龄和丢球计数同时记录 |
 | 目标有效性与超时 · 断流 | `SM[ARM] ... TO`、`g_k230_last_rx_ms` | 达到 150 ms 设置无效零目标，下一合法帧清超时 | 线断、K230 停帧、持续解析失败 | 核对板端帧龄与坏帧计数 |
-| 位置命令 | `ang: tgt=`、`stp: tgt=`、UART1 的 `FD` 帧 | 先算毫度，再算脉冲，按限幅与节流下发 | 方向错、死区、故障锁存 | 核对 PID 输出、目标差值及实际位置帧 |
-| 串口回执 · 状态 | UART1 PA8 TX/PA9 RX，`rx=` | `02` 接受；有到位应答时 `9F`；`E2/EE` 故障 | 线路、固件协议不符、到位应答未启用 | 抓原始帧并核对 Emm/X 固件和配置 |
+| 位置命令 | `ang: tgt=`、`stp: tgt=`、`UART1` 的 `FD` 帧 | 先算毫度，再算脉冲，按限幅与节流下发 | 方向错、死区、故障锁存 | 核对 PID 输出、目标差值及实际位置帧 |
+| 串口回执 · 状态 | `UART1` `PA8` TX/`PA9` RX，`rx=` | `02` 接受；有到位应答时 `9F`；`E2/EE` 故障 | 线路、固件协议不符、到位应答未启用 | 抓原始帧并核对 Emm/X 固件和配置 |
 | 串口回执 · 零位 | `boot=` 和 `0x36` 位置应答 | 回读实际角度；无回复显示 `NO`，零点校验失败有 `?` | 电机未回包或装配零点偏离 | 对照绝对坐标和机械参考复测 |
 
 ## 关键源码测点
@@ -1824,22 +1824,22 @@ flowchart TD
 | 路径 | 测点 |
 | --- | --- |
 | [视觉脚本](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/k230_ball_balance.py) | 实际 `uart.write` 前的坐标或无球帧 |
-| [UART0 IRQ 与组帧](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/bsp_uart0_proto.c)、[历史 K230 接口](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/bsp_k230_uart.c) | 当前 FIFO→环→`UART0_Proto_Poll`→`uart0_parse_frame` |
+| [`UART0` IRQ 与组帧](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/bsp_uart0_proto.c)、[历史 K230 接口](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/bsp_k230_uart.c) | 当前 FIFO→环→`UART0_Proto_Poll`→`uart0_parse_frame` |
 | [主循环](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/mian.c) | `g_system_armed`，`s_ball_miss_cnt`，`g_k230_timeout`，`StepperTrack_SetTarget` |
 | [角度跟踪](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/application/app_stepper_track.c) | `StepperTrack_Update`、`fault`、`target_angle_mdeg`、位置发出点 |
 | [驱动协议](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/emmv5.c) | `EMMV5_RX_Poll`、`0x36` 定长接收、`0x6B` 帧尾 |
 
 ## 验证闭环与边界
 
-1. 用受限台架发送有效坐标，确认 x 方向、目标角度、发出命令与机械回执。
+1. 用受限台架发送有效坐标，确认 `x` 方向、目标角度、发出命令与机械回执。
 2. 保持 UART 连通，连续发送无球帧，记录年龄刷新、预测窗口与第 8 帧进入回中。
 3. 停止发送，从最后一条合格消息起测 150 ms 触发及当前命令，重新送合法帧后观察恢复。
-4. 按 PA13，确认发生一次真实停止帧。重武装后单独验证正常位置发包。
+4. 按 `PA13`，确认发生一次真实停止帧。重武装后单独验证正常位置发包。
 5. 记录停止或丢球前后的实际角度与最后一条目标角，确认回中轨迹与急停动作的区别。
 6. 检查实际驱动器返回码、到位回执设置及机械零点。用位置读取应答区分已发送目标与实际到位。
 
-> [!WARNING]
-> 需实板/仪器验证边界。-1 坐标属于协议认可的无球状态，串口超时设置的是回中目标，PA13 或驱动故障走停机。准确角度、速度、到位时间和保护行为随硬件配置实测。
+> [!WARNING] 回中、停机与保护的实板验证
+> `-1` 坐标属于协议认可的无球状态，串口超时设置的是回中目标，`PA13` 或驱动故障走停机。准确角度、速度、到位时间和保护行为随硬件配置实测。
 
 同一测试使用一致的视野、机械零位和命令限幅，每轮保留首个异常帧、主循环状态和驱动回执。
 
@@ -1875,21 +1875,21 @@ flowchart LR
 | 工程 | MCU | 调度模型 | 总线或数据入口 | 持久化与失效边界 | 对照入口 |
 | --- | --- | --- | --- | --- | --- |
 | [FreeRTOS 学习模板](./projects/freertos-beginer/) | STM32F103C8 | 声明 CMSIS-RTOS2，任务源缺失 | Keil 分组声明驱动 | 公开证据为启动文件、RTE 与工程配置 | [任务与所有权](./topics/embedded/task-and-bus-ownership/) |
-| [飞控与遥控](./projects/flight/) | STM32F103 | 两端 RTOS，飞行 2 tick，射频轮后延时 | I2C1、SPI2 RF、TIM2 PWM、ADC | 空闲校零、断联及 PID 重置 | [反馈链](./topics/embedded/sensor-feedback-pipeline/)、[总线所有权](./adr/adr-0002-assign-sensor-bus-owner/) |
-| [F411 手表](./projects/watch/) | STM32F411CEU6 | LVGL 与 sensor，RTC/BT 分阶段推进 | 软件 I2C、SPI DMA、USART1、ADC | EEPROM 双记录槽、WDG1、采样时效 | [冷启动排障](./troubleshooting/ts-0002-watch-startup-latency/) |
+| [飞控与遥控](./projects/flight/) | STM32F103 | 两端 RTOS，飞行 2 tick，射频轮后延时 | `I2C1`、`SPI2` RF、`TIM2` PWM、ADC | 空闲校零、断联及 PID 重置 | [反馈链](./topics/embedded/sensor-feedback-pipeline/)、[总线所有权](./adr/adr-0002-assign-sensor-bus-owner/) |
+| [F411 手表](./projects/watch/) | STM32F411CEU6 | LVGL 与 `sensor`，RTC/BT 分阶段推进 | 软件 I2C、SPI DMA、`USART1`、ADC | EEPROM 双记录槽、`WDG1`、采样时效 | [冷启动排障](./troubleshooting/ts-0002-watch-startup-latency/) |
 | [Bootloader](./projects/bootloader/) | STM32F407VE + STM32F103 | 启动分流与应用主循环 | CAN、USART DMA、SPI Flash、EEPROM | 外部先暂存，片内单 APP，加独立恢复 | [暂存决策](./adr/adr-0001-stage-image-before-boot/)、[升级排障](./troubleshooting/ts-0001-bootloader-update-phase/) |
-| [K230 平衡](./projects/mspm0g3507/) | MSPM0G3507 + K230 | SysTick 与裸机主循环、串口 ISR | UART0 视觉、UART1 电机、UART3 调参 | 校验、帧龄、回中、驱动故障锁存 | [视觉超时排障](./troubleshooting/ts-0004-k230-vision-timeout/) |
-| [F407 以太网](./projects/iwip/) | STM32F407ZG | FreeRTOS 与 lwIP 核心、网卡、应用线程 | RMII、MDIO、DMA、FSMC、软件 I2C | pbuf 池回收，静态地址或 DHCP 回退 | [OS 模式](./adr/adr-0003-run-lwip-in-rtos-mode/)、[分层排障](./troubleshooting/ts-0003-ethernet-link-without-ip/) |
+| [K230 平衡](./projects/mspm0g3507/) | MSPM0G3507 + K230 | `SysTick` 与裸机主循环、串口 ISR | `UART0` 视觉、`UART1` 电机、`UART3` 调参 | 校验、帧龄、回中、驱动故障锁存 | [视觉超时排障](./troubleshooting/ts-0004-k230-vision-timeout/) |
+| [F407 以太网](./projects/iwip/) | STM32F407ZG | FreeRTOS 与 lwIP 核心、网卡、应用线程 | RMII、MDIO、DMA、FSMC、软件 I2C | `pbuf` 池回收，静态地址或 DHCP 回退 | [OS 模式](./adr/adr-0003-run-lwip-in-rtos-mode/)、[分层排障](./troubleshooting/ts-0003-ethernet-link-without-ip/) |
 
 ## 跨项目可以复核的机制
 
 | 要解决的事 | 两处实现证据 | 对照时应问什么 |
 | --- | --- | --- |
-| 接收所有权 | watch 的 UART RX 环与 Iwip 的 RX pbuf 池 | 何时交给消费者，消费完成能否延迟复用 |
-| 周期和延迟 | flight 的两拍点策略与 watch 的 sensor/LVGL | 固定间隔、轮后延时和器件内部转换各是多少 |
+| 接收所有权 | watch 的 UART RX 环与 Iwip 的 RX `pbuf` 池 | 何时交给消费者，消费完成能否延迟复用 |
+| 周期和延迟 | flight 的两拍点策略与 watch 的 `sensor` / LVGL | 固定间隔、轮后延时和器件内部转换各是多少 |
 | 状态提交 | bootloader 先正文后标记，与 watch 双槽写回 | 掉电或读回失败后从哪个已有记录恢复 |
 | 失效与恢复 | MSPM0 的合法无球/断流，与 Iwip 的 link/IP | 是数据不可用、消息断流，还是底层未连 |
-| 输出证据 | flight 的 CCR、MSPM0 已命令位置、Iwip 的数据包 | 写入成功与物理结果之间要观察哪些事件 |
+| 输出证据 | flight 的 `CCR`、MSPM0 已命令位置、Iwip 的数据包 | 写入成功与物理结果之间要观察哪些事件 |
 
 ## 按阅读目标选路线
 
@@ -1897,7 +1897,7 @@ flowchart LR
 
 1. 从 [F103 工程配置](./projects/freertos-beginer/) 追 Cortex-M 启动时钟、异常向量和 RTOS port，列出缺少的应用证据。
 2. 用 [两端任务表](./projects/flight/) 计算 2 ms 姿态预算，以射频任务比较 `vTaskDelayUntil` 与 `vTaskDelay`，定位高优先级等待。
-3. 用 [sensor 与 LVGL](./projects/watch/) 对比独占、低频轮询、状态快照和 ISR 通知，再到 [netif 输入](./projects/iwip/) 追 pbuf 生命周期和核心邮箱。
+3. 用 [sensor 与 LVGL](./projects/watch/) 对比独占、低频轮询、状态快照和 ISR 通知，再到 [netif 输入](./projects/iwip/) 追 `pbuf` 生命周期和核心邮箱。
 4. 按 [任务专题](./topics/embedded/task-and-bus-ownership/) 记录任务开始、结束、外设回调和快照发布，得到实际最坏占用与周期抖动。
 
 ### 协议与升级线
@@ -1912,11 +1912,11 @@ flowchart LR
 1. 在 [飞控](./projects/flight/) 读一个轴的两级 PID，逐列记录测量单位、符号、输出限幅与 PWM 通道。
 2. 在 [手表](./projects/watch/) 追磁力计 X/Z/Y 读取、EEPROM 恢复和失效降级，从 [启动诊断](./troubleshooting/ts-0002-watch-startup-latency/) 学板端时间差。
 3. 在 [MSPM0](./projects/mspm0g3507/) 手算像素偏差到毫度再到脉冲的倍率，核对命令与真实回执。
-4. 按 [视觉排障](./troubleshooting/ts-0004-k230-vision-timeout/) 分别做有效帧、无球帧、停发和 PA13 模式，记录输出是保持、回中还是停止。
+4. 按 [视觉排障](./troubleshooting/ts-0004-k230-vision-timeout/) 分别做有效帧、无球帧、停发和 `PA13` 模式，记录输出是保持、回中还是停止。
 
 ## 证据口径
 
-> [!NOTE]
+> [!NOTE] 源码事实与通用示例的边界
 > 工程档案以各自固定提交为事实基线。专题中的 C 片段是通用骨架。它们的命名、失败策略和调度条件由相应项目逐一验证。
 
 | 证据 | 可确认 | 下一层证据 |

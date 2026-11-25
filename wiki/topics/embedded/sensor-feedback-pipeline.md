@@ -37,9 +37,9 @@ flowchart LR
 
 | 项目 | 原始量和坐标 | 有效性与恢复 | 输出和观测 |
 | --- | --- | --- | --- |
-| [[flight|飞控]] | MPU6050 六轴与 SPL006 压力/温度，角度与 °/s 分开 | 连接边沿校零，IDLE 静止修正，油门和状态门控 | X 布局混控的 TIM2 CCR 与实际姿态响应 |
-| [[watch|手表]] | MPU6050、LSM303DLHC，后者按 X/Z/Y 读取并换成机体 μT | EEPROM 双槽、量程和 CRC；无有效磁参考时六轴递推 | UI 快照与 WDG1 诊断，保存失败可与当前 RAM 校准并存 |
-| [[mspm0g3507|视觉平衡]] | 800×480 像素，中心 x=400，速度 px/ms | UART 解析、`fresh/valid`、无球与 150 ms 超时 | 摆杆 mdeg → 电机脉冲 → 到位/故障回执 |
+| [[flight|飞控]] | MPU6050 六轴与 SPL006 压力/温度，角度与 °/s 分开 | 连接边沿校零，`IDLE` 静止修正，油门和状态门控 | X 布局混控的 `TIM2` `CCR` 与实际姿态响应 |
+| [[watch|手表]] | MPU6050、LSM303DLHC，后者按 X/Z/Y 读取并换成机体 μT | EEPROM 双槽、量程和 CRC；无有效磁参考时六轴递推 | UI 快照与 `WDG1` 诊断，保存失败可与当前 RAM 校准并存 |
+| [[mspm0g3507|视觉平衡]] | 800×480 像素，中心 `x=400`，速度 px/ms | UART 解析、`fresh/valid`、无球与 150 ms 超时 | 摆杆 mdeg → 电机脉冲 → 到位/故障回执 |
 
 对应 [飞控控制环](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/application/application_flight.c)、[姿态生产及磁有效性](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_imu.c)、[视觉到角度命令](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/mian.c)。飞控的姿态环和定高环有各自 `dt`。当前手表磁校准只建立轴向比例与偏置，画图审计时可用磁数据椭球与航向变化判断是否还有轴间误差。
 

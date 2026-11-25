@@ -26,7 +26,7 @@ related_projects: ["iwip"]
 
 ## 决策与落地机制
 
-采用 FreeRTOS 下的 `NO_SYS=0`。`start_task` 初始化 lwIP 和网口、创建触摸与 LED 后自删除。PHY 协商由独立任务轮询。ETH IRQ 用信号量交给输入线程，输入线程把收到的 pbuf 投到 TCP/IP 核心。
+采用 FreeRTOS 下的 `NO_SYS=0`。`start_task` 初始化 lwIP 和网口、创建触摸与 LED 后自删除。PHY 协商由独立任务轮询。ETH IRQ 用信号量交给输入线程，输入线程把收到的 `pbuf` 投到 TCP/IP 核心。
 
 ```mermaid
 flowchart LR
@@ -37,7 +37,7 @@ flowchart LR
     START["启动任务完成创建"] --> UI["Goodix 与 LCD 任务"]
 ```
 
-RAW 回调在核心执行，跨任务使用核心支持的调用路径，例如 `tcpip_callback` 或 port 允许的核心锁。对单个 socket 或 netconn 对象的并行访问还需核对对应 API 的约束。当前驱动在配置 MAC 和更新 link 标志时使用核心锁，DHCP 状态推进也有同样保护。ISR 只用适配的 RTOS 原语报告事件。
+RAW 回调在核心执行，跨任务使用核心支持的调用路径，例如 `tcpip_callback` 或 port 允许的核心锁。对单个 socket 或 `netconn` 对象的并行访问还需核对对应 API 的约束。当前驱动在配置 MAC 和更新 link 标志时使用核心锁，DHCP 状态推进也有同样保护。ISR 只用适配的 RTOS 原语报告事件。
 
 ## 备选方案对比
 
@@ -51,7 +51,7 @@ RAW 回调在核心执行，跨任务使用核心支持的调用路径，例如 
 
 默认常驻网络栈字数为 `1024+512+384=1920`，约 7.5 KiB，仅统计核心、输入、链路三个线程栈。开启 DHCP 另约 1.5 KiB，测试启动峰值再计启动任务栈 2 KiB。这些栈通常来自 32 KiB FreeRTOS 堆，内存预算总表避免重复相加。
 
-TX 4×1536 B 和 RX 10×1536 B 的 payload 合计约 21 KiB，还要加自定义 pbuf 头、DMA 描述符等结构。16 KiB lwIP 堆与通用 pbuf 池也有独立占用。使用链接 map 核对总占用和内部 SRAM 放置，再以运行高水位评估最坏路径。
+TX 4×1536 B 和 RX 10×1536 B 的 payload 合计约 21 KiB，还要加自定义 `pbuf` 头、DMA 描述符等结构。16 KiB lwIP 堆与通用 `pbuf` 池也有独立占用。使用链接 map 核对总占用和内部 SRAM 放置，再以运行高水位评估最坏路径。
 
 分线程减小慢 LCD 操作对收包的直接阻碍。长时间网络负载仍可能增加 UI 等待、耗尽 RX 池或填满邮箱。网络回调内长阻塞和持核心锁做慢操作也会影响其他流。若实际内存不够、触摸在可复现负载下持续错过预算，或新产品需要网络与主控故障隔离，可重做调度和模块取舍。
 
@@ -69,7 +69,7 @@ TX 4×1536 B 和 RX 10×1536 B 的 payload 合计约 21 KiB，还要加自定义
 ## 源码证据
 
 - [模式、邮箱和 API](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwipopts.h)、[FreeRTOS 适配](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/sys_arch.c)定义执行边界。
-- [业务任务调度](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/application/app_task.c)、[ETH 收包及核心锁](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/ethernetif.c)与 [netif 和 DHCP](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwip_comm.c)给出落地机制。
+- [业务任务调度](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/application/app_task.c)、[ETH 收包及核心锁](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/ethernetif.c)与 [`netif` 和 DHCP](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwip_comm.c)给出落地机制。
 - [历史入口说明](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/README.md)记录较早的裸机阶段。当前链路与地址的台架核对见 [[ethernet-link-and-ip|以太网分层]] 和 [[TS-0003-ethernet-link-without-ip|网口排障]]。
 
 <!-- HUMAN-NOTES:START -->

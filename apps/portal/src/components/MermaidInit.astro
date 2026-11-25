@@ -27,11 +27,29 @@
     return document.documentElement.dataset.theme === 'light';
   }
 
+  const MERMAID_FONT_FAMILY =
+    '"Source Sans 3 Variable", "Noto Sans SC Variable", "Source Han Sans SC", "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei UI", sans-serif';
+
   let mermaidPromise: Promise<typeof import('mermaid')> | undefined;
+  let fontsSettledPromise: Promise<unknown> | undefined;
   let initializedTheme: string | null = null;
   let uidCounter = 0;
 
+  function waitForFontsBounded(): Promise<unknown> {
+    if (fontsSettledPromise) return fontsSettledPromise;
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      fontsSettledPromise = Promise.race([
+        document.fonts.ready.catch(() => undefined),
+        new Promise((resolve) => window.setTimeout(resolve, 350)),
+      ]);
+    } else {
+      fontsSettledPromise = Promise.resolve();
+    }
+    return fontsSettledPromise;
+  }
+
   async function getConfiguredMermaid() {
+    await waitForFontsBounded();
     const mod = await (mermaidPromise ??= import('mermaid'));
     const mermaid = mod.default;
     const light = isLightTheme();
@@ -59,7 +77,7 @@
               actorBorder: '#0284c7',
               actorTextColor: '#0f172a',
               signalColor: '#334155',
-              fontFamily: 'Inter, PingFang SC, Microsoft YaHei, sans-serif',
+              fontFamily: MERMAID_FONT_FAMILY,
             }
           : {
               background: 'transparent',
@@ -75,7 +93,7 @@
               actorBkg: '#1b273d',
               actorBorder: '#38bdf8',
               actorTextColor: '#eef3fb',
-              fontFamily: 'Inter, PingFang SC, Microsoft YaHei, sans-serif',
+              fontFamily: MERMAID_FONT_FAMILY,
             },
       });
       initializedTheme = themeKey;

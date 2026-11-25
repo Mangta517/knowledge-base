@@ -98,7 +98,7 @@ export function stripOrPreserveHumanNotes(body, hasHumanNotesHint) {
       if (hasHumanNotesHint === false || isPlaceholder) {
         return '';
       }
-      return `\n\n${trimmed}\n\n`;
+      return `\n\n<div class="kb-human-notes">\n\n${trimmed}\n\n</div>\n\n`;
     },
   );
 }

@@ -166,12 +166,23 @@ test('prepare-content: human notes collapsing and symlink rejection in copyAsset
     ).trim(),
     '正文',
   );
+  const preservedNotes = stripOrPreserveHumanNotes(
+    '正文\n<!-- HUMAN-NOTES:START -->\n## 个人复盘与后续思考\n实测 CAN 帧间隔 1.1s。\n<!-- HUMAN-NOTES:END -->',
+    true,
+  );
+  assert.match(preservedNotes, /<div class="kb-human-notes">/);
+  assert.match(preservedNotes, /实测 CAN 帧间隔 1\.1s。/);
+
+  const transformedWithNotes = transformBody(
+    '正文\n<!-- HUMAN-NOTES:START -->\n## 个人复盘与后续思考\n复核 [[watch|手表档案]] 的 `1.1s` 时序。\n<!-- HUMAN-NOTES:END -->',
+    { watch: '/projects/watch/' },
+    true,
+    {},
+    { base: '/konwlegde' },
+  );
   assert.match(
-    stripOrPreserveHumanNotes(
-      '正文\n<!-- HUMAN-NOTES:START -->\n## 个人复盘与后续思考\n实测 CAN 帧间隔 1.1s。\n<!-- HUMAN-NOTES:END -->',
-      true,
-    ),
-    /实测 CAN 帧间隔 1\.1s。/,
+    transformedWithNotes,
+    /<div class="kb-human-notes">\s+## 个人复盘与后续思考\s+复核 \[手表档案\]\(\/konwlegde\/projects\/watch\/\) 的 `1\.1s` 时序。\s+<\/div>/,
   );
   assert.deepEqual(splitFrontmatter('---\ntitle: "x"\n---'), {
     frontmatter: 'title: "x"',

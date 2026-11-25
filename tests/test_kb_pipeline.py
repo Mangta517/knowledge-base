@@ -85,6 +85,12 @@ class LintTests(TemporaryWorkspace):
         errors = list(lint.check_fields(self.project))
         self.assertEqual([error.split()[0] for error in errors], ["mcu", "signal_flow", "highlights"])
 
+    def test_signal_flow_step_length_limit(self):
+        self.project.meta["signal_flow"] = ["接收", "字" * 16, "发布"]
+        self.assertEqual(list(lint.check_fields(self.project)), [])
+        self.project.meta["signal_flow"][1] += "字"
+        self.assertEqual(list(lint.check_fields(self.project)), ["signal_flow 第 2 步超过 16 字符"])
+
     def test_reading_tracks_reject_unpublished_and_invalid_steps(self):
         draft = lint.Note(Path("wiki/topics/embedded/draft.md"), {"draft": True}, "")
         notes = {"demo": self.project, "draft": draft}
@@ -229,6 +235,55 @@ class LintTests(TemporaryWorkspace):
         self.assertIn("必须使用双引号", errors[-1])
         self.assertIn("文本(带括号)", errors[-1])
 
+    def test_nonempty_fences_require_a_language(self):
+        cases = (
+            ("```\nuint8_t count;\n```", True),
+            ("~~~   \noutput\n~~~", True),
+            ("- 示例\n  ```\n  output\n  ```", True),
+            ("> ```\n> output\n> ```", True),
+            ("``` {#sample}\noutput\n```", True),
+            ("```\noutput", True),
+            ("~~~\n  \n~~~", False),
+            ("```c++ {1}\nint count;\n```", False),
+            ("~~~text\noutput\n~~~", False),
+            ("<!--\n```\nexample\n```\n-->", False),
+            ("````markdown\n```\nexample\n```\n````", False),
+            ("    indented code", False),
+        )
+        for draft in (True, False):
+            self.project.meta["draft"] = draft
+            for body, fails in cases:
+                with self.subTest(draft=draft, body=body):
+                    self.project.body = body
+                    errors = list(lint.check_markdown_format(self.project))
+                    self.assertEqual(len(errors), int(fails))
+                    if fails:
+                        self.assertIn("代码块缺少语言标识", errors[0])
+
+    def test_published_callouts_require_a_title_on_the_marker_line(self):
+        self.project.body = (
+            "> [!NOTE]   \n> 后续正文\n\n"
+            "> [!WARNING]+\n> 后续正文\n\n"
+            "> [!TIP] <!-- 隐藏注释 -->\n\n"
+            "> [!note] 源码事实基线\n\n"
+            "> [!TIP]- 调试记录\n\n"
+            "> 普通引用\n\n"
+            "> ## [!NOTE]\n\n"
+            "```markdown\n> [!NOTE]\n```\n\n"
+            "> ```text\n> [!NOTE]\n> ```\n\n"
+            "<!--\n> [!NOTE]\n-->\n"
+        )
+        self.snapshot()
+        notes = {"demo": self.project}
+        registry = {"repos": self.repos}
+        errors, warnings = lint.check_content(notes, registry)
+        self.assertEqual(warnings, [])
+        self.assertEqual(errors, [
+            f"{self.project.path}: 正文第 {line} 行 Callout 缺少标题" for line in (1, 4, 7)
+        ])
+        self.project.meta["draft"] = True
+        self.assertEqual(list(lint.check_markdown_format(self.project)), [])
+
     def test_secret_scan_and_redaction(self):
         self.write("registry.yaml", "owner: owner\nrepos: {}\n")
         token = "ghp_" + "x" * 32
@@ -289,6 +344,12 @@ class TroubleshootingTests(unittest.TestCase):
                 self.assertEqual(list(lint.check_fields(self.note)), ["phases 必须含 3–5 个非空单行字符串"])
         self.note.meta["phases"] = ["接收", "校验", "暂存", "提交", "发布"]
         self.assertEqual(list(lint.check_fields(self.note)), [])
+
+    def test_phase_step_length_limit(self):
+        self.note.meta["phases"] = ["接收", "字" * 16, "发布"]
+        self.assertEqual(list(lint.check_fields(self.note)), [])
+        self.note.meta["phases"][1] += "字"
+        self.assertEqual(list(lint.check_fields(self.note)), ["phases 第 2 步超过 16 字符"])
 
     def test_core_sections_require_visible_second_level_headings(self):
         self.note.body = (

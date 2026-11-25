@@ -39,9 +39,9 @@ sequenceDiagram
 
 | 项目 | 所有者与拍点 | 交接原语 | 容易混淆的观测 |
 | --- | --- | --- | --- |
-| [[flight|STM32 飞控]] | 飞行任务独占 I2C1，2 tick，SPL006 每 3 拍 | 遥控器输入有 mutex；飞控侧读取 `volatile` 结构的局部副本 | 固定 2 ms 唤醒计划与实际执行起点；飞控侧副本仍可能被发布方抢占 |
-| [[watch|F411 手表]] | `sensor` 独占共享 SENSOR I2C，10 ms，气压每 25 拍 | IMU 快照 mutex；PB12 EXTI 置位，SPI 完成由 DMA ISR 告知显示层 | EXTI 边沿、驱动读成功、UI 消费和首帧完成分别计 |
-| [[iwip|F407 以太网]] | `eth_thread` 消费中断唤醒，`eth_link` 100 ms 轮询 | RX/TX 二值信号量、核心邮箱、自定义 pbuf 回收 | RX/Tx 完成事件和最后引用释放分别约束缓冲 |
+| [[flight|STM32 飞控]] | 飞行任务独占 `I2C1`，2 tick，SPL006 每 3 拍 | 遥控器输入有 mutex；飞控侧读取 `volatile` 结构的局部副本 | 固定 2 ms 唤醒计划与实际执行起点；飞控侧副本仍可能被发布方抢占 |
+| [[watch|F411 手表]] | `sensor` 独占共享 SENSOR I2C，10 ms，气压每 25 拍 | IMU 快照 mutex；`PB12` EXTI 置位，SPI 完成由 DMA ISR 告知显示层 | EXTI 边沿、驱动读成功、UI 消费和首帧完成分别计 |
+| [[iwip|F407 以太网]] | `eth_thread` 消费中断唤醒，`eth_link` 100 ms 轮询 | RX/TX 二值信号量、核心邮箱、自定义 `pbuf` 回收 | RX/Tx 完成事件和最后引用释放分别约束缓冲 |
 | [[freertos-beginer|F103 学习工程]] | 工程声明 RTOS port 和板级依赖 | 仅可见工程分组与启动向量 | 缺 `freertos.c`、`FreeRTOSConfig.h`，实际任务资源归属待补证 |
 
 固定证据可从 [飞控任务](https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/application/application_freertos_task.c)、[手表任务](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_task.c)、[快照保护](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_imu.c)、[网络驱动](https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/ethernetif.c) 与 [F103 工程清单](https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/01_freertos_template.uvprojx)进入。
@@ -100,7 +100,7 @@ void sensor_snapshot_read(sensor_snapshot_struct *out)
 | --- | --- | --- |
 | 多任务直接对同一 HAL I2C 句柄发起事务 | 句柄忙、重试风暴、器件状态混杂 | 将事务交给唯一拥有者，或用有限时间的资源锁 |
 | 低优先级持锁读器件，高优先级等待 | 中优先级持续抢占时形成优先级反转 | 缩短锁区，确需共享时核对 mutex 优先级继承 |
-| ISR 拿长锁，在持锁区等待完成中断 | ISR 不能按任务方式阻塞，可能死锁 | ISR 使用允许的 FromISR 原语，只登记或唤醒 |
+| ISR 拿长锁，在持锁区等待完成中断 | ISR 不能按任务方式阻塞，可能死锁 | ISR 使用允许的 `FromISR` 原语，只登记或唤醒 |
 | 仅用 `volatile` 标记跨字段快照 | 多字段来源于不同帧 | 使用共同的短锁、队列按值发布或其他明确同步 |
 | DMA 提交后立即写入同一发送区 | 线上可能出现新旧帧混合 | 以完成归还或独占描述符确认生命周期 |
 

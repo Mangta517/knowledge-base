@@ -37,6 +37,7 @@ VISUAL_FIELDS = {
     "project": ("mcu", "signal_flow", "highlights"),
     "troubleshooting": ("phases", "root_cause", "located_by"),
 }
+VISUAL_STEP_MAX_LENGTH = 16
 TROUBLESHOOTING_SECTIONS = ("错误原因与触发机理", "定位过程与关键证据", "具体排查流程")
 MARKDOWN = MarkdownIt("commonmark")
 READING_TRACKS_PATH = "wiki/reading_tracks.yaml"
@@ -58,6 +59,8 @@ BLOCKS = re.compile(
     re.M | re.S,
 )
 INLINE_CODE = re.compile(r"(?<!`)(?P<ticks>`+)(?!`)[^\n]+?(?<!`)(?P=ticks)(?!`)")
+FENCE_LANGUAGE = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.+#-]*")
+CALLOUT = re.compile(r"^\[![\w-]+\][+-]?(?P<title>.*)$")
 WIKILINK = re.compile(r"(?P<embed>!)?\[\[(?P<target>[^]\n|]+)(?P<label>\|[^]\n]+)?\]\]")
 IMAGE = re.compile(r'!\[[^]\n]*\]\(\s*(?:<([^>\n]+)>|((?:\\[()]|[^()\s]|\([^()\n]*\))+))(?=\s|\))')
 SOURCE_LINK = re.compile(
@@ -196,6 +199,10 @@ def check_fields(note):
                 yield f"{key} 超过 120 字"
         elif not isinstance(value, list) or not 3 <= len(value) <= 5 or not all(map(is_text, value)):
             yield f"{key} 必须含 3–5 个非空单行字符串"
+        else:
+            for index, step in enumerate(value, start=1):
+                if len(step) > VISUAL_STEP_MAX_LENGTH:
+                    yield f"{key} 第 {index} 步超过 {VISUAL_STEP_MAX_LENGTH} 字符"
     valid_dates = {}
     for key in ("created", "updated"):
         value = meta.get(key)
@@ -468,6 +475,26 @@ def check_mermaid(note):
                         yield f"{prefix}含括号的节点标签必须使用双引号 ({label})"
 
 
+def check_markdown_format(note):
+    tokens = MARKDOWN.parse(note.body)
+    for token in tokens:
+        if token.type == "fence" and token.content.strip():
+            language = token.info.strip().split(maxsplit=1)
+            if not language or not FENCE_LANGUAGE.fullmatch(language[0]):
+                yield f"{note.path}: 正文第 {token.map[0] + 1} 行代码块缺少语言标识"
+
+    if note.meta.get("draft") is not False:
+        return
+    for quote, block, inline in zip(tokens, tokens[1:], tokens[2:]):
+        if quote.type != "blockquote_open" or inline.type != "inline":
+            continue
+        if block.type != "paragraph_open" and block.markup not in ("-", "="):
+            continue
+        callout = CALLOUT.fullmatch(inline.content.partition("\n")[0])
+        if callout and not COMMENT.sub("", callout["title"]).strip():
+            yield f"{note.path}: 正文第 {inline.map[0] + 1} 行 Callout 缺少标题"
+
+
 def check_troubleshooting_sections(note):
     if note.meta.get("type") != "troubleshooting" or note.meta.get("draft") is not False:
         return
@@ -490,6 +517,7 @@ def check_content(notes, registry):
     for note in notes.values():
         errors.extend(check_source_links(note, registered, trees))
         errors.extend(check_mermaid(note))
+        errors.extend(check_markdown_format(note))
         errors.extend(check_troubleshooting_sections(note))
     return errors, warnings
 

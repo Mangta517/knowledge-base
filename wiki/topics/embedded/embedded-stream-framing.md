@@ -20,7 +20,7 @@ UART DMA 回调、蓝牙通知包和 CAN 报文各自带有传输边界。升级
 | 传输完成 | 一段字节或一帧已进缓冲 | DMA 回调、UART FIFO、CAN DLC |
 | 语法完整 | 帧头、字段、帧尾及长度范围满足 | 看到 `$`、逗号、`#` 后成功解析 |
 | 业务有效 | 消费者可以用它执行对应操作 | 有球坐标、完整 BIN 的 CRC 匹配 |
-| 超时失效 | 从最近一次合格事件起的时限已到 | K230 回中、CAN verify 回空闲、AT 启动失败 |
+| 超时失效 | 从最近一次合格事件起的时限已到 | K230 回中、CAN `verify` 回空闲、AT 启动失败 |
 
 合法无球消息会更新链路新鲜度及业务有效位。不能用 `valid` 代替最近合法帧时刻，否则实物移出画面和 UART 断线会被计成同一种现象。
 
@@ -45,9 +45,9 @@ flowchart TD
 | 项目 | 片段来源 | 消息结束与校验 | 超时和重同步 |
 | --- | --- | --- | --- |
 | [[bootloader|F407 CAN 更新]] | 标准 ID 1，DLC 1–8 | BIN 先结束，再接 ID 1/DLC 4 的小端 CRC | 1 s 无有效数据后切状态，2 s 等不到 CRC 则回空闲 |
-| [[bootloader|F407 USART 恢复]] | USART1 DMA 环形接收 | `start:len` 给长度，等 `Flash erased; send data` 后发原始 BIN | 长度、2 s 空闲、多余数据和错误标记形成收尾 |
+| [[bootloader|F407 USART 恢复]] | `USART1` DMA 环形接收 | `start:len` 给长度，等 `Flash erased; send data` 后发原始 BIN | 长度、2 s 空闲、多余数据和错误标记形成收尾 |
 | [[mspm0g3507|MSPM0 UART0]] | RX 中断 → 128 B 环 → 主循环 | `$cx,cy#`，范围检查；无球帧同样符合语法 | 内嵌 `$` 重新同步，超长及环溢出丢候选，150 ms 未消费新帧则回中 |
-| [[watch|KT6368A]] | USART1 RX 完成中断 → 1024 B 环 | 阶段式 AT 查询匹配期望前缀；SPP 诊断有自己的头、类型和 CRC | AT 查询预算 500 ms；环满时丢最旧字节，诊断端按帧协议恢复 |
+| [[watch|KT6368A]] | `USART1` RX 完成中断 → 1024 B 环 | 阶段式 AT 查询匹配期望前缀；SPP 诊断有自己的头、类型和 CRC | AT 查询预算 500 ms；环满时丢最旧字节，诊断端按帧协议恢复 |
 
 对应 [CAN 分阶段接收](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led/application/app_update.c)、[恢复命令](https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6reset/application/app_reset.c)、[视觉串流](https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/bsp_uart0_proto.c)、[蓝牙 UART 与 AT](https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/kt6368a.c)。
 
@@ -116,11 +116,11 @@ void frame_poll(frame_parser_struct *parser)
 | 测试输入 | 注入点 | 观察 | 预期 |
 | --- | --- | --- | --- |
 | 合法帧逐字节拆分 | 任意 ISR、DMA 或通知边界 | 发布计数、字段 | 只发布一次，字段一致 |
-| 两个帧紧邻 | 连续输入，中间无串口 IDLE | 每次解析结果 | 两个语法完整事件可先后识别 |
+| 两个帧紧邻 | 连续输入，中间无串口 `IDLE` | 每次解析结果 | 两个语法完整事件可先后识别 |
 | 超长和环溢出 | 越过缓存上限后立即发新合法帧 | 错误计数、重同步 | 旧候选作废，下一帧可用 |
 | 字段乱码/出界 | 有完整起止符 | `fresh`、最近成功时刻 | 时钟不刷新，不覆盖上次合法记录 |
 | 合法无球连发 | 先发有效，再连发无球 | `fresh`、`valid`、帧龄 | 链路继续推进，业务无球 |
-| CAN CRC 太早/太晚 | 相对最后数据帧扫边界 | BIN 长度与状态转换 | 只有 verify 窗口内的独立 CRC 参与比较 |
+| CAN CRC 太早/太晚 | 相对最后数据帧扫边界 | BIN 长度与状态转换 | 只有 `verify` 窗口内的独立 CRC 参与比较 |
 | 静止后恢复 | 停发跨超时边界再发正确帧 | 无效动作、首帧处理 | 按各应用策略回中、回空闲或恢复接收 |
 
 对照 [[TS-0001-bootloader-update-phase|CAN 与串口恢复排障]]、[[TS-0004-k230-vision-timeout|视觉无球及超时定位]] 的日志和信号记录验证。

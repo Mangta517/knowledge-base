@@ -12,10 +12,25 @@ importers:
     dependencies:
       '@astrojs/starlight':
         specifier: ^0.43.1
-        version: 0.43.1(astro@7.4.13(@types/node@26.6.6)(esbuild@0.28.2)(sass-embedded@1.108.2)(sass@1.108.2)(tsx@4.23.15)(yaml@2.9.1))(typescript@5.9.3)
+        version: 0.43.1(astro@7.4.13(@types/node@26.6.6)(esbuild@0.28.2)(sass-embedded@1.108.2)(sass@1.108.2)(tsx@4.23.15)(yaml@2.9.1))(supports-color@8.1.1)(typescript@5.9.3)
+      '@fontsource-variable/noto-sans-sc':
+        specifier: ^5.3.1
+        version: 5.3.1
+      '@fontsource-variable/plus-jakarta-sans':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource-variable/source-sans-3':
+        specifier: ^5.3.1
+        version: 5.3.1
+      '@fontsource/maple-mono':
+        specifier: ^5.3.0
+        version: 5.3.0
       astro:
         specifier: ^7.4.13
         version: 7.4.13(@types/node@26.6.6)(esbuild@0.28.2)(sass-embedded@1.108.2)(sass@1.108.2)(tsx@4.23.15)(yaml@2.9.1)
+      lxgw-wenkai-screen-webfont:
+        specifier: ^1.7.0
+        version: 1.7.0
       mermaid:
         specifier: ^12.3.0
         version: 12.3.0
@@ -504,6 +519,18 @@ packages:
 
   '@expressive-code/plugin-text-markers@0.44.4':
     resolution: {integrity: sha512-cfjqsNh4oYikxFeylXKhZ0BxvrwIIztu+g5JFFObYMO3YTmHwv66DrHCh91wTgTGz0q4+Tj/iTIYkngqCpX0Cg==}
+
+  '@fontsource-variable/noto-sans-sc@5.3.1':
+    resolution: {integrity: sha512-UB96JJ17HyD5ehEU7Em0hDdh7fvTMB4B4Hzmq5c4QaNwwSLqTrdM2S+coySeBqCkXwh0DxqXT0b0wMrmzorFpQ==}
+
+  '@fontsource-variable/plus-jakarta-sans@5.3.0':
+    resolution: {integrity: sha512-/l/4r0yyWK9JzAlmA0LiYgGgmJe/Gswt4jTJEzr5QhJfwMbvJZDmYWyW0M4X7yCK69BajMVlV/Lx8g7WDc1+sw==}
+
+  '@fontsource-variable/source-sans-3@5.3.1':
+    resolution: {integrity: sha512-u0p5Z/PM2e1uxYOMiodLM6NVzxHwULcB6Oi7QSr2WU/sdoLBFP/BeOZ3YYHeJ6rHsjPZA1nZweZVaV7sf2MAyQ==}
+
+  '@fontsource/maple-mono@5.3.0':
+    resolution: {integrity: sha512-8N3FVDWphO/971tZIig9D558j9jf09fWYIXFjgv7DKJEvDjtgfATx1ScWHdTCsf+tufFS5M1bAa4AumVBKPhSQ==}
 
   '@iconify/types@2.0.0':
     resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
@@ -2003,6 +2030,9 @@ packages:
     resolution: {integrity: sha512-U4N8FgzmWxc8k1VH8Kr6lQg18U7Fjvby6wXHVRX/ZZ7IwWbRMgrRbP0Wrb5q5NVinryp4SQampHKdvtecItxUg==}
     engines: {node: 20 || >=22}
 
+  lxgw-wenkai-screen-webfont@1.7.0:
+    resolution: {integrity: sha512-xvfF4V26Mb335xKg3uxljz+V2nq4F5ek0ku9pmyKgT0Dzo/d2rHi7WpnqgvM9mlXAcAKOrxrcDmUZiIs/ZQ9bQ==}
+
   magic-string@1.4.5:
     resolution: {integrity: sha512-oLLC2+YvQUfAa+vxoufE/yc1icb87M9iXIRqAoR/2EhE/8cb3SF/+Gi0c2By1B+5Vz2e2vQtUvHiu1+63Znh+w==}
 
@@ -2811,7 +2841,7 @@ snapshots:
       sitemap: 10.0.0
       zod: 4.6.7
 
-  '@astrojs/starlight@0.43.1(astro@7.4.13(@types/node@26.6.6)(esbuild@0.28.2)(sass-embedded@1.108.2)(sass@1.108.2)(tsx@4.23.15)(yaml@2.9.1))(typescript@5.9.3)':
+  '@astrojs/starlight@0.43.1(astro@7.4.13(@types/node@26.6.6)(esbuild@0.28.2)(sass-embedded@1.108.2)(sass@1.108.2)(tsx@4.23.15)(yaml@2.9.1))(supports-color@8.1.1)(typescript@5.9.3)':
     dependencies:
       '@astrojs/markdown-satteri': 0.4.10
       '@astrojs/mdx': 8.1.6(@astrojs/markdown-satteri@0.4.10)(astro@7.4.13(@types/node@26.6.6)(esbuild@0.28.2)(sass-embedded@1.108.2)(sass@1.108.2)(tsx@4.23.15)(yaml@2.9.1))
@@ -2830,11 +2860,11 @@ snapshots:
       i18next: 27.2.2(typescript@5.9.3)
       klona: 2.0.6
       magic-string: 1.4.5
-      mdast-util-directive: 3.2.1
+      mdast-util-directive: 3.2.1(supports-color@8.1.1)
       mdast-util-to-markdown: 2.2.4
       mdast-util-to-string: 4.0.0
       pagefind: 1.6.0
-      remark-directive: 4.0.0
+      remark-directive: 4.0.0(supports-color@8.1.1)
       satteri: 0.10.5
       ultrahtml: 1.7.0
       unified: 11.0.5
@@ -2948,7 +2978,8 @@ snapshots:
   '@bruits/satteri-win32-x64-msvc@0.11.7':
     optional: true
 
-  '@bufbuild/protobuf@2.17.0': {}
+  '@bufbuild/protobuf@2.17.0':
+    optional: true
 
   '@capsizecss/unpack@4.0.1':
     dependencies:
@@ -3134,6 +3165,14 @@ snapshots:
   '@expressive-code/plugin-text-markers@0.44.4':
     dependencies:
       '@expressive-code/core': 0.44.4
+
+  '@fontsource-variable/noto-sans-sc@5.3.1': {}
+
+  '@fontsource-variable/plus-jakarta-sans@5.3.0': {}
+
+  '@fontsource-variable/source-sans-3@5.3.1': {}
+
+  '@fontsource/maple-mono@5.3.0': {}
 
   '@iconify/types@2.0.0': {}
 
@@ -3922,7 +3961,8 @@ snapshots:
 
   clsx@2.1.1: {}
 
-  colorjs.io@0.7.1: {}
+  colorjs.io@0.7.1:
+    optional: true
 
   comma-separated-tokens@2.0.3: {}
 
@@ -4255,6 +4295,7 @@ snapshots:
       '@esbuild/win32-arm64': 0.28.2
       '@esbuild/win32-ia32': 0.28.2
       '@esbuild/win32-x64': 0.28.2
+    optional: true
 
   expressive-code@0.44.4:
     dependencies:
@@ -4314,7 +4355,8 @@ snapshots:
 
   hachure-fill@0.5.2: {}
 
-  has-flag@4.0.0: {}
+  has-flag@4.0.0:
+    optional: true
 
   hast-util-embedded@3.0.0:
     dependencies:
@@ -4431,7 +4473,8 @@ snapshots:
     dependencies:
       safer-buffer: 2.1.2
 
-  immutable@5.2.1: {}
+  immutable@5.2.1:
+    optional: true
 
   import-meta-resolve@4.2.0: {}
 
@@ -4452,11 +4495,13 @@ snapshots:
 
   is-docker@4.0.0: {}
 
-  is-extglob@2.1.1: {}
+  is-extglob@2.1.1:
+    optional: true
 
   is-glob@4.0.3:
     dependencies:
       is-extglob: 2.1.1
+    optional: true
 
   is-hexadecimal@2.0.1: {}
 
@@ -4531,6 +4576,8 @@ snapshots:
 
   lru-cache@11.5.3: {}
 
+  lxgw-wenkai-screen-webfont@1.7.0: {}
+
   magic-string@1.4.5:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.6.0
@@ -4543,7 +4590,7 @@ snapshots:
 
   marked@16.4.2: {}
 
-  mdast-util-directive@3.2.1:
+  mdast-util-directive@3.2.1(supports-color@8.1.1):
     dependencies:
       '@types/mdast': 4.0.4
       '@types/unist': 3.0.3
@@ -4914,10 +4961,10 @@ snapshots:
     dependencies:
       expressive-code: 0.44.4
 
-  remark-directive@4.0.0:
+  remark-directive@4.0.0(supports-color@8.1.1):
     dependencies:
       '@types/mdast': 4.0.4
-      mdast-util-directive: 3.2.1
+      mdast-util-directive: 3.2.1(supports-color@8.1.1)
       micromark-extension-directive: 4.0.0
       unified: 11.0.5
     transitivePeerDependencies:
@@ -4989,6 +5036,7 @@ snapshots:
   rxjs@7.8.2:
     dependencies:
       tslib: 2.9.1
+    optional: true
 
   safer-buffer@2.1.2: {}
 
@@ -5078,6 +5126,7 @@ snapshots:
       sass-embedded-unknown-all: 1.108.2
       sass-embedded-win32-arm64: 1.108.2
       sass-embedded-win32-x64: 1.108.2
+    optional: true
 
   sass@1.108.2:
     dependencies:
@@ -5086,6 +5135,7 @@ snapshots:
       source-map-js: 1.2.4
     optionalDependencies:
       '@parcel/watcher': 2.6.0
+    optional: true
 
   satteri@0.10.5:
     dependencies:
@@ -5229,6 +5279,7 @@ snapshots:
   supports-color@8.1.1:
     dependencies:
       has-flag: 4.0.0
+    optional: true
 
   svgo@4.1.0:
     dependencies:
@@ -5243,8 +5294,10 @@ snapshots:
   sync-child-process@1.1.1:
     dependencies:
       sync-message-port: 1.2.0
+    optional: true
 
-  sync-message-port@1.2.0: {}
+  sync-message-port@1.2.0:
+    optional: true
 
   tiny-inflate@1.0.3: {}
 
@@ -5265,13 +5318,15 @@ snapshots:
 
   ts-dedent@2.3.0: {}
 
-  tslib@2.9.1: {}
+  tslib@2.9.1:
+    optional: true
 
   tsx@4.23.15:
     dependencies:
       esbuild: 0.28.2
     optionalDependencies:
       fsevents: 2.3.3
+    optional: true
 
   typescript@5.9.3: {}
 
@@ -5342,7 +5397,8 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
-  varint@6.0.0: {}
+  varint@6.0.0:
+    optional: true
 
   verkit@0.5.0: {}
 
