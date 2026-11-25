@@ -31,6 +31,7 @@ jobs:
           python-version: "3.12"
       - run: uv run --locked python scripts/lint_kb.py
       - run: uv run --locked python scripts/build_indexes.py --check
+      - run: uv run --locked python -m unittest discover -s tests
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -74,8 +75,13 @@ jobs:
           echo "site_url=${SITE_ORIGIN}" >> "$GITHUB_OUTPUT"
           echo "site_base=${SITE_PATH}" >> "$GITHUB_OUTPUT"
 
-      - name: Run frontend typecheck
-        run: pnpm typecheck
+      - name: Run frontend typecheck and unit tests
+        env:
+          SITE_URL: ${{ steps.paths.outputs.site_url }}
+          SITE_BASE: ${{ steps.paths.outputs.site_base }}
+        run: |
+          pnpm typecheck
+          pnpm test:portal
 
       - name: Build Astro Starlight site
         env:

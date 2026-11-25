@@ -10,11 +10,12 @@ import {
   getReadingTracks,
   getRelatedTroubleshooting,
   loadKbData,
+  safeExternalUrl,
   withBase,
   withDocRoute,
 } from '../lib/kb-data';
 
-const { catalog, stats, byId } = loadKbData();
+const { catalog, stats, byId, allItems } = loadKbData();
 const { counts } = stats;
 const tierOrder = { core: 0, active: 1, archive: 2 };
 const projects = [...catalog.projects].sort((a, b) => {
@@ -158,8 +159,12 @@ const groups: Array<{ id: string; label: string; colorClass: string; items: Libr
 
 const latestUpdate = stats.recent_updates[0]?.updated;
 const synthesis = catalog.synthesis[0];
-const totalEvidence = counts.total_evidence_links ?? 181;
-const totalMermaids = counts.total_mermaids ?? 22;
+const totalEvidence =
+  counts.total_evidence_links ??
+  allItems.reduce((sum, item) => sum + (item.evidence_count ?? 0), 0);
+const totalMermaids =
+  counts.total_mermaids ??
+  allItems.reduce((sum, item) => sum + (item.mermaid_count ?? 0), 0);
 const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + counts.synthesis;
 ---
 
@@ -262,6 +267,11 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
             Active ({stats.by_tier.active})
           </button>
         )}
+        {(stats.by_tier.archive || 0) > 0 && (
+          <button type="button" class="kb-filter-chip" data-tier-filter="archive">
+            Archive ({stats.by_tier.archive})
+          </button>
+        )}
       </div>
 
       <div class="kb-filter-group kb-tech-filters" role="group" aria-label="技术栈筛选">
@@ -310,6 +320,7 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
         const shortSha = (project.synced_commit || '').slice(0, 7);
         const mins = getReadingMinutes(project);
         const extraSpecs = (project.highlights || []).slice(1, 3);
+        const projectRepoUrl = safeExternalUrl(project.repo_url);
 
         return (
           <article
@@ -380,14 +391,16 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
                 >
                   图谱 ☍
                 </a>
-                <a
-                  href={project.repo_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`${project.title} 的 GitHub 仓库`}
-                >
-                  GitHub ↗
-                </a>
+                {projectRepoUrl && (
+                  <a
+                    href={projectRepoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${project.title} 的 GitHub 仓库`}
+                  >
+                    GitHub ↗
+                  </a>
+                )}
               </div>
             </div>
           </article>
@@ -498,8 +511,13 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
 </div>
 
 <script>
-  // 1. Trigger Starlight built-in search modal
+  // 1. Trigger Starlight built-in search modal & platform shortcut hint
+  const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
   document.querySelectorAll<HTMLButtonElement>('[data-trigger-search]').forEach((btn) => {
+    if (isMac) {
+      const kbd = btn.querySelector('kbd');
+      if (kbd) kbd.textContent = '⌘K';
+    }
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const slBtn = document.querySelector<HTMLButtonElement>('site-search button[data-open-modal]');
@@ -688,7 +706,23 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
         tabs[nextIndex].focus();
       });
     });
-    selectTab(0);
+    const syncFromHash = () => {
+      const rawHash = window.location.hash.replace(/^#/, '');
+      if (!rawHash) return false;
+      const idx = tabs.findIndex(
+        (tab, i) => tab.id === rawHash || panels[i].id === rawHash || `kb-panel-${rawHash}` === panels[i].id,
+      );
+      if (idx !== -1) {
+        selectTab(idx);
+        return true;
+      }
+      return false;
+    };
+
+    if (!syncFromHash()) {
+      selectTab(0);
+    }
+    window.addEventListener('hashchange', syncFromHash);
     tablist.hidden = false;
   }
 </script>

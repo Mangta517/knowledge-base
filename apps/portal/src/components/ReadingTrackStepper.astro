@@ -53,6 +53,9 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
               <button
                 type="button"
                 role="tab"
+                id={`kb-track-${track.id}-tab-${sIdx}`}
+                aria-controls={`kb-track-${track.id}-panel-${sIdx}`}
+                tabindex={sIdx === 0 ? 0 : -1}
                 class={`kb-step-btn kb-type-${step.type} ${sIdx === 0 ? 'is-active' : ''}`}
                 aria-selected={sIdx === 0 ? 'true' : 'false'}
                 data-step-trigger={sIdx}
@@ -73,6 +76,9 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
         <div class="kb-step-focus-box kb-blueprint-canvas">
           {resolvedSteps.map((step, sIdx) => (
             <div
+              id={`kb-track-${track.id}-panel-${sIdx}`}
+              role="tabpanel"
+              aria-labelledby={`kb-track-${track.id}-tab-${sIdx}`}
               class={`kb-step-detail kb-type-${step.type}`}
               data-step-detail={sIdx}
               hidden={sIdx !== 0}
@@ -106,6 +112,7 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
         btn.classList.toggle('is-active', active);
         btn.classList.toggle('is-passed', passed);
         btn.setAttribute('aria-selected', String(active));
+        btn.tabIndex = active ? 0 : -1;
       });
       details.forEach((d, i) => {
         d.hidden = i !== idx;

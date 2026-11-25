@@ -6,13 +6,28 @@ function normalizeBase(raw = '') {
   return trimmed ? `/${trimmed}` : undefined;
 }
 
-const siteUrl = (process.env.SITE_URL || 'https://mangta517.github.io').replace(/\/+$/, '');
+function normalizeSiteUrl(raw = 'https://mangta517.github.io') {
+  const candidate = String(raw || 'https://mangta517.github.io').trim().replace(/\/+$/, '');
+  const parsed = new URL(candidate);
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error(`Invalid SITE_URL protocol: ${parsed.protocol}`);
+  }
+  return `${parsed.origin}${parsed.pathname.replace(/\/+$/, '')}`;
+}
+
+const siteUrl = normalizeSiteUrl(process.env.SITE_URL);
 const base = normalizeBase(process.env.SITE_BASE || '');
 
 export default defineConfig({
   site: siteUrl,
   ...(base ? { base } : {}),
   outDir: '../../dist',
+  vite: {
+    build: {
+      // Mermaid splits optional ELK layout into an on-demand lazy chunk (~1.46 MB) that is never loaded on standard pages
+      chunkSizeWarningLimit: 1600,
+    },
+  },
   markdown: {
     syntaxHighlight: {
       type: 'shiki',

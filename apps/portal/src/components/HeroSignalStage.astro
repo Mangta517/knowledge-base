@@ -171,6 +171,9 @@ const layers: LayerSpec[] = [
       <button
         type="button"
         role="tab"
+        id={`kb-hero-tab-${layer.index}`}
+        aria-controls={`kb-hero-panel-${layer.index}`}
+        tabindex={layer.index === 0 ? 0 : -1}
         class={`kb-stage-tab ${layer.colorClass} ${layer.index === 0 ? 'is-active' : ''}`}
         aria-selected={layer.index === 0 ? 'true' : 'false'}
         data-stage-tab={layer.index}
@@ -185,6 +188,9 @@ const layers: LayerSpec[] = [
   <div class="kb-stage-drawer" aria-live="polite">
     {layers.map((layer) => (
       <div
+        id={`kb-hero-panel-${layer.index}`}
+        role="tabpanel"
+        aria-labelledby={`kb-hero-tab-${layer.index}`}
         class={`kb-stage-panel ${layer.colorClass}`}
         data-stage-panel={layer.index}
         hidden={layer.index !== 0}
@@ -217,8 +223,17 @@ const layers: LayerSpec[] = [
     const modeEl = stage.querySelector<HTMLElement>('[data-stage-mode]');
 
     let active = 0;
-    let paused = false;
+    let hovered = false;
+    let focusedInside = false;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const isPaused = () => hovered || focusedInside;
+
+    function syncModeHint() {
+      if (!modeEl) return;
+      modeEl.textContent = isPaused()
+        ? '已锁定检视 · 点击胶囊直达文档'
+        : '自动巡检 · 悬停锁定层级';
+    }
 
     function setLayer(idx: number) {
       active = idx;
@@ -227,6 +242,7 @@ const layers: LayerSpec[] = [
         const on = i === idx;
         t.classList.toggle('is-active', on);
         t.setAttribute('aria-selected', String(on));
+        t.tabIndex = on ? 0 : -1;
       });
       panels.forEach((p, i) => {
         p.hidden = i !== idx;
@@ -269,27 +285,30 @@ const layers: LayerSpec[] = [
     });
 
     stage.addEventListener('mouseenter', () => {
-      paused = true;
-      if (modeEl) modeEl.textContent = '已锁定检视 · 点击胶囊直达文档';
+      hovered = true;
+      syncModeHint();
     });
 
     stage.addEventListener('mouseleave', () => {
-      paused = false;
-      if (modeEl) modeEl.textContent = '自动巡检 · 悬停锁定层级';
+      hovered = false;
+      syncModeHint();
     });
 
     stage.addEventListener('focusin', () => {
-      paused = true;
+      focusedInside = true;
+      syncModeHint();
     });
-    stage.addEventListener('focusout', () => {
-      paused = false;
+    stage.addEventListener('focusout', (e) => {
+      const next = e.relatedTarget as Node | null;
+      focusedInside = Boolean(next && stage.contains(next));
+      syncModeHint();
     });
 
     setLayer(0);
 
     if (!reducedMotion) {
       window.setInterval(() => {
-        if (!paused && !document.hidden) {
+        if (!isPaused() && !document.hidden) {
           setLayer((active + 1) % 4);
         }
       }, 3800);

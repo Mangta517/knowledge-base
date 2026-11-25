@@ -24,6 +24,24 @@ for (const [id, route] of Object.entries(catalog.link_map || {})) {
   routeAliases[`/${id.toLowerCase()}/`] = target;
 }
 
+// Allow short code lookup for ADRs and Troubleshooting (e.g. /ADR-0001, /adr/ADR-0001, /TS-0001)
+for (const adr of catalog.adrs || []) {
+  const code = adr.adr_id?.toLowerCase();
+  if (!code) continue;
+  const target = withDocRoute(adr.route);
+  for (const key of [`/${code}`, `/${code}/`, `/adr/${code}`, `/adr/${code}/`]) {
+    if (!Object.hasOwn(routeAliases, key)) routeAliases[key] = target;
+  }
+}
+for (const ts of catalog.troubleshooting || []) {
+  const code = ts.ts_id?.toLowerCase();
+  if (!code) continue;
+  const target = withDocRoute(ts.route);
+  for (const key of [`/${code}`, `/${code}/`, `/troubleshooting/${code}`, `/troubleshooting/${code}/`]) {
+    if (!Object.hasOwn(routeAliases, key)) routeAliases[key] = target;
+  }
+}
+
 const coreProjects = catalog.projects.filter((p) => p.tier === 'core');
 ---
 
@@ -57,11 +75,30 @@ const coreProjects = catalog.projects.filter((p) => p.tier === 'core');
 <script>
   const box = document.querySelector<HTMLElement>('.kb-notfound[data-aliases]');
   if (box) {
-    const base = box.dataset.base || '';
-    const aliases: Record<string, string> = JSON.parse(box.dataset.aliases || '{}');
-    let relPath = decodeURIComponent(window.location.pathname);
+    box.querySelector<HTMLButtonElement>('[data-nf-search]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.querySelector<HTMLButtonElement>('site-search button[data-open-modal]')?.click();
+    });
 
-    if (base && relPath.toLowerCase().startsWith(base.toLowerCase())) {
+    const base = box.dataset.base || '';
+    let aliases: Record<string, string> = {};
+    try {
+      aliases = JSON.parse(box.dataset.aliases || '{}');
+    } catch {
+      aliases = {};
+    }
+
+    let relPath = window.location.pathname;
+    try {
+      relPath = decodeURIComponent(relPath);
+    } catch {
+      // Malformed percent-encoding: keep raw pathname without crashing 404 interactions
+    }
+    relPath = relPath.replace(/\/{2,}/g, '/');
+
+    const lowerPath = relPath.toLowerCase();
+    const lowerBase = base.toLowerCase();
+    if (lowerBase && (lowerPath === lowerBase || lowerPath.startsWith(`${lowerBase}/`))) {
       relPath = relPath.slice(base.length) || '/';
     }
 
@@ -79,11 +116,6 @@ const coreProjects = catalog.projects.filter((p) => p.tier === 'core');
       }
       window.location.replace(`${candidate}${window.location.search}${window.location.hash}`);
     }
-
-    box.querySelector<HTMLButtonElement>('[data-nf-search]')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      document.querySelector<HTMLButtonElement>('site-search button[data-open-modal]')?.click();
-    });
   }
 </script>
 

@@ -22,6 +22,7 @@ export interface ItemMetrics {
   table_count?: number;
   evidence_count?: number;
   has_human_notes?: boolean;
+  assets?: Record<string, string>;
 }
 
 export interface ProjectHighlight {
@@ -276,6 +277,26 @@ export function normalizeDocKey(routeOrId: string): string {
     .replace(/\.(md|mdx)$/i, '')
     .replace(/^\/+|\/+$/g, '')
     .toLowerCase();
+}
+
+const COMMIT_SHA_RE = /^[0-9a-f]{40}$/i;
+
+export function isCommitSha(sha?: string): sha is string {
+  return typeof sha === 'string' && COMMIT_SHA_RE.test(sha.trim());
+}
+
+/** Validate external HTTP(S) URLs to prevent unsafe protocol injection (e.g. javascript:). */
+export function safeExternalUrl(raw?: string): string | null {
+  if (!raw || typeof raw !== 'string') return null;
+  try {
+    const parsed = new URL(raw.trim());
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return null;
+    }
+    return parsed.toString().replace(/\/+$/, '');
+  } catch {
+    return null;
+  }
 }
 
 export function getReadingMinutes(item: KbDocItem): number {

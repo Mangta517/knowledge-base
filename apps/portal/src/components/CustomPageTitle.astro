@@ -8,8 +8,10 @@ import {
   type ProjectItem,
   getProjectSignalFlow,
   getReadingMinutes,
+  isCommitSha,
   loadKbData,
   normalizeDocKey,
+  safeExternalUrl,
   withBase,
   withDocRoute,
 } from '../lib/kb-data';
@@ -212,75 +214,85 @@ const tsRelatedProjects: ProjectItem[] =
       {/* Associated Firmware Project & Baseline SHA Bar for Troubleshooting Docs */}
       {tsRelatedProjects.length > 0 && (
         <div class="kb-doc-repo-bar kb-ts-repo-bar not-content" data-pagefind-ignore>
-          {tsRelatedProjects.map((proj) => (
-            <div class="kb-doc-repo-links">
-              <a class="kb-repo-link" href={withDocRoute(proj.route)}>
-                关联固件：<strong>{proj.title}</strong>
-                {proj.mcu ? ` (${proj.mcu})` : ''} →
-              </a>
-              {proj.synced_commit && (
-                <>
-                  <a
-                    class="kb-commit-link"
-                    href={`${proj.repo_url}/tree/${proj.synced_commit}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={`浏览固定提交 ${proj.synced_commit} 下的公开源码树`}
-                  >
-                    基线提交 <code>{proj.synced_commit.slice(0, 8)}</code> ↗
-                  </a>
-                  <button
-                    type="button"
-                    class="kb-copy-btn"
-                    data-copy-text={proj.synced_commit}
-                    aria-label={`复制完整 40 位提交 SHA: ${proj.synced_commit}`}
-                    title={`复制完整 SHA：${proj.synced_commit}`}
-                  >
-                    复制 SHA
-                  </button>
-                </>
-              )}
-            </div>
-          ))}
+          {tsRelatedProjects.map((proj) => {
+            const projRepoUrl = safeExternalUrl(proj.repo_url);
+            const hasValidSha = isCommitSha(proj.synced_commit);
+            return (
+              <div class="kb-doc-repo-links">
+                <a class="kb-repo-link" href={withDocRoute(proj.route)}>
+                  关联固件：<strong>{proj.title}</strong>
+                  {proj.mcu ? ` (${proj.mcu})` : ''} →
+                </a>
+                {projRepoUrl && hasValidSha && (
+                  <>
+                    <a
+                      class="kb-commit-link"
+                      href={`${projRepoUrl}/tree/${proj.synced_commit}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`浏览固定提交 ${proj.synced_commit} 下的公开源码树`}
+                    >
+                      基线提交 <code>{proj.synced_commit.slice(0, 8)}</code> ↗
+                    </a>
+                    <button
+                      type="button"
+                      class="kb-copy-btn"
+                      data-copy-text={proj.synced_commit}
+                      aria-label={`复制完整 40 位提交 SHA: ${proj.synced_commit}`}
+                      title={`复制完整 SHA：${proj.synced_commit}`}
+                    >
+                      复制 SHA
+                    </button>
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {doc.type === 'project' && (
-        <div class="kb-doc-repo-bar not-content" data-pagefind-ignore>
-          <div class="kb-doc-repo-links">
-            <a
-              class="kb-repo-link"
-              href={doc.repo_url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              GitHub: <strong>{doc.repo}</strong> ↗
-            </a>
-            {doc.synced_commit && (
-              <>
+      {doc.type === 'project' && (() => {
+        const docRepoUrl = safeExternalUrl(doc.repo_url);
+        const hasValidSha = isCommitSha(doc.synced_commit);
+        return (
+          docRepoUrl && (
+            <div class="kb-doc-repo-bar not-content" data-pagefind-ignore>
+              <div class="kb-doc-repo-links">
                 <a
-                  class="kb-commit-link"
-                  href={`${doc.repo_url}/tree/${doc.synced_commit}`}
+                  class="kb-repo-link"
+                  href={docRepoUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  title={`浏览固定提交 ${doc.synced_commit} 下的仓库源码树`}
                 >
-                  基线提交 <code>{doc.synced_commit.slice(0, 8)}</code> ↗
+                  GitHub: <strong>{doc.repo}</strong> ↗
                 </a>
-                <button
-                  type="button"
-                  class="kb-copy-btn"
-                  data-copy-text={doc.synced_commit}
-                  aria-label={`复制完整 40 位提交 SHA: ${doc.synced_commit}`}
-                  title={`复制完整 SHA：${doc.synced_commit}`}
-                >
-                  复制 SHA
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+                {hasValidSha && (
+                  <>
+                    <a
+                      class="kb-commit-link"
+                      href={`${docRepoUrl}/tree/${doc.synced_commit}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`浏览固定提交 ${doc.synced_commit} 下的仓库源码树`}
+                    >
+                      基线提交 <code>{doc.synced_commit.slice(0, 8)}</code> ↗
+                    </a>
+                    <button
+                      type="button"
+                      class="kb-copy-btn"
+                      data-copy-text={doc.synced_commit}
+                      aria-label={`复制完整 40 位提交 SHA: ${doc.synced_commit}`}
+                      title={`复制完整 SHA：${doc.synced_commit}`}
+                    >
+                      复制 SHA
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )
+        );
+      })()}
 
       {doc.type === 'project' && doc.tech_stack?.length > 0 && (
         <div class="kb-doc-pills not-content" aria-label="技术栈">
@@ -367,10 +379,22 @@ const tsRelatedProjects: ProjectItem[] =
     btn.textContent = collapsedLabel;
     btn.setAttribute('aria-expanded', 'false');
 
+    const setExpanded = (expanded: boolean) => {
+      wrapper.classList.toggle('is-collapsed', !expanded);
+      btn.textContent = expanded ? '收起长表格 ↑' : collapsedLabel;
+      btn.setAttribute('aria-expanded', String(expanded));
+    };
+
     btn.addEventListener('click', () => {
-      const collapsed = wrapper.classList.toggle('is-collapsed');
-      btn.textContent = collapsed ? collapsedLabel : '收起长表格 ↑';
-      btn.setAttribute('aria-expanded', String(!collapsed));
+      setExpanded(wrapper.classList.contains('is-collapsed'));
+    });
+
+    scrollBox.addEventListener('focusin', (e) => {
+      if (!wrapper.classList.contains('is-collapsed')) return;
+      const target = e.target as HTMLElement | null;
+      if (target && target.offsetTop + target.offsetHeight > scrollBox.clientHeight) {
+        setExpanded(true);
+      }
     });
 
     table.parentNode?.insertBefore(wrapper, table);

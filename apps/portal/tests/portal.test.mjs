@@ -1,0 +1,326 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+
+import {
+  copyAssets,
+  splitFrontmatter,
+  stripOrPreserveHumanNotes,
+  transformBody,
+} from '../scripts/prepare-content.mjs';
+import {
+  existsExactCase,
+  normalizeSiteOrigin,
+  verifyOutputs,
+} from '../../../scripts/build-site.mjs';
+import { createPreviewServer } from '../../../scripts/preview-site.mjs';
+
+function makeTempDir(t) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kb-portal-test-'));
+  t.after(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  return dir;
+}
+
+function rawHttpRequest(port, method, rawPath) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        host: '127.0.0.1',
+        port,
+        method,
+        path: rawPath,
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          resolve({
+            status: res.statusCode,
+            headers: res.headers,
+            body: Buffer.concat(chunks).toString('utf-8'),
+          });
+        });
+      },
+    );
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+test('prepare-content: CommonMark fences, comments, multi-backtick inline code, and wikilinks', () => {
+  const linkMap = {
+    watch: '/projects/watch/',
+    'ADR-0001-stage-image-before-boot': '/adr/adr-0001-stage-image-before-boot/',
+  };
+
+  const md = [
+    '正文引用 [[ADR-0001-stage-image-before-boot|镜像 [暂存] 决策]] 与 `` `[[watch|不转换]]` ``。',
+    '',
+    '```inline``` 后继续 [[watch|手表档案]]。',
+    '',
+    '<!--',
+    '[[watch|注释内不转换]]',
+    '```mermaid',
+    'flowchart TD',
+    '  X --- Y',
+    '```',
+    '-->',
+    '',
+    '````markdown',
+    '```mermaid',
+    'flowchart TD',
+    '  Inner-->Block',
+    '```',
+    '> [!NOTE]',
+    '> [[watch|四反引号示例内不转换]]',
+    '````',
+    '',
+    '~~~mermaid',
+    'stateDiagram-v2',
+    '  [*] --> Idle',
+    '~~~',
+    '',
+    '> [!WARNING] 实板注意',
+    '> 请核对 [[watch|手表信号]]。',
+  ].join('\n');
+
+  const out = transformBody(md, linkMap, false, {}, { base: '/konwlegde' });
+
+  // Active wikilinks converted to lowercase doc route with base and escaped brackets
+  assert.match(out, /\[镜像 \\\[暂存\\\] 决策\]\(\/konwlegde\/adr\/adr-0001-stage-image-before-boot\/\)/);
+  assert.match(out, /```inline``` 后继续 \[手表档案\]\(\/konwlegde\/projects\/watch\/\)/);
+
+  // Double-backtick code span containing single backtick + wikilink stays untouched
+  assert.ok(out.includes('`` `[[watch|不转换]]` ``'));
+
+  // HTML comments stay untouched (no figure conversion inside comment)
+  assert.ok(out.includes('[[watch|注释内不转换]]'));
+
+  // 4-backtick outer markdown example keeps inner ```mermaid and > [!NOTE] literal
+  assert.ok(out.includes('````markdown\n```mermaid\nflowchart TD\n  Inner-->Block\n```\n> [!NOTE]\n> [[watch|四反引号示例内不转换]]\n````'));
+
+  // Top-level ~~~mermaid converted into exactly one interactive figure
+  const figureMatches = out.match(/<figure class="kb-mermaid-wrap/g) || [];
+  assert.equal(figureMatches.length, 1);
+
+  // Callout outside code blocks converted to Starlight aside with converted wikilink
+  assert.ok(out.includes(':::caution[实板注意]\n请核对 [手表信号](/konwlegde/projects/watch/)。\n:::'));
+});
+
+test('prepare-content: nested Obsidian embeds, relative Markdown images, and traversal rejection', (t) => {
+  const tmp = makeTempDir(t);
+  const wikiDir = path.join(tmp, 'wiki');
+  const assetsDir = path.join(wikiDir, 'assets');
+  const noteDir = path.join(wikiDir, 'projects');
+  fs.mkdirSync(path.join(assetsDir, 'boards'), { recursive: true });
+  fs.mkdirSync(noteDir, { recursive: true });
+  fs.writeFileSync(path.join(assetsDir, 'boards', 'front panel(v2).svg'), '<svg/>', 'utf-8');
+  fs.writeFileSync(path.join(wikiDir, 'secret.svg'), '<svg/>', 'utf-8');
+
+  const body = [
+    '![[front panel(v2).svg|前面板 [v2]]]',
+    '![[escape.svg|越界]]',
+    '![示意](<../assets/boards/front panel(v2).svg> "板框图")',
+    '![括号](../assets/boards/front%20panel(v2).svg)',
+    '![越出assets](../secret.svg)',
+  ].join('\n');
+
+  const out = transformBody(
+    body,
+    {},
+    false,
+    {
+      'front panel(v2).svg': 'boards/front panel(v2).svg',
+      'escape.svg': '../secret.svg',
+    },
+    { base: '/konwlegde', noteDir, assetsDir },
+  );
+
+  assert.ok(
+    out.includes('![前面板 \\[v2\\]](</konwlegde/wiki-assets/boards/front%20panel(v2).svg>)'),
+  );
+  // Unsafe ../ in assets map is refused
+  assert.ok(out.includes('![[escape.svg|越界]]'));
+  // Angle-bracket relative image with spaces and title rewritten
+  assert.ok(
+    out.includes('![示意](</konwlegde/wiki-assets/boards/front%20panel(v2).svg> "板框图")'),
+  );
+  // Percent-encoded relative image with parentheses rewritten
+  assert.ok(
+    out.includes('![括号](</konwlegde/wiki-assets/boards/front%20panel(v2).svg>)'),
+  );
+  // Image outside wiki/assets is not rewritten to /wiki-assets/
+  assert.ok(out.includes('![越出assets](../secret.svg)'));
+});
+
+test('prepare-content: human notes collapsing and symlink rejection in copyAssets', (t) => {
+  assert.equal(
+    stripOrPreserveHumanNotes(
+      '正文\n<!-- HUMAN-NOTES:START -->\n## 个人复盘与后续思考\n（由人工补充与维护）\n<!-- HUMAN-NOTES:END -->',
+      false,
+    ).trim(),
+    '正文',
+  );
+  assert.match(
+    stripOrPreserveHumanNotes(
+      '正文\n<!-- HUMAN-NOTES:START -->\n## 个人复盘与后续思考\n实测 CAN 帧间隔 1.1s。\n<!-- HUMAN-NOTES:END -->',
+      true,
+    ),
+    /实测 CAN 帧间隔 1\.1s。/,
+  );
+  assert.deepEqual(splitFrontmatter('---\ntitle: "x"\n---'), {
+    frontmatter: 'title: "x"',
+    body: '',
+  });
+
+  const tmp = makeTempDir(t);
+  const srcAssets = path.join(tmp, 'assets');
+  const outsideDir = path.join(tmp, 'outside');
+  const dstAssets = path.join(tmp, 'public-assets');
+  fs.mkdirSync(path.join(srcAssets, 'sub'), { recursive: true });
+  fs.mkdirSync(outsideDir, { recursive: true });
+  fs.writeFileSync(path.join(srcAssets, '.gitkeep'), '', 'utf-8');
+  fs.writeFileSync(path.join(srcAssets, 'sub', 'ok.svg'), '<svg/>', 'utf-8');
+  fs.writeFileSync(path.join(outsideDir, 'leak.txt'), 'secret', 'utf-8');
+
+  copyAssets(srcAssets, dstAssets);
+  assert.equal(fs.existsSync(path.join(dstAssets, '.gitkeep')), false);
+  assert.equal(fs.existsSync(path.join(dstAssets, 'sub', 'ok.svg')), true);
+
+  // Create a directory junction/symlink inside assets pointing outside -> must throw
+  const linkPath = path.join(srcAssets, 'linked-outside');
+  fs.symlinkSync(outsideDir, linkPath, process.platform === 'win32' ? 'junction' : 'dir');
+  assert.throws(() => copyAssets(srcAssets, dstAssets), /Refusing symbolic link/);
+});
+
+test('build-site: exact case, site origin validation, and published asset verification', (t) => {
+  assert.equal(normalizeSiteOrigin('https://mangta517.github.io/'), 'https://mangta517.github.io');
+  assert.throws(() => normalizeSiteOrigin('javascript:alert(1)'), /Invalid SITE_URL protocol/);
+
+  const tmp = makeTempDir(t);
+  const dataDir = path.join(tmp, 'data');
+  const distDir = path.join(tmp, 'dist');
+  fs.mkdirSync(dataDir, { recursive: true });
+  fs.mkdirSync(path.join(distDir, 'adr', 'adr-0001-demo'), { recursive: true });
+  fs.mkdirSync(path.join(distDir, 'graph'), { recursive: true });
+  fs.mkdirSync(path.join(distDir, 'pagefind'), { recursive: true });
+  fs.mkdirSync(path.join(distDir, 'data'), { recursive: true });
+  fs.mkdirSync(path.join(distDir, 'wiki-assets', 'boards'), { recursive: true });
+
+  const catalog = {
+    projects: [],
+    topics: [],
+    adrs: [
+      {
+        id: 'ADR-0001-demo',
+        route: '/adr/adr-0001-demo/',
+        assets: { 'panel.svg': 'boards/panel.svg' },
+      },
+    ],
+    troubleshooting: [],
+    synthesis: [],
+  };
+  fs.writeFileSync(path.join(dataDir, 'catalog.json'), JSON.stringify(catalog), 'utf-8');
+
+  for (const rel of [
+    'index.html',
+    '404.html',
+    'graph/index.html',
+    'robots.txt',
+    'sitemap-index.xml',
+    'pagefind/pagefind.js',
+    'llms.txt',
+    'llms-full.txt',
+    'data/catalog.json',
+    'data/graph.json',
+    'data/stats.json',
+    'adr/adr-0001-demo/index.html',
+    'wiki-assets/boards/panel.svg',
+  ]) {
+    fs.writeFileSync(path.join(distDir, rel), 'ok', 'utf-8');
+  }
+  fs.writeFileSync(path.join(distDir, '.nojekyll'), '', 'utf-8');
+
+  assert.equal(existsExactCase(distDir, 'adr/adr-0001-demo/index.html'), true);
+  assert.equal(existsExactCase(distDir, 'adr/ADR-0001-demo/index.html'), false);
+  assert.equal(existsExactCase(distDir, '../data/catalog.json'), false);
+  assert.equal(verifyOutputs({ dataDir, distDir }), 1);
+
+  fs.rmSync(path.join(distDir, 'wiki-assets', 'boards', 'panel.svg'));
+  assert.throws(() => verifyOutputs({ dataDir, distDir }), /wiki-assets\/boards\/panel\.svg/);
+});
+
+test('preview-site: blocks open redirects, traversal, bad encoding, backslashes, and supports SITE_BASE + HEAD', async (t) => {
+  const tmp = makeTempDir(t);
+  const distDir = path.join(tmp, 'dist');
+  fs.mkdirSync(path.join(distDir, 'graph'), { recursive: true });
+  fs.writeFileSync(path.join(distDir, 'index.html'), '<h1>Home</h1>', 'utf-8');
+  fs.writeFileSync(path.join(distDir, '404.html'), '<h1>Custom 404</h1>', 'utf-8');
+  fs.writeFileSync(path.join(distDir, 'graph', 'index.html'), '<h1>Graph</h1>', 'utf-8');
+  fs.writeFileSync(path.join(tmp, 'outside.txt'), 'do-not-serve', 'utf-8');
+
+  // 1. Root base server (SITE_BASE = '')
+  const rootServer = createPreviewServer({ distDir, siteBase: '' });
+  await new Promise((resolve) => rootServer.listen(0, '127.0.0.1', resolve));
+  t.after(() => rootServer.close());
+  const rootPort = rootServer.address().port;
+
+  // Protocol-relative //graph MUST NOT redirect to Location: //graph/ (open redirect)
+  const dblSlash = await rawHttpRequest(rootPort, 'GET', '//graph?node=watch');
+  assert.equal(dblSlash.status, 301);
+  assert.equal(dblSlash.headers.location, '/graph/?node=watch');
+  assert.equal(dblSlash.headers['x-content-type-options'], 'nosniff');
+
+  // Malformed percent-encoding -> 400
+  const badPct = await rawHttpRequest(rootPort, 'GET', '/%E0%A4%A');
+  assert.equal(badPct.status, 400);
+
+  // Encoded NUL byte & Windows backslash -> 400
+  const nulReq = await rawHttpRequest(rootPort, 'GET', '/%00');
+  assert.equal(nulReq.status, 400);
+  const backslashReq = await rawHttpRequest(rootPort, 'GET', '/graph%5cindex.html');
+  assert.equal(backslashReq.status, 400);
+
+  // Path traversal -> 404
+  const traversal = await rawHttpRequest(rootPort, 'GET', '/..%2foutside.txt');
+  assert.equal(traversal.status, 404);
+  assert.equal(traversal.body, '<h1>Custom 404</h1>');
+
+  // Method handling: HEAD returns empty body, POST returns 405
+  const headRes = await rawHttpRequest(rootPort, 'HEAD', '/graph/');
+  assert.equal(headRes.status, 200);
+  assert.equal(headRes.body, '');
+  const postRes = await rawHttpRequest(rootPort, 'POST', '/graph/');
+  assert.equal(postRes.status, 405);
+  assert.equal(postRes.headers.allow, 'GET, HEAD');
+
+  // 2. Subpath server (SITE_BASE = '/konwlegde')
+  const subServer = createPreviewServer({ distDir, siteBase: '/konwlegde' });
+  await new Promise((resolve) => subServer.listen(0, '127.0.0.1', resolve));
+  t.after(() => subServer.close());
+  const subPort = subServer.address().port;
+
+  const rootRedirect = await rawHttpRequest(subPort, 'GET', '/?tech=FreeRTOS');
+  assert.equal(rootRedirect.status, 302);
+  assert.equal(rootRedirect.headers.location, '/konwlegde/?tech=FreeRTOS');
+
+  const baseRedirect = await rawHttpRequest(subPort, 'GET', '/konwlegde');
+  assert.equal(baseRedirect.status, 301);
+  assert.equal(baseRedirect.headers.location, '/konwlegde/');
+
+  const subDupSlash = await rawHttpRequest(subPort, 'GET', '/konwlegde//graph');
+  assert.equal(subDupSlash.status, 301);
+  assert.equal(subDupSlash.headers.location, '/konwlegde/graph/');
+
+  const subOk = await rawHttpRequest(subPort, 'GET', '/konwlegde/graph/');
+  assert.equal(subOk.status, 200);
+  assert.equal(subOk.body, '<h1>Graph</h1>');
+
+  const outsideBase = await rawHttpRequest(subPort, 'GET', '/other-path/');
+  assert.equal(outsideBase.status, 404);
+});

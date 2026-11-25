@@ -1158,3 +1158,21 @@ main:has(.kb-home, .kb-graph, .kb-notfound) footer .meta:empty {
     scroll-behavior: auto !important;
   }
 }
+
+@media print {
+  .kb-reading-progress,
+  .kb-table-fold-bar,
+  .kb-mermaid-toolbar,
+  .kb-copy-btn {
+    display: none !important;
+  }
+
+  .kb-table-fold.is-collapsed .kb-table-scroll {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .kb-table-fold.is-collapsed::after {
+    display: none !important;
+  }
+}

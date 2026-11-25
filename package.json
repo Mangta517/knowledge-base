@@ -12,6 +12,7 @@
     "prepare:portal": "pnpm --filter @kb/portal prepare:content",
     "dev:portal": "pnpm --filter @kb/portal dev",
     "typecheck": "pnpm --filter @kb/portal typecheck",
+    "test:portal": "pnpm --filter @kb/portal test",
     "build:portal": "pnpm --filter @kb/portal build",
     "build:site": "node scripts/build-site.mjs",
     "preview:site": "node scripts/preview-site.mjs"
