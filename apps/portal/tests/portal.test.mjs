@@ -377,3 +377,52 @@ test('svg-sanitize: enforces strict URL allowlist, control-char stripping, event
   assert.match(DISALLOWED_SVG_SELECTOR, /\banimate\b/);
   assert.match(DISALLOWED_SVG_SELECTOR, /\bset\b/);
 });
+
+test('card hit-area: stretched primary links and z-index layering stay intact across cards', () => {
+  const portalSrc = path.resolve(import.meta.dirname, '../src');
+  const customCss = fs.readFileSync(path.join(portalSrc, 'styles/custom.css'), 'utf-8');
+  const homeAstro = fs.readFileSync(path.join(portalSrc, 'components/PortfolioHome.astro'), 'utf-8');
+  const stepperAstro = fs.readFileSync(
+    path.join(portalSrc, 'components/ReadingTrackStepper.astro'),
+    'utf-8',
+  );
+
+  // Spotlight surface uses isolation + negative z-index so direct children (> *) do not trap ::after
+  assert.match(
+    customCss,
+    /:is\(\.kb-project,\s*\.kb-bento-card,[^)]+\)\s*\{[^}]*isolation:\s*isolate;/s,
+  );
+  assert.doesNotMatch(
+    customCss,
+    /:is\(\.kb-project,\s*\.kb-bento-card,[^)]+\)\s*>\s*\*\s*\{[^}]*position:\s*relative;/s,
+  );
+
+  // Project & Bento cards stretch primary links via ::after (z-index: 2) and elevate secondary controls (z-index: 3)
+  assert.match(homeAstro, /class="kb-project-primary-link"/);
+  assert.match(homeAstro, /class="kb-bento-primary-link"/);
+  assert.match(
+    homeAstro,
+    /\.kb-project-primary-link::after,\s*\.kb-bento-primary-link::after\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;[^}]*z-index:\s*2;/s,
+  );
+  for (const secondarySelector of [
+    '\\.kb-card-tech',
+    '\\.kb-rel-pill',
+    '\\.kb-project-ext a',
+    '\\.kb-proj-mini-tag',
+  ]) {
+    assert.match(
+      homeAstro,
+      new RegExp(`${secondarySelector}\\s*\\{[^}]*position:\\s*relative;[^}]*z-index:\\s*3;`, 's'),
+    );
+  }
+
+  // Stepper focus box and doc backlinks also stretch primary links across their boxes
+  assert.match(
+    stepperAstro,
+    /\.kb-step-doc-link::after\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;/s,
+  );
+  assert.match(
+    customCss,
+    /\.kb-backlink-row a::after\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;/s,
+  );
+});
