@@ -393,7 +393,11 @@ const heroDomains = [
             <ProjectMicroSchematic project={project} />
 
             <div class="kb-project-heading">
-              <h3><a href={withDocRoute(project.route)}>{project.title}</a></h3>
+              <h3>
+                <a class="kb-project-primary-link" href={withDocRoute(project.route)}>
+                  {project.title}
+                </a>
+              </h3>
               <div class="kb-project-flags">
                 <span class={`kb-tier ${project.tier === 'core' ? 'is-core' : ''}`}>
                   {tierLabels[project.tier] || project.tier}
@@ -458,14 +462,10 @@ const heroDomains = [
             )}
 
             <div class="kb-project-links">
-              <a
-                class="kb-read-cta"
-                href={withDocRoute(project.route)}
-                aria-label={`阅读档案：${project.title}`}
-              >
+              <span class="kb-read-cta">
                 <span>档案 · {mins}m</span>
                 <span class="kb-cta-arrow" aria-hidden="true">→</span>
-              </a>
+              </span>
               <div class="kb-project-ext">
                 <a
                   class="kb-muted-link"
@@ -545,7 +545,7 @@ const heroDomains = [
                 </div>
 
                 <h4 class="kb-bento-title">
-                  <a href={withDocRoute(item.route)}>
+                  <a class="kb-bento-primary-link" href={withDocRoute(item.route)}>
                     <span>{item.title}</span>
                     <span class="kb-bento-arrow" aria-hidden="true">→</span>
                   </a>
@@ -1273,11 +1273,32 @@ const heroDomains = [
     color: var(--sl-color-white);
     text-decoration: none;
     font-weight: 700;
+    transition: color 0.16s ease;
   }
 
-  .kb-project h3 a:hover {
+  .kb-project-primary-link::after,
+  .kb-bento-primary-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+  }
+
+  .kb-project-primary-link:focus-visible,
+  .kb-bento-primary-link:focus-visible {
+    outline: none;
+  }
+
+  .kb-project:has(.kb-project-primary-link:focus-visible),
+  .kb-bento-card:has(.kb-bento-primary-link:focus-visible) {
+    border-color: var(--kb-accent);
+    outline: 2px solid var(--kb-accent);
+    outline-offset: 2px;
+  }
+
+  .kb-project h3 a:is(:hover, :focus-visible) {
     color: var(--kb-accent);
-    text-decoration: underline;
   }
 
   .kb-tier {
@@ -1365,6 +1386,8 @@ const heroDomains = [
   }
 
   .kb-card-tech {
+    position: relative;
+    z-index: 3;
     padding: 0.09rem 0.42rem;
     border: 1px solid var(--kb-border);
     border-radius: 999px;
@@ -1391,7 +1414,6 @@ const heroDomains = [
     color: var(--sl-color-gray-3);
     font-family: var(--sl-font-mono);
     font-size: 0.65rem;
-    cursor: help;
   }
 
   .kb-project-related {
@@ -1401,6 +1423,8 @@ const heroDomains = [
   }
 
   .kb-rel-pill {
+    position: relative;
+    z-index: 3;
     display: inline-flex;
     align-items: center;
     gap: 0.24rem;
@@ -1443,6 +1467,8 @@ const heroDomains = [
     display: inline-flex;
     align-items: center;
     gap: 0.22rem;
+    color: var(--kb-accent);
+    font-weight: 600;
   }
 
   .kb-cta-arrow {
@@ -1450,7 +1476,12 @@ const heroDomains = [
     transition: transform 0.18s ease;
   }
 
-  .kb-project:hover .kb-cta-arrow {
+  .kb-project:has(.kb-project-primary-link:is(:hover, :focus-visible)) .kb-read-cta {
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+  }
+
+  .kb-project:has(.kb-project-primary-link:is(:hover, :focus-visible)) .kb-cta-arrow {
     transform: translateX(3px);
   }
 
@@ -1458,6 +1489,14 @@ const heroDomains = [
     display: inline-flex;
     align-items: center;
     gap: 0.6rem;
+  }
+
+  .kb-project-ext a {
+    position: relative;
+    z-index: 3;
+    padding: 0.14rem 0.34rem;
+    margin: -0.14rem -0.34rem;
+    border-radius: 0.3rem;
   }
 
   .kb-project-links a {
@@ -1664,9 +1703,10 @@ const heroDomains = [
     color: var(--sl-color-white);
     text-decoration: none;
     font-weight: 700;
+    transition: color 0.16s ease;
   }
 
-  .kb-bento-title a:hover {
+  .kb-bento-title a:is(:hover, :focus-visible) {
     color: var(--kb-accent);
   }
 
@@ -1677,7 +1717,7 @@ const heroDomains = [
     transition: opacity 0.18s ease, transform 0.18s ease;
   }
 
-  .kb-bento-card:hover .kb-bento-arrow {
+  .kb-bento-card:has(.kb-bento-primary-link:is(:hover, :focus-visible)) .kb-bento-arrow {
     opacity: 1;
     transform: translateX(0);
   }
@@ -1836,6 +1876,8 @@ const heroDomains = [
   }
 
   .kb-proj-mini-tag {
+    position: relative;
+    z-index: 3;
     padding: 0.06rem 0.4rem;
     border-radius: 0.26rem;
     background: var(--kb-project-soft);

@@ -92,9 +92,9 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
                 <a class="kb-step-doc-link" href={step.href}>
                   {step.title}
                 </a>
-                <a class="kb-step-go" href={step.href} aria-label={`阅读 ${step.title}`}>
+                <span class="kb-step-go">
                   {step.mins}m <span aria-hidden="true">→</span>
-                </a>
+                </span>
               </div>
               <p class="kb-step-focus-text" title={step.focus}>{step.focus}</p>
             </div>
@@ -317,15 +317,28 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
 
   .kb-step-focus-box {
     margin-top: auto;
-    padding: 0.52rem 0.66rem;
     border-radius: 0.54rem;
     border: 1px solid var(--kb-border);
+    transition: border-color 0.18s ease;
+  }
+
+  .kb-step-focus-box:hover {
+    border-color: color-mix(in srgb, var(--kb-type-color) 55%, var(--kb-border));
+  }
+
+  .kb-step-focus-box:has(.kb-step-doc-link:focus-visible) {
+    border-color: var(--kb-accent);
+    outline: 2px solid var(--kb-accent);
+    outline-offset: 2px;
   }
 
   .kb-step-detail:not([hidden]) {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 0.2rem;
+    padding: 0.52rem 0.66rem;
+    border-radius: inherit;
     animation: kbFadeSlideUp 0.2s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
@@ -353,11 +366,23 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    transition: color 0.15s ease;
   }
 
-  .kb-step-doc-link:hover {
+  .kb-step-doc-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    border-radius: inherit;
+  }
+
+  .kb-step-doc-link:focus-visible {
+    outline: none;
+  }
+
+  .kb-step-doc-link:is(:hover, :focus-visible) {
     color: var(--kb-accent);
-    text-decoration: underline;
   }
 
   .kb-step-go {
@@ -369,7 +394,6 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
     font-family: var(--sl-font-mono);
     font-size: 0.68rem;
     font-weight: 600;
-    text-decoration: none;
     flex-shrink: 0;
   }
 
@@ -377,7 +401,7 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
     transition: transform 0.16s ease;
   }
 
-  .kb-step-detail:hover .kb-step-go span {
+  .kb-step-detail:has(.kb-step-doc-link:is(:hover, :focus-visible)) .kb-step-go span {
     transform: translateX(2px);
   }
 

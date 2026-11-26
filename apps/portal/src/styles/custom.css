@@ -284,9 +284,12 @@ html.kb-motion-ready .kb-reveal-item.is-revealed {
   transform: translateY(0) scale(1);
 }
 
-/* Interactive Pointer-Tracked Hardware Spotlight Surface */
+/* Interactive Pointer-Tracked Hardware Spotlight Surface
+   Uses isolation + negative z-index on ::before so direct children (> *) stay non-positioned
+   by default and do not trap stretched card links (a::after) or secondary action z-indices. */
 :is(.kb-project, .kb-bento-card, .kb-track-card, .kb-metric-card, .kb-stage-card) {
   position: relative;
+  isolation: isolate;
   overflow: hidden;
 }
 
@@ -303,16 +306,11 @@ html.kb-motion-ready .kb-reveal-item.is-revealed {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease;
-  z-index: 0;
+  z-index: -1;
 }
 
 :is(.kb-project, .kb-bento-card, .kb-track-card, .kb-metric-card, .kb-stage-card):hover::before {
   opacity: 1;
-}
-
-:is(.kb-project, .kb-bento-card, .kb-track-card, .kb-metric-card, .kb-stage-card) > * {
-  position: relative;
-  z-index: 1;
 }
 
 ::view-transition-old(root),
@@ -1629,18 +1627,27 @@ h6,
 }
 
 .sl-markdown-content .kb-backlinks li {
+  position: relative;
   padding: 0.7rem 0.85rem;
   margin: 0 !important;
   border: 1px solid var(--kb-border);
   border-radius: 0.6rem;
   background: var(--kb-surface);
   box-shadow: var(--kb-shadow-sm);
-  transition: border-color 0.16s, transform 0.16s;
+  cursor: pointer;
+  transition: border-color 0.16s, box-shadow 0.16s, transform 0.16s;
 }
 
 .sl-markdown-content .kb-backlinks li:hover {
   border-color: var(--kb-border-strong);
+  box-shadow: var(--kb-shadow-hover);
   transform: translateY(-1px);
+}
+
+.sl-markdown-content .kb-backlinks li:has(.kb-backlink-row a:focus-visible) {
+  border-color: var(--kb-accent);
+  outline: 2px solid var(--kb-accent);
+  outline-offset: 2px;
 }
 
 .kb-backlink-row {
@@ -1657,7 +1664,18 @@ h6,
   text-decoration: none;
 }
 
-.kb-backlink-row a:hover {
+.kb-backlink-row a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.kb-backlink-row a:focus-visible {
+  outline: none;
+}
+
+.kb-backlink-row a:is(:hover, :focus-visible) {
   color: var(--kb-accent);
   text-decoration: underline;
   text-underline-offset: 0.18em;
