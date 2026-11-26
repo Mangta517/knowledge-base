@@ -39,6 +39,15 @@ export default defineConfig({
       title: 'Mangta 工程知识库',
       description: '基于 Mangta517 全部公开 GitHub 项目的嵌入式固件、架构决策与排障知识库。',
       disable404Route: true,
+      head: [
+        {
+          tag: 'meta',
+          attrs: {
+            name: 'referrer',
+            content: 'strict-origin-when-cross-origin',
+          },
+        },
+      ],
       defaultLocale: 'root',
       locales: {
         root: {

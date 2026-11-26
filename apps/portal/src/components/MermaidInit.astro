@@ -14,6 +14,12 @@
 </dialog>
 
 <script>
+  import {
+    DISALLOWED_SVG_SELECTOR,
+    isSafeSvgCss,
+    shouldRemoveSvgAttribute,
+  } from '../lib/svg-sanitize.mjs';
+
   function decodeBase64Utf8(b64: string): string {
     const bin = atob(b64);
     const bytes = new Uint8Array(bin.length);
@@ -113,18 +119,16 @@
     const svgEl = doc.body.querySelector('svg');
     if (!svgEl) return null;
 
-    svgEl.querySelectorAll('script, iframe, object, embed').forEach((el) => el.remove());
+    svgEl.querySelectorAll(DISALLOWED_SVG_SELECTOR).forEach((el) => el.remove());
+    svgEl.querySelectorAll('style').forEach((styleEl) => {
+      if (!isSafeSvgCss(styleEl.textContent || '')) {
+        styleEl.remove();
+      }
+    });
     const allNodes = [svgEl, ...Array.from(svgEl.querySelectorAll('*'))];
     for (const el of allNodes) {
       for (const attr of Array.from(el.attributes)) {
-        const name = attr.name.toLowerCase();
-        const val = attr.value.trim().toLowerCase();
-        if (name.startsWith('on')) {
-          el.removeAttribute(attr.name);
-        } else if (
-          (name === 'href' || name === 'xlink:href' || name === 'src') &&
-          (val.startsWith('javascript:') || val.startsWith('vbscript:') || val.startsWith('data:text/html'))
-        ) {
+        if (shouldRemoveSvgAttribute(attr.name, attr.value)) {
           el.removeAttribute(attr.name);
         }
       }

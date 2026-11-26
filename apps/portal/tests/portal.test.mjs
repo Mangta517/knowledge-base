@@ -12,6 +12,12 @@ import {
   transformBody,
 } from '../scripts/prepare-content.mjs';
 import {
+  DISALLOWED_SVG_SELECTOR,
+  isSafeSvgCss,
+  isSafeSvgUrl,
+  shouldRemoveSvgAttribute,
+} from '../src/lib/svg-sanitize.mjs';
+import {
   existsExactCase,
   normalizeSiteOrigin,
   verifyOutputs,
@@ -334,4 +340,40 @@ test('preview-site: blocks open redirects, traversal, bad encoding, backslashes,
 
   const outsideBase = await rawHttpRequest(subPort, 'GET', '/other-path/');
   assert.equal(outsideBase.status, 404);
+});
+
+test('svg-sanitize: enforces strict URL allowlist, control-char stripping, event/CSS blocking', () => {
+  // Allowed Mermaid SVG references and external links
+  assert.equal(isSafeSvgUrl('#arrowhead'), true);
+  assert.equal(isSafeSvgUrl('/knowledge-base/projects/watch/'), true);
+  assert.equal(isSafeSvgUrl('https://github.com/Mangta517/watch'), true);
+  assert.equal(isSafeSvgUrl('http://example.com/doc'), true);
+
+  // Blocked schemes, control-char obfuscation, protocol-relative URLs, data URIs
+  assert.equal(isSafeSvgUrl('javascript:alert(1)'), false);
+  assert.equal(isSafeSvgUrl('java\tscript:alert(1)'), false);
+  assert.equal(isSafeSvgUrl('\u0001javascript:alert(1)'), false);
+  assert.equal(isSafeSvgUrl('vbscript:msgbox(1)'), false);
+  assert.equal(isSafeSvgUrl('data:text/html,<script>alert(1)</script>'), false);
+  assert.equal(isSafeSvgUrl('data:image/svg+xml;base64,PHN2Zz4='), false);
+  assert.equal(isSafeSvgUrl('//evil.example/payload'), false);
+  assert.equal(isSafeSvgUrl(''), false);
+
+  // Attribute decisions
+  assert.equal(shouldRemoveSvgAttribute('onclick', 'alert(1)'), true);
+  assert.equal(shouldRemoveSvgAttribute('OnLoad', 'alert(1)'), true);
+  assert.equal(shouldRemoveSvgAttribute('formaction', 'https://evil.example'), true);
+  assert.equal(shouldRemoveSvgAttribute('srcdoc', '<script>alert(1)</script>'), true);
+  assert.equal(shouldRemoveSvgAttribute('xlink:href', 'java\nscript:alert(1)'), true);
+  assert.equal(shouldRemoveSvgAttribute('xlink:href', '#marker-end'), false);
+  assert.equal(shouldRemoveSvgAttribute('style', 'max-width: 720px; fill: url(#grad);'), false);
+  assert.equal(shouldRemoveSvgAttribute('style', 'background: url(javascript:alert(1))'), true);
+  assert.equal(shouldRemoveSvgAttribute('style', 'width: exp/*x*/ression(alert(1))'), true);
+
+  // CSS and disallowed tag checks
+  assert.equal(isSafeSvgCss('#kb-mmd-1 .node rect { fill: #fff; }'), true);
+  assert.equal(isSafeSvgCss('@import url("https://evil.example/x.css");'), false);
+  assert.match(DISALLOWED_SVG_SELECTOR, /\bscript\b/);
+  assert.match(DISALLOWED_SVG_SELECTOR, /\banimate\b/);
+  assert.match(DISALLOWED_SVG_SELECTOR, /\bset\b/);
 });
