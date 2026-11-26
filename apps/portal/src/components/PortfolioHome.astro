@@ -5,8 +5,7 @@ import ReadingTrackStepper from './ReadingTrackStepper.astro';
 import {
   DECISION_STATUS_LABELS,
   DOMAIN_LABELS,
-  SEVERITY_LABELS,
-  getReadingMinutes,
+   getReadingMinutes,
   getReadingTracks,
   getRelatedTroubleshooting,
   loadKbData,
@@ -26,6 +25,19 @@ const tierLabels: Record<string, string> = {
   core: 'Core',
   active: 'Active',
   archive: 'Archive',
+};
+
+const TOPIC_SHORT_LABELS: Record<string, string> = {
+  'embedded-stream-framing': '串流边界',
+  'ethernet-link-and-ip': '网口可达',
+  'sensor-feedback-pipeline': '反馈时序',
+  'task-and-bus-ownership': '总线所有权',
+};
+
+const SEVERITY_SHORT: Record<string, string> = {
+  high: 'HIGH',
+  medium: 'MED',
+  low: 'LOW',
 };
 
 const projectById = new Map(catalog.projects.map((p) => [p.id, p]));
@@ -112,7 +124,7 @@ const groups: Array<{ id: string; label: string; colorClass: string; items: Libr
       readingMinutes: getReadingMinutes(ts),
       mermaidCount: ts.mermaid_count ?? 0,
       evidenceCount: ts.evidence_count ?? 0,
-      meta: SEVERITY_LABELS[ts.severity] || ts.severity,
+      meta: SEVERITY_SHORT[ts.severity] || ts.severity,
       metaTone: ts.severity === 'high' ? 'danger' : 'neutral',
       phases: ts.phases,
       rootCause: ts.root_cause?.trim() || undefined,
@@ -150,7 +162,7 @@ const groups: Array<{ id: string; label: string; colorClass: string; items: Libr
       readingMinutes: getReadingMinutes(s),
       mermaidCount: s.mermaid_count ?? 0,
       evidenceCount: s.evidence_count ?? 0,
-      meta: '跨仓横向对照',
+      meta: '横向对照',
       metaTone: 'accent',
       relatedProjects: mapRelatedProjects(s.related_projects),
     })),
@@ -166,6 +178,14 @@ const totalMermaids =
   counts.total_mermaids ??
   allItems.reduce((sum, item) => sum + (item.mermaid_count ?? 0), 0);
 const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + counts.synthesis;
+
+const heroDomains = [
+  'STM32 · MSPM0',
+  'FreeRTOS',
+  'CAN / DMA',
+  'lwIP',
+  '40-bit SHA',
+];
 ---
 
 <div class="kb-home not-content">
@@ -174,52 +194,78 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     <div class="kb-hero-copy">
       <div class="kb-eyebrow">
         <span class="kb-eyebrow-pill">EMBEDDED ATLAS</span>
-        <span>{catalog.owner} 公开固件知识库</span>
+        <span>{catalog.owner}</span>
         {latestUpdate && (
-          <span class="kb-eyebrow-date">· 同步于 <time datetime={latestUpdate}>{latestUpdate}</time></span>
+          <time class="kb-eyebrow-date" datetime={latestUpdate}>· {latestUpdate}</time>
         )}
       </div>
 
       <h1 id="_top" class="kb-hero-title">
-        用动态信号脉络读懂<span class="kb-title-highlight">嵌入式固件与硬件边界</span>
+        动态信号脉络下的<span class="kb-title-highlight">嵌入式固件图谱</span>
       </h1>
 
-      <p class="kb-lead">
-        串联 STM32 / MSPM0 实板工程、FreeRTOS 并发、CAN/DMA 组帧与 lwIP 协议栈，每处结论直连固定 40 位提交 SHA。
-      </p>
+      <div class="kb-hero-chips" aria-label="核心技术域">
+        {heroDomains.map((tag, idx) => (
+          <span class="kb-domain-pill" style={`--pill-idx: ${idx};`}>{tag}</span>
+        ))}
+      </div>
 
-      <!-- Animated Bento Metric Tiles -->
+      <!-- Animated Bento Metric Tiles with Live Micro-Sparklines -->
       <div class="kb-metric-bento" aria-label="知识库核心指标">
         <div class="kb-metric-card kb-type-project">
-          <span class="kb-metric-num" data-count-to={counts.projects}>{counts.projects}</span>
-          <span class="kb-metric-label">公开固件工程</span>
+          <div class="kb-metric-row">
+            <span class="kb-metric-num" data-count-to={counts.projects}>{counts.projects}</span>
+            <svg class="kb-metric-spark" viewBox="0 0 40 16" aria-hidden="true">
+              <path d="M2,12 L10,12 L14,4 L24,4 L28,12 L38,12" pathLength="100" fill="none" />
+            </svg>
+          </div>
+          <span class="kb-metric-label">固件工程</span>
         </div>
+
         <div class="kb-metric-card kb-type-topic">
-          <span class="kb-metric-num" data-count-to={totalEvidence}>{totalEvidence}</span>
-          <span class="kb-metric-label">固定 SHA 源码锚点</span>
+          <div class="kb-metric-row">
+            <span class="kb-metric-num" data-count-to={totalEvidence}>{totalEvidence}</span>
+            <svg class="kb-metric-spark" viewBox="0 0 40 16" aria-hidden="true">
+              <path d="M2,9 Q11,2 20,9 T38,9" pathLength="100" fill="none" />
+            </svg>
+          </div>
+          <span class="kb-metric-label">源码锚点</span>
         </div>
+
         <div class="kb-metric-card kb-type-adr">
-          <span class="kb-metric-num" data-count-to={totalMermaids}>{totalMermaids}</span>
-          <span class="kb-metric-label">架构与时序图</span>
+          <div class="kb-metric-row">
+            <span class="kb-metric-num" data-count-to={totalMermaids}>{totalMermaids}</span>
+            <svg class="kb-metric-spark" viewBox="0 0 40 16" aria-hidden="true">
+              <path d="M2,13 L12,5 L22,11 L32,3 L38,7" pathLength="100" fill="none" />
+            </svg>
+          </div>
+          <span class="kb-metric-label">架构时序图</span>
         </div>
+
         <div class="kb-metric-card kb-type-troubleshooting">
-          <span class="kb-metric-num" data-count-to={crossNotesCount}>{crossNotesCount}</span>
-          <span class="kb-metric-label">专题 · ADR · 排障</span>
+          <div class="kb-metric-row">
+            <span class="kb-metric-num" data-count-to={crossNotesCount}>{crossNotesCount}</span>
+            <svg class="kb-metric-spark" viewBox="0 0 40 16" aria-hidden="true">
+              <path d="M2,11 L13,11 L17,3 L21,14 L25,8 L38,8" pathLength="100" fill="none" />
+            </svg>
+          </div>
+          <span class="kb-metric-label">专题 · 排障</span>
         </div>
       </div>
 
       <div class="kb-actions">
         {synthesis && (
           <a class="kb-action kb-action--primary" href={withDocRoute(synthesis.route)}>
-            从跨项目架构复盘开始 →
+            <span>架构演进总览</span>
+            <span class="kb-btn-arrow" aria-hidden="true">→</span>
           </a>
         )}
         <a class="kb-action" href={withBase('/graph/')}>
           <span class="kb-action-dot" aria-hidden="true"></span>
-          交互关系图谱
+          关系图谱
         </a>
         <button type="button" class="kb-action kb-search-btn" data-trigger-search>
-          全局检索 <kbd>Ctrl K</kbd>
+          检索 <kbd>Ctrl K</kbd>
         </button>
       </div>
     </div>
@@ -232,25 +278,25 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
   <!-- 2. Interactive Stepper Reading Tracks -->
   <section aria-labelledby="kb-tracks-heading" class="kb-tracks-section">
     <div class="kb-section-head">
-      <div>
-        <h2 id="kb-tracks-heading">交互式阅读路线</h2>
-        <span class="kb-section-sub">悬停或点击节点推进信号轨，按需查看每一步核查重点</span>
+      <div class="kb-section-title-row">
+        <h2 id="kb-tracks-heading">阅读路线</h2>
+        <span class="kb-section-tag">AUTO-CYCLE</span>
       </div>
     </div>
     <ReadingTrackStepper tracks={readingTracks} byId={byId} />
   </section>
 
-  <!-- 3. Hardware Project Matrix with Micro-Schematics -->
+  <!-- 3. Hardware Project Matrix with Live Micro-Schematics -->
   <section aria-labelledby="kb-projects" data-project-matrix>
     <div class="kb-section-head">
-      <div>
+      <div class="kb-section-title-row">
         <h2 id="kb-projects">
-          固件工程矩阵（<span data-project-count>{counts.projects}</span>）
+          固件矩阵 <span class="kb-count-pill" data-project-count>{counts.projects}</span>
         </h2>
-        <span class="kb-section-sub">悬停卡片唤醒硬件信号链路 · 点击技术栈胶囊筛选关联仓库</span>
+        <span class="kb-section-tag">LIVE SCHEMATICS</span>
       </div>
       <button type="button" class="kb-reset-filter" data-filter-reset hidden>
-        清除筛选 ✕
+        重置 ✕
       </button>
     </div>
 
@@ -260,7 +306,7 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
           全部 ({counts.projects})
         </button>
         <button type="button" class="kb-filter-chip" data-tier-filter="core">
-          Core 核心 ({stats.by_tier.core || 0})
+          Core ({stats.by_tier.core || 0})
         </button>
         {(stats.by_tier.active || 0) > 0 && (
           <button type="button" class="kb-filter-chip" data-tier-filter="active">
@@ -292,7 +338,7 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
         ))}
         {extraTechs.length > 0 && (
           <button type="button" class="kb-filter-more" data-toggle-extra-tech>
-            展开更多 (+{extraTechs.length})
+            +{extraTechs.length}
           </button>
         )}
       </div>
@@ -304,22 +350,37 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
         const relatedLinks = [
           ...(project.related_topics || []).map((id) => {
             const topic = topicById.get(id);
-            return topic ? { label: topic.title, href: withDocRoute(topic.route), kind: 'topic' } : null;
+            return topic
+              ? {
+                  label: TOPIC_SHORT_LABELS[id] || topic.title.slice(0, 6),
+                  fullTitle: topic.title,
+                  href: withDocRoute(topic.route),
+                  kind: 'topic',
+                }
+              : null;
           }),
           ...(project.related_adrs || []).map((id) => {
             const adr = adrById.get(id);
-            return adr ? { label: adr.adr_id, href: withDocRoute(adr.route), kind: 'adr' } : null;
+            return adr
+              ? { label: adr.adr_id, fullTitle: adr.title, href: withDocRoute(adr.route), kind: 'adr' }
+              : null;
           }),
           ...relatedTroubleshooting.map((ts) => ({
             label: ts.ts_id,
+            fullTitle: ts.title,
             href: withDocRoute(ts.route),
             kind: 'troubleshooting',
           })),
-        ].filter((item): item is { label: string; href: string; kind: string } => Boolean(item));
+        ].filter(
+          (item): item is { label: string; fullTitle: string; href: string; kind: string } =>
+            Boolean(item),
+        );
 
         const shortSha = (project.synced_commit || '').slice(0, 7);
         const mins = getReadingMinutes(project);
         const extraSpecs = (project.highlights || []).slice(1, 3);
+        const visibleTechs = project.tech_stack.slice(0, 4);
+        const hiddenTechCount = Math.max(0, project.tech_stack.length - visibleTechs.length);
         const projectRepoUrl = safeExternalUrl(project.repo_url);
 
         return (
@@ -343,12 +404,17 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
               </div>
             </div>
 
-            <p class="kb-project-description">{project.description}</p>
+            {/* Smooth Hover-Expand Summary Drawer (Zero prose clutter at rest) */}
+            <div class="kb-project-desc-drawer">
+              <div class="kb-project-desc-inner">
+                <p class="kb-project-description">{project.description}</p>
+              </div>
+            </div>
 
             {extraSpecs.length > 0 && (
               <div class="kb-project-specs" aria-label="关键硬件规格">
                 {extraSpecs.map((sp) => (
-                  <span class="kb-mini-spec">
+                  <span class="kb-mini-spec" title={`${sp.label}: ${sp.value}`}>
                     <em>{sp.label}</em> {sp.value}
                   </span>
                 ))}
@@ -356,22 +422,34 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
             )}
 
             <div class="kb-stack-tags" aria-label="项目技术栈">
-              {project.tech_stack.map((tech) => (
+              {visibleTechs.map((tech) => (
                 <button
                   type="button"
                   class="kb-card-tech"
                   data-card-tech={tech}
-                  title={`按 ${tech} 筛选项目`}
+                  title={`按 ${tech} 筛选`}
                 >
                   {tech}
                 </button>
               ))}
+              {hiddenTechCount > 0 && (
+                <span
+                  class="kb-tech-overflow"
+                  title={project.tech_stack.slice(4).join(' · ')}
+                >
+                  +{hiddenTechCount}
+                </span>
+              )}
             </div>
 
             {relatedLinks.length > 0 && (
               <div class="kb-project-related" aria-label="关联知识节点">
                 {relatedLinks.map((link) => (
-                  <a class={`kb-rel-pill kb-type-${link.kind}`} href={link.href}>
+                  <a
+                    class={`kb-rel-pill kb-type-${link.kind}`}
+                    href={link.href}
+                    title={link.fullTitle}
+                  >
                     <span class="kb-rel-dot" aria-hidden="true"></span>
                     {link.label}
                   </a>
@@ -380,8 +458,13 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
             )}
 
             <div class="kb-project-links">
-              <a class="kb-read-cta" href={withDocRoute(project.route)} aria-label={`阅读档案：${project.title}`}>
-                阅读档案 ({mins} min) →
+              <a
+                class="kb-read-cta"
+                href={withDocRoute(project.route)}
+                aria-label={`阅读档案：${project.title}`}
+              >
+                <span>档案 · {mins}m</span>
+                <span class="kb-cta-arrow" aria-hidden="true">→</span>
               </a>
               <div class="kb-project-ext">
                 <a
@@ -408,16 +491,16 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
       })}
     </div>
     <p class="kb-empty-filter" data-project-empty hidden>
-      没有匹配当前筛选条件的项目档案，请点击“清除筛选”查看全部项目。
+      无匹配工程，点击右上角“重置”恢复全部。
     </p>
   </section>
 
   <!-- 4. Cross-Project Visual Bento Library -->
   <section aria-labelledby="kb-library" class="kb-library-section">
     <div class="kb-library-header">
-      <div>
-        <h2 id="kb-library">跨项目知识沉淀</h2>
-        <span class="kb-section-sub">从具体故障、设计取舍提炼可复用的机制模型</span>
+      <div class="kb-section-title-row">
+        <h2 id="kb-library">跨域沉淀</h2>
+        <span class="kb-section-tag">BENTO INDEX</span>
       </div>
 
       <div class="kb-tabs" aria-labelledby="kb-library" hidden>
@@ -440,70 +523,88 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
       <div id={`kb-panel-${id}`} class={`kb-category ${colorClass}`}>
         <h3>{label}（{items.length}）</h3>
         <div class="kb-bento-list">
-          {items.map((item) => (
-            <article class="kb-bento-card">
-              <div class="kb-bento-top">
-                <div class="kb-bento-badges">
-                  {item.codeBadge && <span class="kb-bento-code">{item.codeBadge}</span>}
-                  {item.meta && (
-                    <span class={`kb-bento-meta ${item.metaTone === 'danger' ? 'is-danger' : ''}`}>
-                      {item.metaTone === 'danger' && <i class="kb-danger-pulse" aria-hidden="true"></i>}
-                      {item.meta}
-                    </span>
-                  )}
+          {items.map((item) => {
+            const isTs = id === 'troubleshooting';
+            const evidencePct = Math.min(100, Math.max(16, item.evidenceCount * 11));
+            return (
+              <article class="kb-bento-card">
+                <div class="kb-bento-top">
+                  <div class="kb-bento-badges">
+                    {item.codeBadge && <span class="kb-bento-code">{item.codeBadge}</span>}
+                    {item.meta && (
+                      <span class={`kb-bento-meta ${item.metaTone === 'danger' ? 'is-danger' : ''}`}>
+                        {item.metaTone === 'danger' && <i class="kb-danger-pulse" aria-hidden="true"></i>}
+                        {item.meta}
+                      </span>
+                    )}
+                  </div>
+                  <span class="kb-bento-stats">
+                    {item.mermaidCount > 0 && <span>{item.mermaidCount}图 · </span>}
+                    {item.readingMinutes}m
+                  </span>
                 </div>
-                <span class="kb-bento-stats">
-                  {item.mermaidCount > 0 && <span>{item.mermaidCount} 图 · </span>}
-                  {item.readingMinutes} min
-                </span>
-              </div>
 
-              <h4 class="kb-bento-title">
-                <a href={withDocRoute(item.route)}>{item.title}</a>
-              </h4>
+                <h4 class="kb-bento-title">
+                  <a href={withDocRoute(item.route)}>
+                    <span>{item.title}</span>
+                    <span class="kb-bento-arrow" aria-hidden="true">→</span>
+                  </a>
+                </h4>
 
-              <p class="kb-bento-desc">{item.description}</p>
+                {/* Non-TS cards show 1-line compact caption + animated telemetry bar */}
+                {!isTs && (
+                  <>
+                    <p class="kb-bento-desc" title={item.description}>{item.description}</p>
+                    {item.evidenceCount > 0 && (
+                      <div class="kb-bento-meter" aria-label={`包含 ${item.evidenceCount} 处源码锚点`}>
+                        <div class="kb-bento-meter-track">
+                          <span class="kb-bento-meter-fill" style={`--meter-w: ${evidencePct}%;`}></span>
+                        </div>
+                        <span class="kb-bento-meter-num">{item.evidenceCount} 锚点</span>
+                      </div>
+                    )}
+                  </>
+                )}
 
-              {/* Root Cause & Evidence Locator Digest for Troubleshooting items */}
-              {(item.rootCause || item.locatedBy) && (
-                <div class="kb-ts-digest" aria-label="故障根因与定位摘要">
-                  {item.rootCause && (
-                    <div class="kb-ts-digest-row is-cause" title={item.rootCause}>
-                      <span class="kb-ts-digest-key">错误原因</span>
-                      <p class="kb-ts-digest-val">{item.rootCause}</p>
-                    </div>
-                  )}
-                  {item.locatedBy && (
-                    <div class="kb-ts-digest-row is-locate" title={item.locatedBy}>
-                      <span class="kb-ts-digest-key">定位判据</span>
-                      <p class="kb-ts-digest-val">{item.locatedBy}</p>
-                    </div>
-                  )}
-                </div>
-              )}
+                {/* Animated Diagnostic Scanner Pipeline for Troubleshooting items */}
+                {item.phases && item.phases.length > 0 && (
+                  <div class="kb-phase-strip" aria-label="故障排查阶段链路">
+                    {item.phases.map((phase, pIdx) => (
+                      <span class="kb-phase-pill" style={`--phase-idx: ${pIdx};`}>
+                        <b>{pIdx + 1}</b> {phase}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
-              {/* Visual Diagnostic Pipeline Stepper for Troubleshooting items */}
-              {item.phases && item.phases.length > 0 && (
-                <div class="kb-phase-strip" aria-label="故障排查阶段链路">
-                  <span class="kb-phase-label">排查流程</span>
-                  {item.phases.map((phase, pIdx) => (
-                    <span class="kb-phase-pill" style={`--phase-idx: ${pIdx};`}>
-                      <b>{pIdx + 1}</b> {phase}
-                    </span>
-                  ))}
-                </div>
-              )}
+                {/* Compact 1-line Root Cause & Locator Strip (expands smoothly on hover) */}
+                {(item.rootCause || item.locatedBy) && (
+                  <div class="kb-ts-digest" aria-label="故障根因与定位摘要">
+                    {item.rootCause && (
+                      <div class="kb-ts-digest-row is-cause" title={item.rootCause}>
+                        <span class="kb-ts-digest-key">根因</span>
+                        <p class="kb-ts-digest-val">{item.rootCause}</p>
+                      </div>
+                    )}
+                    {item.locatedBy && (
+                      <div class="kb-ts-digest-row is-locate" title={item.locatedBy}>
+                        <span class="kb-ts-digest-key">判据</span>
+                        <p class="kb-ts-digest-val">{item.locatedBy}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-              {item.relatedProjects.length > 0 && (
-                <div class="kb-bento-foot">
-                  <span class="kb-bento-foot-label">关联固件：</span>
-                  {item.relatedProjects.map((proj) => (
-                    <a class="kb-proj-mini-tag" href={proj.href}>{proj.title}</a>
-                  ))}
-                </div>
-              )}
-            </article>
-          ))}
+                {item.relatedProjects.length > 0 && (
+                  <div class="kb-bento-foot">
+                    {item.relatedProjects.map((proj) => (
+                      <a class="kb-proj-mini-tag" href={proj.href}>{proj.title}</a>
+                    ))}
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </div>
       </div>
     ))}
@@ -531,7 +632,7 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     document.querySelectorAll<HTMLElement>('[data-count-to]').forEach((el) => {
       const target = Number(el.dataset.countTo || '0');
       if (!target || target <= 1) return;
-      const duration = 680;
+      const duration = 760;
       const start = performance.now();
       const tick = (now: number) => {
         const progress = Math.min(1, (now - start) / duration);
@@ -543,7 +644,18 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     });
   }
 
-  // 3. Interactive Project Matrix Filtering with View Transitions
+  function runWithTransition(mutate: () => void) {
+    const docWithVt = document as Document & {
+      startViewTransition?: (cb: () => void) => unknown;
+    };
+    if (!reducedMotion && typeof docWithVt.startViewTransition === 'function') {
+      docWithVt.startViewTransition(mutate);
+    } else {
+      mutate();
+    }
+  }
+
+  // 3. Interactive Project Matrix Filtering with View Transitions & Stagger Pop
   const matrix = document.querySelector<HTMLElement>('[data-project-matrix]');
   if (matrix) {
     const filterBar = matrix.querySelector<HTMLElement>('[data-filter-bar]')!;
@@ -567,11 +679,11 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
       if (isExtra) {
         extraExpanded = true;
         extraChips.forEach((c) => (c.hidden = false));
-        if (extraToggle) extraToggle.textContent = '收起更多';
+        if (extraToggle) extraToggle.textContent = '收起';
       }
     }
 
-    function updateDomFilter(syncUrl = true) {
+    function updateDomFilter(syncUrl = true, animateCards = false) {
       expandExtrasIfNeeded();
       let visibleCount = 0;
 
@@ -582,7 +694,15 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
         const matchTech = !activeTech || techs.includes(activeTech);
         const show = matchTier && matchTech;
         card.hidden = !show;
-        if (show) visibleCount++;
+        if (show) {
+          if (animateCards && !reducedMotion) {
+            card.style.setProperty('--filter-idx', String(visibleCount));
+            card.classList.remove('is-pop-in');
+            void card.offsetWidth;
+            card.classList.add('is-pop-in');
+          }
+          visibleCount++;
+        }
       }
 
       tierBtns.forEach((b) => {
@@ -602,7 +722,7 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
       });
 
       const isFiltered = activeTier !== 'all' || Boolean(activeTech);
-      countEl.textContent = isFiltered ? `${visibleCount} / ${cards.length}` : String(cards.length);
+      countEl.textContent = isFiltered ? `${visibleCount}/${cards.length}` : String(cards.length);
       resetBtn.hidden = !isFiltered;
       emptyEl.hidden = visibleCount > 0;
 
@@ -617,7 +737,11 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     }
 
     function applyFilter(syncUrl = true) {
-      updateDomFilter(syncUrl);
+      if (syncUrl) {
+        runWithTransition(() => updateDomFilter(true, true));
+      } else {
+        updateDomFilter(false, false);
+      }
     }
 
     const params = new URLSearchParams(window.location.search);
@@ -660,11 +784,11 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     });
 
     if (extraToggle) {
-      const labelClosed = extraToggle.textContent || '展开更多';
+      const labelClosed = extraToggle.textContent || '更多';
       extraToggle.addEventListener('click', () => {
         extraExpanded = !extraExpanded;
         extraChips.forEach((c) => (c.hidden = !extraExpanded));
-        extraToggle.textContent = extraExpanded ? '收起更多' : labelClosed;
+        extraToggle.textContent = extraExpanded ? '收起' : labelClosed;
       });
     }
 
@@ -672,19 +796,23 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     applyFilter(false);
   }
 
-  // 4. Cross-project Library Pill Tabs
+  // 4. Cross-project Library Pill Tabs with Animated Transitions
   const tablist = document.querySelector<HTMLElement>('.kb-tabs');
   if (tablist) {
     const tabs = Array.from(tablist.querySelectorAll('button'));
     const panels = tabs.map((tab) => document.getElementById(tab.getAttribute('aria-controls')!)!);
 
-    function selectTab(active: number) {
-      tabs.forEach((tab, index) => {
-        const selected = index === active;
-        tab.setAttribute('aria-selected', String(selected));
-        tab.tabIndex = selected ? 0 : -1;
-        panels[index].hidden = !selected;
-      });
+    function selectTab(active: number, animate = false) {
+      const apply = () => {
+        tabs.forEach((tab, index) => {
+          const selected = index === active;
+          tab.setAttribute('aria-selected', String(selected));
+          tab.tabIndex = selected ? 0 : -1;
+          panels[index].hidden = !selected;
+        });
+      };
+      if (animate) runWithTransition(apply);
+      else apply();
     }
 
     tablist.setAttribute('role', 'tablist');
@@ -692,7 +820,7 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
       tab.setAttribute('role', 'tab');
       panels[index].setAttribute('role', 'tabpanel');
       panels[index].setAttribute('aria-labelledby', tab.id);
-      tab.addEventListener('click', () => selectTab(index));
+      tab.addEventListener('click', () => selectTab(index, true));
       tab.addEventListener('keydown', (event) => {
         const nextIndex = {
           ArrowLeft: (index - 1 + tabs.length) % tabs.length,
@@ -702,25 +830,27 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
         }[event.key];
         if (nextIndex === undefined) return;
         event.preventDefault();
-        selectTab(nextIndex);
+        selectTab(nextIndex, true);
         tabs[nextIndex].focus();
       });
     });
+
     const syncFromHash = () => {
       const rawHash = window.location.hash.replace(/^#/, '');
       if (!rawHash) return false;
       const idx = tabs.findIndex(
-        (tab, i) => tab.id === rawHash || panels[i].id === rawHash || `kb-panel-${rawHash}` === panels[i].id,
+        (tab, i) =>
+          tab.id === rawHash || panels[i].id === rawHash || `kb-panel-${rawHash}` === panels[i].id,
       );
       if (idx !== -1) {
-        selectTab(idx);
+        selectTab(idx, false);
         return true;
       }
       return false;
     };
 
     if (!syncFromHash()) {
-      selectTab(0);
+      selectTab(0, false);
     }
     window.addEventListener('hashchange', syncFromHash);
     tablist.hidden = false;
@@ -730,7 +860,7 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
 <style>
   .kb-home {
     display: grid;
-    gap: 2.8rem;
+    gap: 2.4rem;
   }
 
   /* ===========================
@@ -739,72 +869,85 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
   .kb-hero-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 1.4rem;
+    gap: 1.35rem;
     align-items: center;
   }
 
   @media (min-width: 64rem) {
     .kb-hero-grid {
-      grid-template-columns: minmax(0, 1.02fr) minmax(0, 1.08fr);
-      gap: 1.75rem;
+      grid-template-columns: minmax(0, 0.98fr) minmax(0, 1.12fr);
+      gap: 1.65rem;
     }
   }
 
   .kb-hero-copy {
     display: flex;
     flex-direction: column;
-    gap: 0.9rem;
+    gap: 0.85rem;
   }
 
   .kb-eyebrow {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.45rem;
+    gap: 0.42rem;
     color: var(--sl-color-gray-3);
-    font-size: var(--sl-text-xs);
+    font-family: var(--sl-font-mono);
+    font-size: 0.72rem;
   }
 
   .kb-eyebrow-pill {
-    padding: 0.14rem 0.52rem;
+    padding: 0.12rem 0.5rem;
     border-radius: 999px;
     background: var(--kb-project-soft);
-    border: 1px solid color-mix(in srgb, var(--kb-accent) 35%, var(--kb-border));
+    border: 1px solid color-mix(in srgb, var(--kb-accent) 38%, var(--kb-border));
     color: var(--kb-accent);
-    font-family: var(--sl-font-mono);
-    font-size: 0.68rem;
+    font-size: 0.66rem;
     font-weight: 700;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
   }
 
   .kb-hero-title {
     margin: 0 !important;
-    font-size: clamp(1.68rem, 2.8vw, 2.35rem) !important;
-    line-height: 1.24 !important;
-    letter-spacing: -0.02em;
+    font-size: clamp(1.68rem, 2.8vw, 2.32rem) !important;
+    line-height: 1.22 !important;
+    letter-spacing: -0.022em;
     color: var(--sl-color-white);
   }
 
   .kb-title-highlight {
     display: inline-block;
-    background: linear-gradient(120deg, var(--kb-accent), var(--kb-topic));
+    background: linear-gradient(110deg, var(--kb-accent), var(--kb-topic), var(--kb-synthesis), var(--kb-accent));
+    background-size: 220% auto;
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
+    animation: kbShimmerText 6.5s ease-in-out infinite;
   }
 
-  .kb-lead {
-    margin: 0;
-    font-size: 0.96rem;
-    line-height: 1.68;
+  .kb-hero-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.36rem;
+  }
+
+  .kb-domain-pill {
+    padding: 0.14rem 0.52rem;
+    border-radius: 999px;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface);
     color: var(--sl-color-gray-2);
-    max-width: 38rem;
+    font-family: var(--sl-font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    animation: kbFadeSlideUp 0.36s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--pill-idx) * 55ms);
   }
 
   .kb-metric-bento {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.55rem;
+    gap: 0.52rem;
   }
 
   @media (max-width: 36rem) {
@@ -816,41 +959,81 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
   .kb-metric-card {
     display: flex;
     flex-direction: column;
-    gap: 0.12rem;
-    padding: 0.62rem 0.72rem;
-    border-radius: 0.65rem;
+    gap: 0.16rem;
+    padding: 0.58rem 0.68rem;
+    border-radius: 0.66rem;
     border: 1px solid var(--kb-border);
     background: var(--kb-surface);
     box-shadow: var(--kb-shadow-sm);
     border-top: 2.5px solid var(--kb-type-color);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+  }
+
+  .kb-metric-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--kb-type-color);
+  }
+
+  .kb-metric-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.25rem;
   }
 
   .kb-metric-num {
     font-family: var(--sl-font-mono);
-    font-size: 1.32rem;
+    font-size: 1.3rem;
     font-weight: 700;
-    line-height: 1.2;
+    line-height: 1.15;
     color: var(--sl-color-white);
+  }
+
+  .kb-metric-spark {
+    width: 2.3rem;
+    height: 0.95rem;
+    flex-shrink: 0;
+    overflow: visible;
+  }
+
+  .kb-metric-spark path {
+    stroke: var(--kb-type-color);
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 38 62;
+    opacity: 0.72;
+    animation: kbMetricWave 2.6s linear infinite;
+  }
+
+  @keyframes kbMetricWave {
+    from {
+      stroke-dashoffset: 100;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
   }
 
   .kb-metric-label {
     color: var(--sl-color-gray-3);
-    font-size: 0.7rem;
-    line-height: 1.3;
+    font-size: 0.69rem;
+    font-weight: 600;
+    line-height: 1.25;
   }
 
   .kb-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.55rem;
-    margin-top: 0.15rem;
+    gap: 0.5rem;
+    margin-top: 0.1rem;
   }
 
   .kb-action {
     display: inline-flex;
     align-items: center;
-    gap: 0.42rem;
-    padding: 0.46rem 0.92rem;
+    gap: 0.4rem;
+    padding: 0.44rem 0.88rem;
     border: 1px solid var(--kb-border);
     border-radius: 0.52rem;
     background: var(--kb-surface);
@@ -861,7 +1044,7 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     font-size: var(--sl-text-sm);
     font-weight: 600;
     cursor: pointer;
-    transition: border-color 0.16s, color 0.16s, transform 0.16s, box-shadow 0.16s;
+    transition: border-color 0.18s, color 0.18s, transform 0.18s, box-shadow 0.18s;
   }
 
   .kb-action--primary {
@@ -874,13 +1057,21 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     background: color-mix(in srgb, var(--kb-accent) 88%, #000000);
     border-color: color-mix(in srgb, var(--kb-accent) 88%, #000000);
     color: #ffffff;
-    transform: translateY(-1px);
+    transform: translateY(-1.5px);
+  }
+
+  .kb-btn-arrow {
+    transition: transform 0.18s ease;
+  }
+
+  .kb-action--primary:hover .kb-btn-arrow {
+    transform: translateX(3px);
   }
 
   .kb-action:not(.kb-action--primary):hover {
     border-color: var(--kb-accent);
     color: var(--kb-accent);
-    transform: translateY(-1px);
+    transform: translateY(-1.5px);
   }
 
   .kb-action-dot {
@@ -888,16 +1079,18 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     height: 0.45rem;
     border-radius: 50%;
     background: var(--kb-topic);
+    box-shadow: 0 0 0 3px var(--kb-topic-soft);
+    animation: kbPulseSoft 2.2s ease-in-out infinite;
   }
 
   .kb-search-btn kbd {
-    padding: 0.08rem 0.35rem;
+    padding: 0.06rem 0.34rem;
     border-radius: 0.25rem;
     border: 1px solid var(--kb-border);
     background: var(--kb-surface-elevated);
     color: var(--sl-color-gray-3);
     font-family: var(--sl-font-mono);
-    font-size: 0.68rem;
+    font-size: 0.66rem;
     font-weight: 500;
   }
 
@@ -907,10 +1100,16 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
   .kb-section-head {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    margin-bottom: 0.95rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .kb-section-title-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
   }
 
   .kb-home h2 {
@@ -919,19 +1118,38 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     color: var(--sl-color-white);
   }
 
-  .kb-section-sub {
-    display: block;
-    margin-top: 0.18rem;
+  .kb-count-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.04rem 0.46rem;
+    border-radius: 999px;
+    background: var(--kb-project-soft);
+    color: var(--kb-accent);
+    font-family: var(--sl-font-mono);
+    font-size: 0.82rem;
+    font-weight: 700;
+    vertical-align: middle;
+  }
+
+  .kb-section-tag {
+    padding: 0.1rem 0.44rem;
+    border-radius: 0.28rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface);
     color: var(--sl-color-gray-3);
-    font-size: var(--sl-text-xs);
+    font-family: var(--sl-font-mono);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
   }
 
   .kb-filter-bar:not([hidden]) {
     display: flex;
     flex-direction: column;
-    gap: 0.48rem;
-    margin-bottom: 1rem;
-    padding: 0.72rem 0.85rem;
+    gap: 0.44rem;
+    margin-bottom: 0.9rem;
+    padding: 0.65rem 0.78rem;
     border-radius: 0.68rem;
     border: 1px solid var(--kb-border);
     background: var(--kb-surface);
@@ -942,7 +1160,7 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.32rem;
   }
 
   .kb-filter-chip,
@@ -950,8 +1168,8 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
   .kb-reset-filter {
     display: inline-flex;
     align-items: center;
-    gap: 0.28rem;
-    padding: 0.22rem 0.6rem;
+    gap: 0.26rem;
+    padding: 0.2rem 0.56rem;
     border: 1px solid var(--kb-border);
     border-radius: 999px;
     background: var(--kb-surface-elevated);
@@ -959,7 +1177,7 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     font: inherit;
     font-size: var(--sl-text-xs);
     cursor: pointer;
-    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    transition: border-color 0.16s, color 0.16s, background 0.16s, transform 0.16s;
   }
 
   .kb-filter-chip[hidden],
@@ -973,12 +1191,13 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     background: var(--sl-color-accent-low);
     color: var(--sl-color-accent-high);
     font-weight: 600;
+    transform: translateY(-1px);
   }
 
   .kb-chip-count {
     color: var(--sl-color-gray-3);
     font-family: var(--sl-font-mono);
-    font-size: 0.88em;
+    font-size: 0.86em;
   }
 
   .kb-filter-more,
@@ -1000,7 +1219,7 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
   .kb-project-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 20.5rem), 1fr));
-    gap: 1rem;
+    gap: 0.95rem;
   }
 
   .kb-project[hidden] {
@@ -1010,38 +1229,43 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
   .kb-project {
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
-    padding: 0.95rem 1.05rem;
+    gap: 0.48rem;
+    padding: 0.9rem 1rem;
     border: 1px solid var(--kb-border);
-    border-radius: 0.72rem;
+    border-radius: 0.75rem;
     background: var(--kb-surface);
     box-shadow: var(--kb-shadow-sm);
-    transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+    transition: border-color 0.22s, box-shadow 0.22s, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .kb-project.is-pop-in {
+    animation: kbFadeSlideUp 0.28s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--filter-idx, 0) * 35ms);
   }
 
   .kb-project:hover {
     border-color: var(--kb-border-strong);
     box-shadow: var(--kb-shadow-hover);
-    transform: translateY(-2px);
+    transform: translateY(-3px);
   }
 
   .kb-project h3 {
     margin: 0;
-    font-size: 1.02rem;
-    line-height: 1.38;
+    font-size: 0.99rem;
+    line-height: 1.36;
   }
 
   .kb-project-heading {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    gap: 0.5rem;
+    gap: 0.45rem;
   }
 
   .kb-project-flags {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.32rem;
     flex-shrink: 0;
   }
 
@@ -1057,12 +1281,12 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
   }
 
   .kb-tier {
-    padding: 0.08rem 0.44rem;
+    padding: 0.07rem 0.42rem;
     border-radius: 999px;
     border: 1px solid var(--kb-border);
     background: var(--kb-surface-elevated);
     color: var(--sl-color-gray-3);
-    font-size: 0.67rem;
+    font-size: 0.65rem;
     font-weight: 700;
   }
 
@@ -1074,15 +1298,35 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
 
   .kb-sha {
     color: var(--sl-color-gray-3);
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     font-family: var(--sl-font-mono);
+  }
+
+  /* Progressive Hover-Expand Description Drawer */
+  .kb-project-desc-drawer {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-rows 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.22s ease;
+  }
+
+  .kb-project:is(:hover, :focus-within) .kb-project-desc-drawer {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+
+  .kb-project-desc-inner {
+    overflow: hidden;
   }
 
   .kb-project-description {
     margin: 0;
+    padding-top: 0.06rem;
     color: var(--sl-color-gray-2);
-    font-size: 0.84rem;
-    line-height: 1.56;
+    font-size: 0.78rem;
+    line-height: 1.48;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
@@ -1092,19 +1336,19 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
   .kb-project-specs {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.32rem;
+    gap: 0.3rem;
   }
 
   .kb-mini-spec {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
-    padding: 0.1rem 0.44rem;
-    border-radius: 0.3rem;
+    gap: 0.24rem;
+    padding: 0.09rem 0.42rem;
+    border-radius: 0.28rem;
     background: var(--kb-surface-elevated);
     color: var(--sl-color-gray-1);
     font-family: var(--sl-font-mono);
-    font-size: 0.68rem;
+    font-size: 0.67rem;
   }
 
   .kb-mini-spec em {
@@ -1116,19 +1360,20 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
   .kb-stack-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.28rem;
+    align-items: center;
+    gap: 0.26rem;
   }
 
   .kb-card-tech {
-    padding: 0.1rem 0.45rem;
+    padding: 0.09rem 0.42rem;
     border: 1px solid var(--kb-border);
     border-radius: 999px;
     background: transparent;
     color: var(--sl-color-gray-3);
     font: inherit;
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     cursor: pointer;
-    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    transition: border-color 0.15s, color 0.15s, background 0.15s, transform 0.15s;
   }
 
   .kb-card-tech:hover,
@@ -1136,27 +1381,38 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     border-color: var(--kb-accent);
     background: var(--kb-project-soft);
     color: var(--kb-accent);
+    transform: translateY(-1px);
+  }
+
+  .kb-tech-overflow {
+    padding: 0.08rem 0.36rem;
+    border-radius: 999px;
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-3);
+    font-family: var(--sl-font-mono);
+    font-size: 0.65rem;
+    cursor: help;
   }
 
   .kb-project-related {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.3rem;
+    gap: 0.28rem;
   }
 
   .kb-rel-pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.26rem;
-    padding: 0.12rem 0.5rem;
-    border-radius: 0.34rem;
+    gap: 0.24rem;
+    padding: 0.1rem 0.46rem;
+    border-radius: 0.32rem;
     border: 1px solid color-mix(in srgb, var(--kb-type-color) 28%, var(--kb-border));
     background: var(--kb-type-soft);
     color: var(--kb-type-ink, var(--sl-color-gray-1));
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     font-weight: 600;
     text-decoration: none;
-    transition: transform 0.14s, border-color 0.14s;
+    transition: transform 0.15s, border-color 0.15s;
   }
 
   .kb-rel-pill:hover {
@@ -1165,8 +1421,8 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
   }
 
   .kb-rel-dot {
-    width: 0.38rem;
-    height: 0.38rem;
+    width: 0.36rem;
+    height: 0.36rem;
     border-radius: 50%;
     background: var(--kb-type-color);
     flex-shrink: 0;
@@ -1178,15 +1434,30 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     align-items: center;
     gap: 0.5rem;
     margin-top: auto;
-    padding-top: 0.55rem;
+    padding-top: 0.48rem;
     border-top: 1px solid var(--kb-border);
     font-size: var(--sl-text-xs);
+  }
+
+  .kb-read-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22rem;
+  }
+
+  .kb-cta-arrow {
+    display: inline-block;
+    transition: transform 0.18s ease;
+  }
+
+  .kb-project:hover .kb-cta-arrow {
+    transform: translateX(3px);
   }
 
   .kb-project-ext {
     display: inline-flex;
     align-items: center;
-    gap: 0.65rem;
+    gap: 0.6rem;
   }
 
   .kb-project-links a {
@@ -1208,7 +1479,7 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
 
   .kb-empty-filter {
     margin: 0.75rem 0 0;
-    padding: 1rem;
+    padding: 0.85rem;
     border: 1px dashed var(--kb-border);
     border-radius: 0.6rem;
     background: var(--kb-surface);
@@ -1225,15 +1496,15 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.9rem;
+    gap: 0.65rem;
+    margin-bottom: 0.85rem;
   }
 
   .kb-tabs:not([hidden]) {
     display: inline-flex;
     flex-wrap: wrap;
-    gap: 0.3rem;
-    padding: 0.25rem;
+    gap: 0.28rem;
+    padding: 0.24rem;
     border-radius: 0.65rem;
     border: 1px solid var(--kb-border);
     background: var(--kb-surface);
@@ -1243,8 +1514,8 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
   .kb-tabs button {
     display: inline-flex;
     align-items: center;
-    gap: 0.32rem;
-    padding: 0.32rem 0.68rem;
+    gap: 0.3rem;
+    padding: 0.28rem 0.64rem;
     border: 1px solid transparent;
     border-radius: 0.45rem;
     background: transparent;
@@ -1253,7 +1524,7 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     font-size: var(--sl-text-xs);
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.18s, color 0.18s, border-color 0.18s;
+    transition: background 0.18s, color 0.18s, border-color 0.18s, transform 0.16s;
   }
 
   .kb-tabs button:hover {
@@ -1264,6 +1535,7 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     background: var(--kb-type-soft);
     border-color: color-mix(in srgb, var(--kb-type-color) 48%, var(--kb-border));
     color: var(--kb-type-ink, var(--sl-color-gray-1));
+    transform: translateY(-1px);
   }
 
   .kb-tab-dot,
@@ -1272,19 +1544,19 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
   }
 
   .kb-tab-dot {
-    width: 0.42rem;
-    height: 0.42rem;
+    width: 0.4rem;
+    height: 0.4rem;
     border-radius: 50%;
     background: var(--kb-type-color);
   }
 
   .kb-tab-badge {
-    padding: 0.04rem 0.34rem;
+    padding: 0.03rem 0.32rem;
     border-radius: 999px;
     background: var(--kb-surface-elevated);
     color: var(--sl-color-gray-3);
     font-family: var(--sl-font-mono);
-    font-size: 0.68rem;
+    font-size: 0.66rem;
   }
 
   .kb-category[role='tabpanel'] h3 {
@@ -1292,56 +1564,56 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
   }
 
   .kb-category:not([hidden]) .kb-bento-list {
-    animation: kbFadeSlideUp 0.22s ease-out;
+    animation: kbFadeSlideUp 0.24s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .kb-bento-list {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
-    gap: 0.85rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20.5rem), 1fr));
+    gap: 0.82rem;
   }
 
   #kb-panel-troubleshooting .kb-bento-list {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 27rem), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
   }
 
   .kb-bento-card {
     display: flex;
     flex-direction: column;
-    gap: 0.48rem;
-    padding: 0.92rem 1.05rem;
+    gap: 0.44rem;
+    padding: 0.85rem 1rem;
     border-radius: 0.72rem;
     border: 1px solid var(--kb-border);
     border-left: 3px solid var(--kb-type-color);
     background: var(--kb-surface);
     box-shadow: var(--kb-shadow-sm);
-    transition: border-color 0.18s, box-shadow 0.18s, transform 0.18s;
+    transition: border-color 0.2s, box-shadow 0.22s, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .kb-bento-card:hover {
     border-color: var(--kb-border-strong);
     border-left-color: var(--kb-type-color);
     box-shadow: var(--kb-shadow-hover);
-    transform: translateY(-2px);
+    transform: translateY(-2.5px);
   }
 
   .kb-bento-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.45rem;
-    font-size: 0.7rem;
+    gap: 0.42rem;
+    font-size: 0.68rem;
   }
 
   .kb-bento-badges {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.32rem;
   }
 
   .kb-bento-code {
-    padding: 0.08rem 0.42rem;
-    border-radius: 0.28rem;
+    padding: 0.06rem 0.4rem;
+    border-radius: 0.26rem;
     background: var(--kb-type-soft);
     color: var(--kb-type-color);
     font-family: var(--sl-font-mono);
@@ -1351,11 +1623,13 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
   .kb-bento-meta {
     display: inline-flex;
     align-items: center;
-    gap: 0.28rem;
-    padding: 0.08rem 0.45rem;
+    gap: 0.26rem;
+    padding: 0.06rem 0.42rem;
     border-radius: 999px;
     background: var(--kb-surface-elevated);
     color: var(--sl-color-gray-2);
+    font-family: var(--sl-font-mono);
+    font-size: 0.65rem;
     font-weight: 600;
   }
 
@@ -1365,11 +1639,11 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
   }
 
   .kb-danger-pulse {
-    width: 0.4rem;
-    height: 0.4rem;
+    width: 0.38rem;
+    height: 0.38rem;
     border-radius: 50%;
     background: var(--kb-troubleshooting);
-    animation: kbPulseSoft 2s ease-in-out infinite;
+    animation: kbPulseSoft 1.8s ease-in-out infinite;
   }
 
   .kb-bento-stats {
@@ -1379,11 +1653,14 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
 
   .kb-bento-title {
     margin: 0;
-    font-size: 0.98rem;
-    line-height: 1.4;
+    font-size: 0.96rem;
+    line-height: 1.38;
   }
 
   .kb-bento-title a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
     color: var(--sl-color-white);
     text-decoration: none;
     font-weight: 700;
@@ -1391,26 +1668,117 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
 
   .kb-bento-title a:hover {
     color: var(--kb-accent);
-    text-decoration: underline;
+  }
+
+  .kb-bento-arrow {
+    color: var(--kb-type-color);
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+
+  .kb-bento-card:hover .kb-bento-arrow {
+    opacity: 1;
+    transform: translateX(0);
   }
 
   .kb-bento-desc {
     margin: 0;
     color: var(--sl-color-gray-2);
-    font-size: 0.82rem;
-    line-height: 1.56;
+    font-size: 0.78rem;
+    line-height: 1.5;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
 
+  .kb-bento-card:is(:hover, :focus-within) .kb-bento-desc {
+    -webkit-line-clamp: 2;
+  }
+
+  /* Animated Telemetry Evidence Bar */
+  .kb-bento-meter {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.08rem;
+  }
+
+  .kb-bento-meter-track {
+    flex: 1;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--kb-surface-elevated);
+    overflow: hidden;
+  }
+
+  .kb-bento-meter-fill {
+    display: block;
+    height: 100%;
+    width: var(--meter-w, 30%);
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--kb-type-color), var(--kb-accent));
+    transform-origin: left center;
+    animation: kbMeterGrow 0.65s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  @keyframes kbMeterGrow {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  .kb-bento-meter-num {
+    color: var(--sl-color-gray-3);
+    font-family: var(--sl-font-mono);
+    font-size: 0.66rem;
+    white-space: nowrap;
+  }
+
+  /* Animated Diagnostic Scanner Strip */
+  .kb-phase-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.26rem;
+  }
+
+  .kb-phase-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.3rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-2);
+    font-size: 0.66rem;
+    animation: kbStepBeacon 3.4s ease-in-out infinite;
+    animation-delay: calc(var(--phase-idx) * 0.52s);
+    transition: transform 0.18s calc(var(--phase-idx) * 35ms);
+  }
+
+  .kb-bento-card:hover .kb-phase-pill {
+    transform: translateY(-1px);
+  }
+
+  .kb-phase-pill b {
+    color: var(--kb-type-color);
+    font-family: var(--sl-font-mono);
+    font-size: 0.62rem;
+  }
+
+  /* Compact 1-Line Root Cause & Locator Strip */
   .kb-ts-digest {
     display: flex;
     flex-direction: column;
-    gap: 0.34rem;
-    padding: 0.5rem 0.62rem;
-    border-radius: 0.52rem;
+    gap: 0.26rem;
+    padding: 0.44rem 0.56rem;
+    border-radius: 0.48rem;
     border: 1px solid var(--kb-border);
     background: var(--kb-surface-elevated);
   }
@@ -1419,15 +1787,15 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: baseline;
-    gap: 0.42rem;
+    gap: 0.38rem;
   }
 
   .kb-ts-digest-key {
-    padding: 0.06rem 0.38rem;
-    border-radius: 0.25rem;
-    font-size: 0.66rem;
+    padding: 0.04rem 0.34rem;
+    border-radius: 0.24rem;
+    font-size: 0.64rem;
     font-weight: 700;
-    line-height: 1.35;
+    line-height: 1.3;
     white-space: nowrap;
   }
 
@@ -1443,83 +1811,44 @@ const crossNotesCount = counts.topics + counts.adrs + counts.troubleshooting + c
 
   .kb-ts-digest-val {
     margin: 0;
-    color: var(--sl-color-gray-1);
-    font-size: 0.76rem;
-    line-height: 1.5;
+    color: var(--sl-color-gray-2);
+    font-size: 0.74rem;
+    line-height: 1.46;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
 
-  .kb-phase-strip {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.28rem;
-    padding-top: 0.15rem;
-  }
-
-  .kb-phase-label {
-    color: var(--sl-color-gray-3);
-    font-size: 0.68rem;
-    font-weight: 600;
-    margin-right: 0.1rem;
-  }
-
-  .kb-phase-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.22rem;
-    padding: 0.12rem 0.42rem;
-    border-radius: 0.3rem;
-    border: 1px solid var(--kb-border);
-    background: var(--kb-surface-elevated);
-    color: var(--sl-color-gray-2);
-    font-size: 0.68rem;
-    transition:
-      border-color 0.18s calc(var(--phase-idx) * 35ms),
-      background 0.18s calc(var(--phase-idx) * 35ms);
-  }
-
-  .kb-bento-card:hover .kb-phase-pill {
-    border-color: color-mix(in srgb, var(--kb-type-color) 45%, var(--kb-border));
-    background: color-mix(in srgb, var(--kb-surface) 82%, var(--kb-type-soft));
-  }
-
-  .kb-phase-pill b {
-    color: var(--kb-type-color);
-    font-family: var(--sl-font-mono);
-    font-size: 0.64rem;
+  .kb-bento-card:is(:hover, :focus-within) .kb-ts-digest-val {
+    -webkit-line-clamp: 3;
+    color: var(--sl-color-gray-1);
   }
 
   .kb-bento-foot {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.3rem;
+    gap: 0.28rem;
     margin-top: auto;
-    padding-top: 0.4rem;
+    padding-top: 0.36rem;
     border-top: 1px dashed var(--kb-border);
-    font-size: 0.72rem;
-  }
-
-  .kb-bento-foot-label {
-    color: var(--sl-color-gray-3);
   }
 
   .kb-proj-mini-tag {
-    padding: 0.08rem 0.42rem;
-    border-radius: 0.28rem;
+    padding: 0.06rem 0.4rem;
+    border-radius: 0.26rem;
     background: var(--kb-project-soft);
     color: var(--kb-accent);
     font-family: var(--sl-font-mono);
-    font-size: 0.68rem;
+    font-size: 0.66rem;
     font-weight: 600;
     text-decoration: none;
+    transition: transform 0.15s;
   }
 
   .kb-proj-mini-tag:hover {
     text-decoration: underline;
+    transform: translateY(-1px);
   }
 </style>

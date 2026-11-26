@@ -24,6 +24,66 @@ const shouldLoadMermaid = !isSplash && (doc ? (doc.mermaid_count ?? 1) > 0 : tru
 </nav>
 {shouldLoadMermaid && <MermaidInit />}
 
+<script>
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (!reducedMotion) {
+    document.documentElement.classList.add('kb-motion-ready');
+
+    // 1. Staggered Scroll-Reveal for visual cards & sections
+    const revealTargets = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-kb-reveal], .kb-metric-card, .kb-track-card, .kb-project, .kb-bento-card, .kb-doc-spec-tile, .kb-backlinks li',
+      ),
+    );
+
+    if ('IntersectionObserver' in window && revealTargets.length > 0) {
+      const io = new IntersectionObserver(
+        (entries) => {
+          let batchIdx = 0;
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            const el = entry.target as HTMLElement;
+            el.style.setProperty('--kb-reveal-delay', `${Math.min(batchIdx * 45, 270)}ms`);
+            batchIdx++;
+            el.classList.add('is-revealed');
+            io.unobserve(el);
+          });
+        },
+        { rootMargin: '0px 0px -32px 0px', threshold: 0.06 },
+      );
+
+      revealTargets.forEach((el) => {
+        el.classList.add('kb-reveal-item');
+        io.observe(el);
+      });
+    }
+
+    // 2. Interactive Hardware Card Cursor Spotlight (--spot-x / --spot-y)
+    let rafId = 0;
+    let pendingEvent: PointerEvent | null = null;
+    document.addEventListener(
+      'pointermove',
+      (e) => {
+        pendingEvent = e;
+        if (rafId) return;
+        rafId = requestAnimationFrame(() => {
+          rafId = 0;
+          if (!pendingEvent) return;
+          const card = (pendingEvent.target as Element | null)?.closest<HTMLElement>(
+            '.kb-project, .kb-bento-card, .kb-track-card, .kb-metric-card, .kb-stage-card',
+          );
+          if (!card) return;
+          const rect = card.getBoundingClientRect();
+          card.style.setProperty('--spot-x', `${(pendingEvent.clientX - rect.left).toFixed(0)}px`);
+          card.style.setProperty('--spot-y', `${(pendingEvent.clientY - rect.top).toFixed(0)}px`);
+        });
+      },
+      { passive: true },
+    );
+  }
+</script>
+
 <style>
   .kb-footer-index {
     display: flex;

@@ -112,11 +112,11 @@ for (let iteration = 0; iteration < 180; iteration++) {
 function shortLabel(node: PositionedNode) {
   let prefix = '';
   let label = node.title;
-  let limit = 13;
+  let limit = 12;
   if (node.type === 'adr' || node.type === 'troubleshooting') {
     prefix = node.id.split('-').slice(0, 2).join('-') + ' ';
     label = node.title.split('·')[1]?.trim() || node.title;
-    limit = 9;
+    limit = 8;
   }
   if (label.length > limit) {
     label = label.slice(0, limit) + '…';
@@ -128,6 +128,8 @@ const typeCounts: Record<string, number> = {};
 for (const n of nodes) {
   typeCounts[n.type] = (typeCounts[n.type] || 0) + 1;
 }
+
+const maxTypeCount = Math.max(1, ...Object.values(typeCounts));
 
 // Serialize rich inspector payload for client-side selection panel
 const inspectorPayload = Object.fromEntries(
@@ -185,7 +187,7 @@ const inspectorPayload = Object.fromEntries(
   }),
 );
 
-const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关联脉络`;
+const summary = `${nodes.length} NODES · ${edges.length} LINKS`;
 ---
 
 <div class="kb-graph not-content" data-graph-payload={JSON.stringify(inspectorPayload)}>
@@ -206,7 +208,7 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
       <input
         type="search"
         class="kb-graph-search"
-        placeholder="筛选节点或技术栈…"
+        placeholder="检索节点 / 技术栈…"
         aria-label="按关键字定位图谱节点"
         data-graph-search
       />
@@ -224,35 +226,54 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
         <svg viewBox={`0 0 ${width} ${height}`} aria-label="知识库节点关联图谱">
           <g data-graph-viewport>
             <g aria-hidden="true" class="kb-graph-orbits">
-              <ellipse cx={centerX} cy={centerY} rx="185" ry="118" />
-              <ellipse cx={centerX} cy={centerY} rx="335" ry="185" />
-              <ellipse cx={centerX} cy={centerY} rx="425" ry="228" />
+              <ellipse cx={centerX} cy={centerY} rx="185" ry="118" class="is-orbit-inner" />
+              <ellipse cx={centerX} cy={centerY} rx="335" ry="185" class="is-orbit-mid" />
+              <ellipse cx={centerX} cy={centerY} rx="425" ry="228" class="is-orbit-outer" />
             </g>
+
             <g aria-hidden="true">
-              {edges.map(({ source, target, isStructural }) => (
-                <line
-                  class={`kb-graph-edge ${isStructural ? 'is-solid' : 'is-dashed'}`}
-                  x1={source.x.toFixed(1)}
-                  y1={source.y.toFixed(1)}
-                  x2={target.x.toFixed(1)}
-                  y2={target.y.toFixed(1)}
-                  data-source={source.id}
-                  data-target={target.id}
-                />
+              {edges.map(({ source, target, isStructural }, eIdx) => (
+                <g>
+                  <line
+                    class={`kb-graph-edge ${isStructural ? 'is-solid' : 'is-dashed'}`}
+                    x1={source.x.toFixed(1)}
+                    y1={source.y.toFixed(1)}
+                    x2={target.x.toFixed(1)}
+                    y2={target.y.toFixed(1)}
+                    data-source={source.id}
+                    data-target={target.id}
+                  />
+                  {isStructural && (
+                    <line
+                      class="kb-graph-photon"
+                      x1={source.x.toFixed(1)}
+                      y1={source.y.toFixed(1)}
+                      x2={target.x.toFixed(1)}
+                      y2={target.y.toFixed(1)}
+                      pathLength="100"
+                      style={`--photon-delay: ${-((eIdx % 9) * 0.42).toFixed(2)}s;`}
+                      data-photon-source={source.id}
+                      data-photon-target={target.id}
+                    />
+                  )}
+                </g>
               ))}
             </g>
-            {nodes.map((node) => {
+
+            {nodes.map((node, nIdx) => {
               const radius = Math.min(16, 7.5 + Math.sqrt(node.neighbors.size) * 2.4);
+              const isHub = node.type === 'synthesis' || node.neighbors.size >= 5;
               return (
                 <a
-                  class={`kb-graph-node kb-type-${node.type}`}
+                  class={`kb-graph-node kb-type-${node.type} ${isHub ? 'is-hub' : ''}`}
                   href={withDocRoute(node.route)}
                   aria-label={`${TYPE_LABELS[node.type]}：${node.title}`}
                   data-node-id={node.id}
                   data-node-type={node.type}
+                  style={`--node-delay: ${Math.min(nIdx * 24, 360)}ms;`}
                   transform={`translate(${node.x.toFixed(1)}, ${node.y.toFixed(1)})`}
                 >
-                  <circle r={(radius + 5).toFixed(1)} class="kb-node-ring" />
+                  <circle r={(radius + 5.5).toFixed(1)} class="kb-node-ring" />
                   <circle r={radius.toFixed(1)} class="kb-node-core" />
                   <text y={(radius + 15).toFixed(1)} text-anchor="middle">{shortLabel(node)}</text>
                 </a>
@@ -263,34 +284,64 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
       </div>
 
       <div class="kb-graph-legend">
-        <span><i class="kb-legend-line is-solid"></i> 结构化依赖 (frontmatter)</span>
-        <span><i class="kb-legend-line is-dashed"></i> 正文双链引用 (wikilink)</span>
-        <span class="kb-legend-tip">单击节点锁定脉冲链路 · 再次点击或点右侧按钮阅读全文 · 滚轮缩放与拖拽平移</span>
+        <span><i class="kb-legend-line is-solid"></i> 结构依赖</span>
+        <span><i class="kb-legend-line is-dashed"></i> 双链引用</span>
+        <span class="kb-legend-tip">单击锁定 · 双击打开 · 滚轮缩放</span>
       </div>
     </div>
 
     <aside class="kb-graph-inspector" aria-live="polite" data-graph-inspector>
       <div data-inspector-default>
-        <p class="kb-inspector-title" data-inspector-summary data-default-summary={summary}>{summary}</p>
+        <div class="kb-inspector-status-row">
+          <span class="kb-live-beacon" aria-hidden="true"></span>
+          <p class="kb-inspector-title" data-inspector-summary data-default-summary={summary}>
+            {summary}
+          </p>
+        </div>
+
+        <!-- Visual Animated Distribution Bars instead of static prose -->
+        <div class="kb-inspector-bars" aria-label="各类型节点占比">
+          {Object.entries(TYPE_LABELS).map(([type, label], idx) => {
+            const count = typeCounts[type] || 0;
+            const pct = Math.round((count / maxTypeCount) * 100);
+            return (
+              <button
+                type="button"
+                class={`kb-dist-row kb-type-${type}`}
+                data-quick-filter={type}
+                style={`--bar-idx: ${idx}; --bar-pct: ${pct}%;`}
+                title={`点击筛选 ${label}`}
+              >
+                <span class="kb-dist-label">{label}</span>
+                <span class="kb-dist-track">
+                  <span class="kb-dist-fill"></span>
+                </span>
+                <span class="kb-dist-num">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+
         <p class="kb-inspector-desc" data-inspector-hint>
-          点击或悬停图中任意节点，实时点亮上下游信号脉络，并在此查看执行链路与一跳关联文档。
+          悬停或单击节点点亮上下游脉冲链路
         </p>
       </div>
+
       <div data-inspector-detail hidden>
         <div class="kb-inspector-head">
           <span class="kb-inspector-badge" data-detail-badge></span>
           <button type="button" class="kb-inspector-clear" data-detail-clear aria-label="取消固定节点">
-            取消锁定 ✕
+            解锁 ✕
           </button>
         </div>
         <h2 class="kb-detail-title" data-detail-title></h2>
-        <p class="kb-detail-meta" data-detail-meta></p>
+        <div class="kb-detail-pills" data-detail-meta></div>
         <p class="kb-detail-desc" data-detail-desc></p>
         <div class="kb-detail-ts-box" data-detail-ts hidden></div>
         <div class="kb-detail-flow" data-detail-flow hidden></div>
-        <a class="kb-detail-cta" data-detail-link href={withBase('/')}>阅读完整文档 →</a>
+        <a class="kb-detail-cta" data-detail-link href={withBase('/')}>打开文档 →</a>
         <div class="kb-detail-rels">
-          <h3 data-detail-rel-heading>关联节点</h3>
+          <h3 data-detail-rel-heading>一跳脉络</h3>
           <ul data-detail-rel-list></ul>
         </div>
       </div>
@@ -348,6 +399,7 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
     };
 
     const filterBtns = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-graph-filter]'));
+    const quickFilterBtns = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-quick-filter]'));
     const searchInput = root.querySelector<HTMLInputElement>('[data-graph-search]')!;
     const zoomBtns = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-graph-zoom]'));
     const stage = root.querySelector<HTMLElement>('[data-graph-stage]')!;
@@ -355,6 +407,7 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
     const viewport = root.querySelector<SVGGElement>('[data-graph-viewport]')!;
     const nodes = Array.from(root.querySelectorAll<SVGAElement>('[data-node-id]'));
     const edges = Array.from(root.querySelectorAll<SVGLineElement>('[data-source]'));
+    const photons = Array.from(root.querySelectorAll<SVGLineElement>('[data-photon-source]'));
 
     const defaultView = root.querySelector<HTMLElement>('[data-inspector-default]')!;
     const defaultSummaryEl = root.querySelector<HTMLElement>('[data-inspector-summary]')!;
@@ -410,7 +463,7 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
       const info = getNodeInfo(id);
       if (!info) return;
       cancelAnimationFrame(tweenRaf);
-      const targetScale = Math.max(scale, 1.1);
+      const targetScale = Math.max(scale, 1.12);
       const focusX = 480 + (info.x - 480) * 0.65;
       const focusY = 270 + (info.y - 270) * 0.65;
       const targetTx = 480 - focusX * targetScale;
@@ -428,7 +481,7 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
       const startTx = tx;
       const startTy = ty;
       const startTime = performance.now();
-      const duration = 280;
+      const duration = 300;
 
       const step = (now: number) => {
         const t = Math.min(1, (now - startTime) / duration);
@@ -448,11 +501,9 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
         defaultView.hidden = false;
         detailView.hidden = true;
         if (isFiltering) {
-          defaultSummaryEl.textContent = `当前筛选命中 ${matchedCount} / ${nodes.length} 个节点`;
+          defaultSummaryEl.textContent = `MATCHED ${matchedCount} / ${nodes.length}`;
           defaultHintEl.textContent =
-            matchedCount > 0
-              ? '点击任意高亮节点锁定上下游关联，或点击右上角“复位”恢复全图。'
-              : '未匹配到符合条件的节点，请尝试更换关键字或切换类型筛选。';
+            matchedCount > 0 ? '点击高亮节点锁定脉络，或点“复位”全览' : '无匹配节点，请更换筛选条件';
         } else {
           defaultSummaryEl.textContent = baseSummaryText;
           defaultHintEl.textContent = baseHintText;
@@ -464,17 +515,28 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
       detailBadge.className = `kb-inspector-badge kb-type-${info.type}`;
       detailBadge.textContent = info.typeLabel;
       detailTitle.textContent = info.title;
-      detailMeta.textContent = `约 ${info.readingMinutes} 分钟阅读 · ${info.wordCount.toLocaleString()} 词 · ${info.neighbors.length} 个关联节点`;
+
+      const pillTexts = [`${info.readingMinutes}m`, `${info.neighbors.length} 关联`];
+      detailMeta.replaceChildren(
+        ...pillTexts.map((txt) => {
+          const s = document.createElement('span');
+          s.className = 'kb-detail-stat';
+          s.textContent = txt;
+          return s;
+        }),
+      );
+
       detailDesc.textContent = info.description;
+      detailDesc.title = info.description;
       detailLink.href = info.href;
-      detailRelHeading.textContent = `一跳关联脉络（${info.neighbors.length}）`;
+      detailRelHeading.textContent = `一跳脉络 (${info.neighbors.length})`;
 
       const tsEntries: Array<{ label: string; text: string; tone: 'cause' | 'locate' }> = [];
       if (info.rootCause) {
-        tsEntries.push({ label: '错误原因', text: info.rootCause, tone: 'cause' });
+        tsEntries.push({ label: '根因', text: info.rootCause, tone: 'cause' });
       }
       if (info.locatedBy) {
-        tsEntries.push({ label: '定位判据', text: info.locatedBy, tone: 'locate' });
+        tsEntries.push({ label: '判据', text: info.locatedBy, tone: 'locate' });
       }
       if (tsEntries.length > 0) {
         detailTs.hidden = false;
@@ -482,6 +544,7 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
           ...tsEntries.map((entry) => {
             const row = document.createElement('div');
             row.className = `kb-detail-ts-row is-${entry.tone}`;
+            row.title = entry.text;
             const key = document.createElement('span');
             key.className = 'kb-detail-ts-key';
             key.textContent = entry.label;
@@ -505,7 +568,8 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
           ...steps.map((s, idx) => {
             const chip = document.createElement('span');
             chip.className = 'kb-detail-flow-chip';
-            chip.textContent = `${idx + 1}. ${s}`;
+            chip.style.setProperty('--chip-idx', String(idx));
+            chip.textContent = `${idx + 1} ${s}`;
             return chip;
           }),
         );
@@ -520,7 +584,7 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'kb-rel-focus-btn';
-          btn.title = '在图谱中平滑切换聚焦到此节点';
+          btn.title = '在图谱中聚焦此节点';
           const dotSpan = document.createElement('span');
           dotSpan.className = `kb-graph-dot kb-type-${n.type}`;
           const kindSpan = document.createElement('span');
@@ -540,7 +604,8 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
           const openLink = document.createElement('a');
           openLink.href = n.href;
           openLink.className = 'kb-rel-open';
-          openLink.textContent = '阅读 →';
+          openLink.textContent = '→';
+          openLink.title = `打开 ${n.title}`;
           li.append(btn, openLink);
           return li;
         }),
@@ -552,6 +617,17 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
       if (id) url.searchParams.set('node', id);
       else url.searchParams.delete('node');
       window.history.replaceState(null, '', url);
+    }
+
+    function applyTypeFilter(type: string) {
+      selectedType = selectedType === type && type !== 'all' ? 'all' : type;
+      pinnedId = null;
+      syncUrlNode(null);
+      filterBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.graphFilter === selectedType)));
+      quickFilterBtns.forEach((b) =>
+        b.classList.toggle('is-active', selectedType !== 'all' && b.dataset.quickFilter === selectedType),
+      );
+      updateGraphState();
     }
 
     function updateGraphState() {
@@ -589,6 +665,16 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
         edge.classList.toggle('is-dim', filtering && !lit);
       }
 
+      for (const photon of photons) {
+        const s = photon.dataset.photonSource!;
+        const t = photon.dataset.photonTarget!;
+        const lit = focusId
+          ? s === focusId || t === focusId
+          : filtering && matchedSet.has(s) && matchedSet.has(t);
+        photon.classList.toggle('is-lit', lit);
+        photon.classList.toggle('is-dim', filtering && !lit);
+      }
+
       for (const node of nodes) {
         const id = node.dataset.nodeId!;
         node.classList.toggle('is-pinned', id === pinnedId);
@@ -609,13 +695,11 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
     }
 
     filterBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        selectedType = btn.dataset.graphFilter!;
-        pinnedId = null;
-        syncUrlNode(null);
-        filterBtns.forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
-        updateGraphState();
-      });
+      btn.addEventListener('click', () => applyTypeFilter(btn.dataset.graphFilter!));
+    });
+
+    quickFilterBtns.forEach((btn) => {
+      btn.addEventListener('click', () => applyTypeFilter(btn.dataset.quickFilter!));
     });
 
     searchInput.addEventListener('input', () => {
@@ -657,7 +741,6 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
           return;
         }
         if (e.metaKey || e.ctrlKey || pinnedId === id) {
-          // Second click on already-pinned node (or Ctrl/Cmd+click) navigates to document
           return;
         }
         e.preventDefault();
@@ -684,7 +767,10 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
           searchQuery = '';
           searchInput.value = '';
           selectedType = 'all';
-          filterBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.graphFilter === 'all')));
+          filterBtns.forEach((b) =>
+            b.setAttribute('aria-pressed', String(b.dataset.graphFilter === 'all')),
+          );
+          quickFilterBtns.forEach((b) => b.classList.remove('is-active'));
           syncUrlNode(null);
           updateGraphState();
           updateTransform();
@@ -762,7 +848,7 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
   .kb-graph {
     display: flex;
     flex-direction: column;
-    gap: 0.85rem;
+    gap: 0.82rem;
   }
 
   .kb-graph-toolbar {
@@ -770,39 +856,41 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 0.6rem;
+    gap: 0.55rem;
   }
 
   .kb-graph-filters {
     display: flex;
-    gap: 0.35rem;
+    gap: 0.32rem;
     flex-wrap: wrap;
   }
 
   .kb-graph-filters button {
     display: inline-flex;
-    gap: 0.35rem;
+    gap: 0.32rem;
     align-items: center;
-    padding: 0.28rem 0.6rem;
+    padding: 0.26rem 0.58rem;
     border: 1px solid var(--kb-border);
-    border-radius: 0.4rem;
+    border-radius: 999px;
     color: var(--sl-color-gray-2);
-    background: transparent;
+    background: var(--kb-surface);
     font: inherit;
     font-size: var(--sl-text-xs);
     cursor: pointer;
+    transition: border-color 0.16s, color 0.16s, transform 0.16s;
   }
 
   .kb-graph-filters button:hover,
   .kb-graph-filters button[aria-pressed='true'] {
     color: var(--kb-accent);
     border-color: var(--kb-accent);
-    background: var(--kb-surface);
+    background: var(--kb-project-soft);
+    transform: translateY(-1px);
   }
 
   .kb-graph-dot {
-    width: 0.5rem;
-    height: 0.5rem;
+    width: 0.46rem;
+    height: 0.46rem;
     border-radius: 50%;
     background: var(--kb-type-color);
     flex-shrink: 0;
@@ -812,14 +900,14 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.45rem;
+    gap: 0.42rem;
   }
 
   .kb-graph-search {
-    padding: 0.28rem 0.6rem;
-    width: 12.5rem;
+    padding: 0.26rem 0.6rem;
+    width: 11.5rem;
     border: 1px solid var(--kb-border);
-    border-radius: 0.4rem;
+    border-radius: 0.42rem;
     background: var(--kb-surface);
     color: var(--sl-color-white);
     font: inherit;
@@ -833,18 +921,19 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
 
   .kb-graph-zoom-btns {
     display: inline-flex;
-    gap: 0.25rem;
+    gap: 0.24rem;
   }
 
   .kb-graph-zoom-btns button {
-    padding: 0.26rem 0.55rem;
+    padding: 0.24rem 0.52rem;
     border: 1px solid var(--kb-border);
-    border-radius: 0.35rem;
+    border-radius: 0.36rem;
     background: var(--kb-surface);
     color: var(--sl-color-gray-2);
     font: inherit;
     font-size: var(--sl-text-xs);
     cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
   }
 
   .kb-graph-zoom-btns button:hover {
@@ -855,20 +944,20 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
   .kb-graph-workspace {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 0.9rem;
+    gap: 0.85rem;
     align-items: start;
   }
 
   @media (min-width: 68rem) {
     .kb-graph-workspace {
-      grid-template-columns: minmax(0, 1fr) 19.5rem;
+      grid-template-columns: minmax(0, 1fr) 18.5rem;
     }
   }
 
   .kb-graph-stage {
     overflow: hidden;
     border: 1px solid var(--kb-border);
-    border-radius: 0.75rem;
+    border-radius: 0.78rem;
     box-shadow: var(--kb-shadow-sm);
     cursor: grab;
     touch-action: none;
@@ -889,15 +978,27 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
     fill: none;
     stroke: var(--kb-border);
     stroke-width: 1;
-    stroke-dasharray: 4 6;
-    opacity: 0.65;
+    stroke-dasharray: 5 7;
+    opacity: 0.62;
+  }
+
+  .kb-graph-orbits .is-orbit-inner {
+    animation: kbDashFlow 16s linear infinite;
+  }
+
+  .kb-graph-orbits .is-orbit-mid {
+    animation: kbDashFlowReverse 24s linear infinite;
+  }
+
+  .kb-graph-orbits .is-orbit-outer {
+    animation: kbDashFlow 32s linear infinite;
   }
 
   .kb-graph-edge {
     stroke: var(--sl-color-gray-4);
-    stroke-width: 1.3;
-    stroke-opacity: 0.45;
-    transition: opacity 0.18s, stroke 0.18s, stroke-width 0.18s;
+    stroke-width: 1.25;
+    stroke-opacity: 0.42;
+    transition: opacity 0.2s, stroke 0.2s, stroke-width 0.2s;
   }
 
   .kb-graph-edge.is-dashed {
@@ -906,22 +1007,71 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
 
   .kb-graph-edge.is-lit {
     stroke: var(--kb-accent);
-    stroke-width: 2.3;
-    stroke-opacity: 0.96;
+    stroke-width: 2.2;
+    stroke-opacity: 0.92;
     stroke-dasharray: 6 4;
-    animation: kbDashFlow 0.95s linear infinite;
+    animation: kbDashFlow 0.9s linear infinite;
+  }
+
+  /* Ambient & Focused Signal Photons Gliding Along Structural Links */
+  .kb-graph-photon {
+    stroke: var(--kb-accent);
+    stroke-width: 2.8;
+    stroke-linecap: round;
+    stroke-dasharray: 4 96;
+    opacity: 0.34;
+    pointer-events: none;
+    animation: kbPhotonGlide 3.8s linear infinite;
+    animation-delay: var(--photon-delay, 0s);
+    transition: opacity 0.2s, stroke-width 0.2s;
+  }
+
+  .kb-graph-photon.is-lit {
+    stroke: var(--kb-topic);
+    stroke-width: 4.2;
+    opacity: 1;
+    animation-duration: 1.25s;
+  }
+
+  .kb-graph-photon.is-dim {
+    opacity: 0;
+  }
+
+  @keyframes kbPhotonGlide {
+    from {
+      stroke-dashoffset: 100;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .kb-graph-node {
+    animation: kbNodeFadeIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: var(--node-delay, 0ms);
+  }
+
+  @keyframes kbNodeFadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
   .kb-graph-node.is-dim,
   .kb-graph-edge.is-dim {
-    opacity: 0.16;
+    opacity: 0.14;
   }
 
   .kb-graph-node .kb-node-core {
     fill: var(--kb-type-color);
     stroke: var(--kb-surface);
     stroke-width: 1.8;
-    transition: stroke-width 0.18s, transform 0.18s;
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: stroke-width 0.18s, transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .kb-graph-node .kb-node-ring {
@@ -934,15 +1084,21 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
     transition: opacity 0.2s, stroke 0.2s;
   }
 
+  .kb-graph-node.is-hub:not(.is-dim) .kb-node-ring {
+    opacity: 0.32;
+    stroke: var(--kb-type-color);
+    animation: kbPulseSoft 3.2s ease-in-out infinite;
+  }
+
   .kb-graph-node.is-pinned .kb-node-ring {
     stroke: var(--kb-type-color);
-    opacity: 0.9;
-    animation: kbPulseSoft 2.4s ease-in-out infinite;
+    opacity: 0.92;
+    animation: kbPulseSoft 2s ease-in-out infinite;
   }
 
   .kb-graph-node text {
     fill: var(--sl-color-gray-2);
-    font-size: 11.8px;
+    font-size: 11.4px;
     font-weight: 600;
     stroke: var(--kb-canvas-bg);
     stroke-width: 3.2;
@@ -951,11 +1107,12 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
 
   .kb-graph-node:is(:hover, :focus-visible, .is-pinned) .kb-node-core {
     stroke: var(--sl-color-white);
-    stroke-width: 2.2;
+    stroke-width: 2.3;
+    transform: scale(1.14);
   }
 
   .kb-graph-node:is(:hover, :focus-visible, .is-pinned) .kb-node-ring {
-    opacity: 0.85;
+    opacity: 0.88;
     stroke: var(--kb-type-color);
   }
 
@@ -967,17 +1124,17 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.35rem 1rem;
-    margin-top: 0.5rem;
+    gap: 0.3rem 0.9rem;
+    margin-top: 0.45rem;
     color: var(--sl-color-gray-3);
     font-size: var(--sl-text-xs);
   }
 
   .kb-legend-line {
     display: inline-block;
-    width: 1.2rem;
+    width: 1.1rem;
     vertical-align: middle;
-    margin-right: 0.25rem;
+    margin-right: 0.22rem;
     border-top: 2px solid var(--sl-color-gray-3);
   }
 
@@ -987,42 +1144,216 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
 
   .kb-legend-tip {
     margin-left: auto;
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
   }
 
   /* Inspector Card */
   .kb-graph-inspector {
     min-width: 0;
-    padding: 1rem 1.05rem;
+    padding: 0.92rem 1rem;
     border: 1px solid var(--kb-border);
-    border-radius: 0.75rem;
+    border-radius: 0.78rem;
     background: var(--kb-surface);
     box-shadow: var(--kb-shadow-sm);
+  }
+
+  .kb-inspector-status-row {
+    display: flex;
+    align-items: center;
+    gap: 0.42rem;
+  }
+
+  .kb-live-beacon {
+    width: 0.46rem;
+    height: 0.46rem;
+    border-radius: 50%;
+    background: var(--kb-topic);
+    box-shadow: 0 0 0 3px var(--kb-topic-soft);
+    animation: kbPulseSoft 2.2s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  .kb-inspector-title {
+    margin: 0;
+    font-family: var(--sl-font-mono);
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--sl-color-white);
+  }
+
+  /* Animated Visual Distribution Bars */
+  .kb-inspector-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 0.36rem;
+    margin: 0.72rem 0 0.65rem;
+  }
+
+  .kb-dist-row {
+    display: grid;
+    grid-template-columns: 4.2rem minmax(0, 1fr) 1.5rem;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.24rem 0.36rem;
+    border: 1px solid transparent;
+    border-radius: 0.38rem;
+    background: transparent;
+    color: var(--sl-color-gray-2);
+    font: inherit;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .kb-dist-row:hover,
+  .kb-dist-row.is-active {
+    background: var(--kb-surface-elevated);
+    border-color: color-mix(in srgb, var(--kb-type-color) 45%, var(--kb-border));
+    color: var(--sl-color-white);
+  }
+
+  .kb-dist-label {
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .kb-dist-track {
+    height: 5px;
+    border-radius: 999px;
+    background: var(--kb-surface-elevated);
+    overflow: hidden;
+  }
+
+  .kb-dist-fill {
+    display: block;
+    height: 100%;
+    width: var(--bar-pct, 50%);
+    border-radius: 999px;
+    background: var(--kb-type-color);
+    transform-origin: left center;
+    animation: kbDistGrow 0.65s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation-delay: calc(var(--bar-idx, 0) * 65ms);
+  }
+
+  @keyframes kbDistGrow {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  .kb-dist-num {
+    text-align: right;
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
+    color: var(--sl-color-gray-3);
+  }
+
+  .kb-inspector-desc {
+    margin: 0;
+    color: var(--sl-color-gray-3);
+    font-size: 0.72rem;
+    line-height: 1.5;
+  }
+
+  .kb-inspector-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .kb-inspector-badge {
+    display: inline-block;
+    padding: 0.08rem 0.46rem;
+    border-radius: 999px;
+    border: 1px solid var(--kb-type-color);
+    background: var(--kb-type-soft);
+    color: var(--kb-type-color);
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
+
+  .kb-inspector-clear {
+    padding: 0.1rem 0.4rem;
+    border: 1px solid var(--kb-border);
+    border-radius: 0.3rem;
+    background: transparent;
+    color: var(--sl-color-gray-3);
+    font: inherit;
+    font-size: 0.68rem;
+    cursor: pointer;
+  }
+
+  .kb-inspector-clear:hover {
+    border-color: var(--kb-accent);
+    color: var(--kb-accent);
+  }
+
+  .kb-detail-title {
+    margin: 0.45rem 0 0;
+    font-size: 0.96rem;
+    line-height: 1.38;
+    color: var(--sl-color-white);
+  }
+
+  .kb-detail-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.32rem;
+  }
+
+  .kb-graph-inspector :global(.kb-detail-stat) {
+    padding: 0.05rem 0.38rem;
+    border-radius: 0.25rem;
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-3);
+    font-family: var(--sl-font-mono);
+    font-size: 0.66rem;
+  }
+
+  .kb-detail-desc {
+    margin: 0.42rem 0 0;
+    color: var(--sl-color-gray-2);
+    font-size: 0.76rem;
+    line-height: 1.52;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .kb-detail-ts-box:not([hidden]) {
     display: flex;
     flex-direction: column;
-    gap: 0.36rem;
-    margin-top: 0.55rem;
-    padding: 0.48rem 0.58rem;
-    border-radius: 0.48rem;
+    gap: 0.3rem;
+    margin-top: 0.48rem;
+    padding: 0.42rem 0.52rem;
+    border-radius: 0.46rem;
     border: 1px solid var(--kb-border);
     background: var(--kb-surface-elevated);
   }
 
   .kb-graph-inspector :global(.kb-detail-ts-row) {
-    display: flex;
-    flex-direction: column;
-    gap: 0.16rem;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: baseline;
+    gap: 0.35rem;
   }
 
   .kb-graph-inspector :global(.kb-detail-ts-key) {
-    align-self: flex-start;
-    padding: 0.04rem 0.36rem;
-    border-radius: 0.24rem;
-    font-size: 0.65rem;
+    padding: 0.03rem 0.32rem;
+    border-radius: 0.22rem;
+    font-size: 0.63rem;
     font-weight: 700;
-    line-height: 1.35;
+    line-height: 1.3;
+    white-space: nowrap;
   }
 
   .kb-graph-inspector :global(.kb-detail-ts-row.is-cause .kb-detail-ts-key) {
@@ -1038,99 +1369,37 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
   .kb-graph-inspector :global(.kb-detail-ts-val) {
     margin: 0;
     color: var(--sl-color-gray-1);
-    font-size: 0.72rem;
-    line-height: 1.5;
+    font-size: 0.71rem;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .kb-detail-flow:not([hidden]) {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.28rem;
-    margin-top: 0.55rem;
+    gap: 0.25rem;
+    margin-top: 0.48rem;
   }
 
   .kb-graph-inspector :global(.kb-detail-flow-chip) {
-    padding: 0.12rem 0.48rem;
-    border-radius: 0.32rem;
+    padding: 0.1rem 0.42rem;
+    border-radius: 0.3rem;
     border: 1px solid color-mix(in srgb, var(--kb-type-color) 32%, var(--kb-border));
     background: var(--kb-type-soft, var(--kb-surface-elevated));
     color: var(--kb-type-ink, var(--sl-color-gray-1));
-    font-size: 0.7rem;
+    font-size: 0.67rem;
     font-weight: 600;
-  }
-
-  .kb-inspector-title {
-    margin: 0;
-    font-size: var(--sl-text-sm);
-    font-weight: 600;
-    color: var(--sl-color-white);
-  }
-
-  .kb-inspector-desc {
-    margin: 0.45rem 0 0;
-    color: var(--sl-color-gray-3);
-    font-size: var(--sl-text-xs);
-    line-height: 1.6;
-  }
-
-  .kb-inspector-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-  }
-
-  .kb-inspector-badge {
-    display: inline-block;
-    padding: 0.1rem 0.48rem;
-    border-radius: 999px;
-    border: 1px solid var(--kb-type-color);
-    color: var(--kb-type-color);
-    font-size: 0.7rem;
-    font-weight: 600;
-  }
-
-  .kb-inspector-clear {
-    padding: 0.12rem 0.4rem;
-    border: 1px solid var(--kb-border);
-    border-radius: 0.3rem;
-    background: transparent;
-    color: var(--sl-color-gray-3);
-    font: inherit;
-    font-size: 0.7rem;
-    cursor: pointer;
-  }
-
-  .kb-inspector-clear:hover {
-    border-color: var(--kb-accent);
-    color: var(--kb-accent);
-  }
-
-  .kb-detail-title {
-    margin: 0.5rem 0 0;
-    font-size: 1rem;
-    line-height: 1.4;
-    color: var(--sl-color-white);
-  }
-
-  .kb-detail-meta {
-    margin: 0.25rem 0 0;
-    color: var(--sl-color-gray-4);
-    font-family: var(--sl-font-mono);
-    font-size: 0.7rem;
-  }
-
-  .kb-detail-desc {
-    margin: 0.45rem 0 0;
-    color: var(--sl-color-gray-2);
-    font-size: var(--sl-text-xs);
-    line-height: 1.58;
+    animation: kbFadeSlideUp 0.2s ease backwards;
+    animation-delay: calc(var(--chip-idx, 0) * 35ms);
   }
 
   .kb-detail-cta {
     display: inline-block;
-    margin-top: 0.65rem;
-    padding: 0.34rem 0.72rem;
+    margin-top: 0.58rem;
+    padding: 0.3rem 0.68rem;
     border-radius: 0.4rem;
     border: 1px solid var(--sl-color-accent);
     background: var(--sl-color-accent-low);
@@ -1138,33 +1407,35 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
     font-size: var(--sl-text-xs);
     font-weight: 600;
     text-decoration: none;
+    transition: transform 0.15s, border-color 0.15s;
   }
 
   .kb-detail-cta:hover {
     border-color: var(--kb-accent);
     color: var(--kb-accent);
+    transform: translateY(-1px);
   }
 
   .kb-detail-rels {
-    margin-top: 0.8rem;
-    padding-top: 0.65rem;
+    margin-top: 0.7rem;
+    padding-top: 0.58rem;
     border-top: 1px solid var(--kb-border);
   }
 
   .kb-detail-rels h3 {
-    margin: 0 0 0.4rem;
-    font-size: var(--sl-text-xs);
+    margin: 0 0 0.35rem;
+    font-size: 0.7rem;
     color: var(--sl-color-gray-3);
   }
 
   .kb-detail-rels ul {
     list-style: none;
     margin: 0;
-    padding: 0 0.2rem 0 0;
+    padding: 0 0.15rem 0 0;
     display: flex;
     flex-direction: column;
-    gap: 0.28rem;
-    max-height: 14rem;
+    gap: 0.24rem;
+    max-height: 13rem;
     overflow-y: auto;
     overflow-x: hidden;
   }
@@ -1173,7 +1444,7 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.4rem;
+    gap: 0.35rem;
     width: 100%;
     min-width: 0;
   }
@@ -1182,10 +1453,10 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
     display: inline-flex;
     flex: 1 1 0%;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.32rem;
     min-width: 0;
     overflow: hidden;
-    padding: 0.2rem 0.28rem;
+    padding: 0.18rem 0.26rem;
     border: 0;
     border-radius: 0.3rem;
     background: transparent;
@@ -1202,8 +1473,8 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
   }
 
   .kb-detail-rels :global(.kb-graph-dot) {
-    width: 0.48rem;
-    height: 0.48rem;
+    width: 0.44rem;
+    height: 0.44rem;
     border-radius: 50%;
     background: var(--kb-type-color);
     flex-shrink: 0;
@@ -1211,7 +1482,7 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
 
   .kb-detail-rels :global(.kb-rel-kind) {
     color: var(--sl-color-gray-4);
-    font-size: 0.68rem;
+    font-size: 0.66rem;
     flex-shrink: 0;
   }
 
@@ -1223,8 +1494,10 @@ const summary = `${nodes.length} 个知识节点 · ${edges.length} 条去重关
 
   .kb-detail-rels :global(.kb-rel-open) {
     flex-shrink: 0;
+    padding: 0.08rem 0.3rem;
     color: var(--kb-accent);
-    font-size: 0.7rem;
+    font-family: var(--sl-font-mono);
+    font-size: 0.72rem;
     text-decoration: none;
   }
 

@@ -27,9 +27,9 @@ const readingMinutes = doc ? getReadingMinutes(doc) : 0;
 const typeLabel = doc ? TYPE_LABELS[doc.type] : '';
 
 const tierLabels: Record<string, string> = {
-  core: 'Core 核心仓',
-  active: 'Active 活跃仓',
-  archive: 'Archive 归档',
+  core: 'Core',
+  active: 'Active',
+  archive: 'Archive',
 };
 
 const domainList =
@@ -43,7 +43,7 @@ const projectFlow = doc?.type === 'project' ? getProjectSignalFlow(doc) : [];
 const projectSpecs =
   doc?.type === 'project'
     ? [
-        ...(doc.mcu ? [{ label: '主控平台', value: doc.mcu }] : []),
+        ...(doc.mcu ? [{ label: 'MCU', value: doc.mcu }] : []),
         ...(doc.highlights || []),
       ].slice(0, 4)
     : [];
@@ -67,7 +67,9 @@ const tsRelatedProjects: ProjectItem[] =
     </div>
 
     <div class="kb-doc-banner">
-      {doc.description && <p class="kb-doc-lead">{doc.description}</p>}
+      {doc.description && (
+        <p class="kb-doc-lead" title={doc.description}>{doc.description}</p>
+      )}
 
       <div class="kb-doc-meta-bar not-content">
         <div class="kb-doc-badges">
@@ -110,23 +112,21 @@ const tsRelatedProjects: ProjectItem[] =
         </div>
 
         <div class="kb-doc-metrics" data-pagefind-ignore>
-          <span>约 {readingMinutes} 分钟阅读（{doc.word_count.toLocaleString()} 词）</span>
+          <span>{readingMinutes}m</span>
           {typeof doc.evidence_count === 'number' && doc.evidence_count > 0 && (
-            <span>{doc.evidence_count} 处源码锚点</span>
+            <span>{doc.evidence_count} 锚点</span>
           )}
           {typeof doc.mermaid_count === 'number' && doc.mermaid_count > 0 && (
-            <span>{doc.mermaid_count} 张架构图</span>
+            <span>{doc.mermaid_count} 图</span>
           )}
           {doc.updated && (
-            <span>
-              更新于 <time datetime={doc.updated}>{doc.updated}</time>
-            </span>
+            <time datetime={doc.updated}>{doc.updated}</time>
           )}
           <a
             class="kb-doc-graph-jump lg:sl-hidden"
             href={`${withBase('/graph/')}?node=${encodeURIComponent(doc.id)}`}
           >
-            图谱定位 ☍
+            图谱 ☍
           </a>
         </div>
       </div>
@@ -143,14 +143,27 @@ const tsRelatedProjects: ProjectItem[] =
         </div>
       )}
 
-      {/* Visual Signal Flow Strip for Project Docs */}
+      {/* Animated Signal Flow Strip for Project Docs */}
       {projectFlow.length > 0 && (
         <div class="kb-doc-flow-strip kb-blueprint-canvas kb-type-project not-content" data-pagefind-ignore aria-label="信号与执行链路">
-          <span class="kb-doc-flow-tag">信号链路</span>
+          <span class="kb-doc-flow-tag">SIGNAL</span>
           {projectFlow.map((step, idx) => (
             <>
-              {idx > 0 && <span class="kb-doc-flow-arrow" aria-hidden="true">→</span>}
-              <span class="kb-doc-flow-step">
+              {idx > 0 && (
+                <svg class="kb-doc-flow-wire" viewBox="0 0 22 10" aria-hidden="true">
+                  <line x1="1" y1="5" x2="21" y2="5" class="kb-flow-wire-base" />
+                  <line
+                    x1="1"
+                    y1="5"
+                    x2="21"
+                    y2="5"
+                    pathLength="100"
+                    class="kb-flow-wire-pulse"
+                    style={`animation-delay: ${idx * -0.35}s;`}
+                  />
+                </svg>
+              )}
+              <span class="kb-doc-flow-step" style={`--flow-idx: ${idx};`}>
                 <span class="kb-doc-flow-idx">{idx + 1}</span>
                 {step}
               </span>
@@ -159,32 +172,32 @@ const tsRelatedProjects: ProjectItem[] =
         </div>
       )}
 
-      {/* Root Cause & Evidence Locator Summary Cards for Troubleshooting Docs */}
+      {/* Compact Root Cause & Evidence Locator Summary Cards for Troubleshooting Docs */}
       {(tsRootCause || tsLocatedBy) && (
         <div class="kb-ts-diagnosis-grid not-content" aria-label="故障根因与定位证据速览">
           {tsRootCause && (
-            <div class="kb-ts-diag-card is-cause">
+            <div class="kb-ts-diag-card is-cause" title={tsRootCause}>
               <div class="kb-ts-diag-head" data-pagefind-ignore>
                 <span class="kb-ts-diag-tag">
                   <span class="kb-ts-diag-dot" aria-hidden="true"></span>
-                  错误原因与机理
+                  根因机理
                 </span>
                 <a class="kb-ts-diag-jump" href="#错误原因与触发机理">
-                  机理详情 ↓
+                  详情 ↓
                 </a>
               </div>
               <p class="kb-ts-diag-body">{tsRootCause}</p>
             </div>
           )}
           {tsLocatedBy && (
-            <div class="kb-ts-diag-card is-locate">
+            <div class="kb-ts-diag-card is-locate" title={tsLocatedBy}>
               <div class="kb-ts-diag-head" data-pagefind-ignore>
                 <span class="kb-ts-diag-tag">
                   <span class="kb-ts-diag-dot" aria-hidden="true"></span>
-                  怎么定位到的
+                  定位判据
                 </span>
                 <a class="kb-ts-diag-jump" href="#定位过程与关键证据">
-                  证据链路 ↓
+                  证据 ↓
                 </a>
               </div>
               <p class="kb-ts-diag-body">{tsLocatedBy}</p>
@@ -193,16 +206,29 @@ const tsRelatedProjects: ProjectItem[] =
         </div>
       )}
 
-      {/* Visual Diagnostic Phase Strip for Troubleshooting Docs */}
+      {/* Animated Diagnostic Phase Strip for Troubleshooting Docs */}
       {tsPhases.length > 0 && (
         <div class="kb-doc-flow-strip kb-blueprint-canvas kb-type-troubleshooting not-content" data-pagefind-ignore aria-label="具体排查流程阶段">
           <a class="kb-doc-flow-tag kb-doc-flow-link" href="#具体排查流程" title="跳转至具体排查流程章节">
-            排查流程 ↓
+            PROBE ↓
           </a>
           {tsPhases.map((phase, idx) => (
             <>
-              {idx > 0 && <span class="kb-doc-flow-arrow" aria-hidden="true">→</span>}
-              <span class="kb-doc-flow-step">
+              {idx > 0 && (
+                <svg class="kb-doc-flow-wire" viewBox="0 0 22 10" aria-hidden="true">
+                  <line x1="1" y1="5" x2="21" y2="5" class="kb-flow-wire-base" />
+                  <line
+                    x1="1"
+                    y1="5"
+                    x2="21"
+                    y2="5"
+                    pathLength="100"
+                    class="kb-flow-wire-pulse"
+                    style={`animation-delay: ${idx * -0.35}s;`}
+                  />
+                </svg>
+              )}
+              <span class="kb-doc-flow-step" style={`--flow-idx: ${idx};`}>
                 <span class="kb-doc-flow-idx">{idx + 1}</span>
                 {phase}
               </span>
@@ -220,8 +246,8 @@ const tsRelatedProjects: ProjectItem[] =
             return (
               <div class="kb-doc-repo-links">
                 <a class="kb-repo-link" href={withDocRoute(proj.route)}>
-                  关联固件：<strong>{proj.title}</strong>
-                  {proj.mcu ? ` (${proj.mcu})` : ''} →
+                  <strong>{proj.title}</strong>
+                  {proj.mcu ? ` · ${proj.mcu}` : ''} →
                 </a>
                 {projRepoUrl && hasValidSha && (
                   <>
@@ -232,7 +258,7 @@ const tsRelatedProjects: ProjectItem[] =
                       rel="noopener noreferrer"
                       title={`浏览固定提交 ${proj.synced_commit} 下的公开源码树`}
                     >
-                      基线提交 <code>{proj.synced_commit.slice(0, 8)}</code> ↗
+                      <code>@{proj.synced_commit.slice(0, 8)}</code> ↗
                     </a>
                     <button
                       type="button"
@@ -264,7 +290,7 @@ const tsRelatedProjects: ProjectItem[] =
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  GitHub: <strong>{doc.repo}</strong> ↗
+                  <strong>{doc.repo}</strong> ↗
                 </a>
                 {hasValidSha && (
                   <>
@@ -275,7 +301,7 @@ const tsRelatedProjects: ProjectItem[] =
                       rel="noopener noreferrer"
                       title={`浏览固定提交 ${doc.synced_commit} 下的仓库源码树`}
                     >
-                      基线提交 <code>{doc.synced_commit.slice(0, 8)}</code> ↗
+                      <code>@{doc.synced_commit.slice(0, 8)}</code> ↗
                     </a>
                     <button
                       type="button"
@@ -359,47 +385,473 @@ const tsRelatedProjects: ProjectItem[] =
     updateProgress();
   }
 
-  // 3. Progressive Collapse for Tall Markdown Reference Tables (>= 8 body rows)
-  document.querySelectorAll<HTMLTableElement>('.sl-markdown-content table').forEach((table) => {
-    if (table.closest('.kb-table-fold')) return;
-    const rowCount = table.querySelectorAll('tbody tr').length;
-    if (rowCount < 8) return;
+  // 3. Interactive Hardware Datasheet Tables (Sort, Filter, Scale Bars, Semantic Chips, Table/Card View)
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    const wrapper = document.createElement('div');
-    wrapper.className = 'kb-table-fold is-collapsed';
-    const scrollBox = document.createElement('div');
-    scrollBox.className = 'kb-table-scroll';
+  type UnitFamily = 'bytes' | 'time' | 'freq';
+  function parseComparableQuantity(raw: string): { family: UnitFamily; value: number } | null {
+    const text = raw.trim();
+    if (!text || text.length > 22) return null;
+    const m = text.match(/^([+-]?\d+(?:\.\d+)?)\s*(MiB|MB|KiB|KB|B|µs|us|ms|s|MHz|kHz|Hz)$/i);
+    if (!m) return null;
+    const num = Number(m[1]);
+    if (!Number.isFinite(num) || num < 0) return null;
+    const unit = m[2];
+    const lower = unit.toLowerCase();
+    if (lower === 'b') return { family: 'bytes', value: num };
+    if (lower === 'kib' || lower === 'kb') return { family: 'bytes', value: num * 1024 };
+    if (lower === 'mib' || lower === 'mb') return { family: 'bytes', value: num * 1048576 };
+    if (lower === 'us' || lower === 'µs') return { family: 'time', value: num * 0.001 };
+    if (lower === 'ms') return { family: 'time', value: num };
+    if (lower === 's') return { family: 'time', value: num * 1000 };
+    if (lower === 'hz') return { family: 'freq', value: num };
+    if (lower === 'khz') return { family: 'freq', value: num * 1000 };
+    if (lower === 'mhz') return { family: 'freq', value: num * 1000000 };
+    return null;
+  }
 
-    const bar = document.createElement('div');
-    bar.className = 'kb-table-fold-bar not-content';
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'kb-table-fold-btn';
-    const collapsedLabel = `展开完整参数表（共 ${rowCount} 行） ↓`;
-    btn.textContent = collapsedLabel;
-    btn.setAttribute('aria-expanded', 'false');
+  function extractSortKey(raw: string): { num: number | null; str: string } {
+    const clean = raw.trim();
+    const q = parseComparableQuantity(clean);
+    if (q) return { num: q.value, str: clean.toLowerCase() };
+    const hexMatch = clean.match(/0x([0-9a-fA-F]+)/);
+    if (hexMatch) return { num: parseInt(hexMatch[1], 16), str: clean.toLowerCase() };
+    const numMatch = clean.match(/^([+-]?\d+(?:\.\d+)?)/);
+    if (numMatch) return { num: Number(numMatch[1]), str: clean.toLowerCase() };
+    return { num: null, str: clean.toLowerCase() };
+  }
 
-    const setExpanded = (expanded: boolean) => {
-      wrapper.classList.toggle('is-collapsed', !expanded);
-      btn.textContent = expanded ? '收起长表格 ↑' : collapsedLabel;
-      btn.setAttribute('aria-expanded', String(expanded));
-    };
+  function classifyCodeToken(text: string): string | null {
+    const t = text.trim();
+    if (!t) return null;
+    if (/^(?:\[|\()?0x[0-9a-fA-F]+/.test(t) || /^[0-9A-F]{2}(?:\s+[0-9A-F]{2})+$/.test(t)) {
+      return 'is-code-hex';
+    }
+    if (
+      /^(?:P[A-I]\d{1,2}|USART\d*|UART\d*|SPI\d*|I2C\d*|CAN\d*|DMA\d*|TIM\d*|ADC\d*|EXTI\d*|ETH|RMII|VTOR|MSP|SCB->VTOR|SYSCLK|HSE|HSI|LSE)$/.test(
+        t,
+      )
+    ) {
+      return 'is-code-pin';
+    }
+    if (/\b(?:FAIL|ERROR|error|Invalid|reset)\b/.test(t)) {
+      return 'is-code-err';
+    }
+    if (/^(?:OK|CRC OK|Update save OK|BOOT_NO_UPDATE)$/.test(t) || /^ok,len:/.test(t)) {
+      return 'is-code-ok';
+    }
+    return null;
+  }
 
-    btn.addEventListener('click', () => {
-      setExpanded(wrapper.classList.contains('is-collapsed'));
-    });
+  function inferHeaderTone(label: string): 'ok' | 'err' | 'fix' | null {
+    if (/正常|基线|通过/.test(label)) return 'ok';
+    if (/异常|失败|错误|风险|拒绝/.test(label)) return 'err';
+    if (/修复|复测|定位|检查|动作/.test(label)) return 'fix';
+    return null;
+  }
 
-    scrollBox.addEventListener('focusin', (e) => {
-      if (!wrapper.classList.contains('is-collapsed')) return;
-      const target = e.target as HTMLElement | null;
-      if (target && target.offsetTop + target.offsetHeight > scrollBox.clientHeight) {
-        setExpanded(true);
+  function findNearestHeading(el: HTMLElement): string {
+    let cur: Element | null = el.previousElementSibling;
+    while (cur) {
+      if (/^H[2-4]$/.test(cur.tagName)) {
+        return (cur.textContent || '').trim();
+      }
+      cur = cur.previousElementSibling;
+    }
+    return '';
+  }
+
+  function runViewSwap(mutate: () => void) {
+    const docVt = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+    if (!reducedMotion && typeof docVt.startViewTransition === 'function') {
+      docVt.startViewTransition(mutate);
+    } else {
+      mutate();
+    }
+  }
+
+  document.querySelectorAll<HTMLTableElement>('.sl-markdown-content table').forEach((table, tIdx) => {
+    if (table.closest('.kb-datasheet')) return;
+
+    const headCells = Array.from(table.querySelectorAll<HTMLTableCellElement>('thead th'));
+    const tbody = table.querySelector('tbody');
+    const bodyRows = tbody ? Array.from(tbody.querySelectorAll<HTMLTableRowElement>('tr')) : [];
+    const rowCount = bodyRows.length;
+    if (rowCount === 0) return;
+
+    const colCount = headCells.length || bodyRows[0]?.cells.length || 1;
+    const headingTitle = findNearestHeading(table) || headCells[0]?.textContent?.trim() || '参数规格';
+    const isCollapsible = rowCount >= 8;
+
+    // 1. Decorate semantic <code> chips & external GitHub source pills inside cells
+    table.querySelectorAll<HTMLElement>('tbody code').forEach((codeEl) => {
+      const cls = classifyCodeToken(codeEl.textContent || '');
+      if (cls) codeEl.classList.add(cls);
+      if (!codeEl.closest('a')) {
+        codeEl.classList.add('is-copyable-code');
+        codeEl.title = '点击复制标识符';
       }
     });
 
+    table.querySelectorAll<HTMLAnchorElement>('tbody a[href^="https://github.com/"]').forEach((link) => {
+      link.classList.add('kb-ds-src-link');
+    });
+
+    // 2. Detect numeric columns eligible for proportional visual scale bars
+    for (let c = 1; c < colCount; c++) {
+      const parsedCells: Array<{ td: HTMLTableCellElement; family: UnitFamily; value: number }> = [];
+      for (const tr of bodyRows) {
+        const td = tr.cells[c];
+        if (!td) continue;
+        const q = parseComparableQuantity(td.textContent || '');
+        if (q) parsedCells.push({ td, family: q.family, value: q.value });
+      }
+      if (parsedCells.length >= 2) {
+        const firstFamily = parsedCells[0].family;
+        const sameFamily = parsedCells.every((item) => item.family === firstFamily);
+        const values = parsedCells.map((item) => item.value);
+        const maxVal = Math.max(...values);
+        const minVal = Math.min(...values);
+        if (sameFamily && maxVal > 0 && maxVal > minVal) {
+          parsedCells.forEach(({ td, value }) => {
+            const pct = Math.max(8, Math.round(Math.pow(value / maxVal, 0.52) * 100));
+            td.classList.add('has-ds-meter');
+            const bar = document.createElement('span');
+            bar.className = 'kb-td-meter';
+            bar.style.setProperty('--td-pct', `${pct}%`);
+            bar.setAttribute('aria-hidden', 'true');
+            td.append(bar);
+          });
+        }
+      }
+    }
+
+    // 3. Tag original index & row stagger index; add semantic tone dots on headers
+    const colTones = headCells.map((th) => inferHeaderTone(th.textContent || ''));
+    headCells.forEach((th, cIdx) => {
+      const tone = colTones[cIdx];
+      if (tone) th.classList.add(`is-tone-${tone}`);
+    });
+
+    bodyRows.forEach((tr, rIdx) => {
+      tr.dataset.origIdx = String(rIdx);
+      tr.style.setProperty('--row-idx', String(rIdx));
+      Array.from(tr.cells).forEach((td, cIdx) => {
+        td.addEventListener('mouseenter', () => {
+          headCells[cIdx]?.classList.add('is-col-active');
+        });
+        td.addEventListener('mouseleave', () => {
+          headCells[cIdx]?.classList.remove('is-col-active');
+        });
+      });
+    });
+
+    // 4. Build Datasheet Container & Top Instrument Bar
+    const wrapper = document.createElement('div');
+    wrapper.className = `kb-datasheet kb-table-fold${isCollapsible ? ' is-collapsed' : ''}`;
+    wrapper.style.setProperty('--ds-idx', String(tIdx));
+
+    const topBar = document.createElement('div');
+    topBar.className = 'kb-ds-bar not-content';
+    topBar.setAttribute('data-pagefind-ignore', '');
+
+    const metaLeft = document.createElement('div');
+    metaLeft.className = 'kb-ds-meta';
+    const dot = document.createElement('span');
+    dot.className = 'kb-ds-led';
+    dot.setAttribute('aria-hidden', 'true');
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'kb-ds-title';
+    titleSpan.textContent = headingTitle.length > 18 ? headingTitle.slice(0, 18) + '…' : headingTitle;
+    const countBadge = document.createElement('span');
+    countBadge.className = 'kb-ds-count';
+    countBadge.textContent = `${rowCount} × ${colCount}`;
+    metaLeft.append(dot, titleSpan, countBadge);
+
+    const toolsRight = document.createElement('div');
+    toolsRight.className = 'kb-ds-tools';
+
+    let searchInput: HTMLInputElement | null = null;
+    if (rowCount >= 4) {
+      searchInput = document.createElement('input');
+      searchInput.type = 'search';
+      searchInput.className = 'kb-ds-search';
+      searchInput.placeholder = '筛选行…';
+      searchInput.setAttribute('aria-label', `筛选 ${headingTitle} 表格`);
+      toolsRight.append(searchInput);
+    }
+
+    // View mode toggle: Table ⇄ Cards
+    const viewToggle = document.createElement('button');
+    viewToggle.type = 'button';
+    viewToggle.className = 'kb-ds-btn';
+    viewToggle.textContent = '卡片视图';
+    viewToggle.title = '切换表格与卡片网格视图';
+
+    // Copy TSV/Markdown helper
+    const copyTableBtn = document.createElement('button');
+    copyTableBtn.type = 'button';
+    copyTableBtn.className = 'kb-ds-btn';
+    copyTableBtn.textContent = '复制';
+    copyTableBtn.title = '复制表格内容';
+
+    toolsRight.append(viewToggle, copyTableBtn);
+    topBar.append(metaLeft, toolsRight);
+
+    const scrollBox = document.createElement('div');
+    scrollBox.className = 'kb-table-scroll';
+
+    // 5. Build Companion Bento Card Grid View
+    const cardGrid = document.createElement('div');
+    cardGrid.className = 'kb-ds-cards not-content';
+    cardGrid.setAttribute('data-pagefind-ignore', '');
+    cardGrid.hidden = true;
+
+    const cardItems = bodyRows.map((tr, rIdx) => {
+      const card = document.createElement('article');
+      card.className = 'kb-ds-card';
+      card.style.setProperty('--card-idx', String(rIdx));
+
+      const cardHead = document.createElement('div');
+      cardHead.className = 'kb-ds-card-head';
+      const idxPill = document.createElement('span');
+      idxPill.className = 'kb-ds-card-idx';
+      idxPill.textContent = `#${String(rIdx + 1).padStart(2, '0')}`;
+
+      const primaryWrap = document.createElement('div');
+      primaryWrap.className = 'kb-ds-card-primary';
+      if (tr.cells[0]) {
+        Array.from(tr.cells[0].childNodes).forEach((node) => {
+          if ((node as HTMLElement).classList?.contains('kb-td-meter')) return;
+          primaryWrap.append(node.cloneNode(true));
+        });
+      }
+      cardHead.append(primaryWrap, idxPill);
+      card.append(cardHead);
+
+      const cardBody = document.createElement('div');
+      cardBody.className = 'kb-ds-card-fields';
+      for (let c = 1; c < tr.cells.length; c++) {
+        const cell = tr.cells[c];
+        const field = document.createElement('div');
+        const tone = colTones[c];
+        field.className = `kb-ds-field${tone ? ` is-tone-${tone}` : ''}`;
+
+        const keyEl = document.createElement('span');
+        keyEl.className = 'kb-ds-field-key';
+        keyEl.textContent = (headCells[c]?.textContent || `列 ${c + 1}`).replace(/[⇅↑↓]/g, '').trim();
+
+        const valEl = document.createElement('div');
+        valEl.className = 'kb-ds-field-val';
+        Array.from(cell.childNodes).forEach((node) => {
+          if ((node as HTMLElement).classList?.contains('kb-td-meter')) return;
+          valEl.append(node.cloneNode(true));
+        });
+
+        field.append(keyEl, valEl);
+        cardBody.append(field);
+      }
+      card.append(cardBody);
+      cardGrid.append(card);
+      return { tr, card, searchText: (tr.textContent || '').toLowerCase() };
+    });
+
+    const emptyNotice = document.createElement('p');
+    emptyNotice.className = 'kb-ds-empty not-content';
+    emptyNotice.textContent = '无匹配行，请清空筛选关键字。';
+    emptyNotice.hidden = true;
+
+    // 6. Optional Fold Footer for >= 8 rows
+    let foldBar: HTMLDivElement | null = null;
+    let foldBtn: HTMLButtonElement | null = null;
+    const collapsedLabel = `展开全部 ${rowCount} 行 ↓`;
+    let isManuallyExpanded = !isCollapsible;
+    let cardMode = false;
+
+    const syncCollapseUi = () => {
+      if (!isCollapsible || !foldBar || !foldBtn) return;
+      const filtering = Boolean(searchInput && searchInput.value.trim());
+      const effectiveExpanded = isManuallyExpanded || filtering || cardMode;
+      wrapper.classList.toggle('is-collapsed', !effectiveExpanded);
+      foldBar.hidden = cardMode || filtering;
+      foldBtn.textContent = effectiveExpanded ? '收起表格 ↑' : collapsedLabel;
+      foldBtn.setAttribute('aria-expanded', String(effectiveExpanded));
+    };
+
+    if (isCollapsible) {
+      foldBar = document.createElement('div');
+      foldBar.className = 'kb-table-fold-bar not-content';
+      foldBar.setAttribute('data-pagefind-ignore', '');
+      foldBtn = document.createElement('button');
+      foldBtn.type = 'button';
+      foldBtn.className = 'kb-table-fold-btn';
+      foldBtn.textContent = collapsedLabel;
+      foldBtn.setAttribute('aria-expanded', 'false');
+      foldBtn.addEventListener('click', () => {
+        isManuallyExpanded = !isManuallyExpanded;
+        syncCollapseUi();
+      });
+      foldBar.append(foldBtn);
+
+      scrollBox.addEventListener('focusin', (e) => {
+        if (!wrapper.classList.contains('is-collapsed')) return;
+        const target = e.target as HTMLElement | null;
+        if (target && target.offsetTop + target.offsetHeight > scrollBox.clientHeight) {
+          isManuallyExpanded = true;
+          syncCollapseUi();
+        }
+      });
+    }
+
+    // 7. Interactive Column Sorting
+    if (rowCount >= 2 && tbody && headCells.length > 0) {
+      let sortCol = -1;
+      let sortDir: 0 | 1 | -1 = 0;
+      const sortIcons: HTMLSpanElement[] = [];
+
+      headCells.forEach((th, cIdx) => {
+        th.classList.add('is-sortable');
+        th.tabIndex = 0;
+        th.setAttribute('role', 'columnheader');
+        th.setAttribute('aria-sort', 'none');
+        const icon = document.createElement('span');
+        icon.className = 'kb-sort-ind';
+        icon.textContent = '⇅';
+        icon.setAttribute('aria-hidden', 'true');
+        th.append(icon);
+        sortIcons.push(icon);
+
+        const triggerSort = () => {
+          if (sortCol === cIdx) {
+            sortDir = sortDir === 1 ? -1 : sortDir === -1 ? 0 : 1;
+          } else {
+            sortCol = cIdx;
+            sortDir = 1;
+          }
+
+          headCells.forEach((h, idx) => {
+            const active = idx === sortCol && sortDir !== 0;
+            h.classList.toggle('is-sorted', active);
+            h.setAttribute(
+              'aria-sort',
+              !active ? 'none' : sortDir === 1 ? 'ascending' : 'descending',
+            );
+            sortIcons[idx].textContent = !active ? '⇅' : sortDir === 1 ? '↑' : '↓';
+          });
+
+          const sorted = [...cardItems].sort((a, b) => {
+            if (sortDir === 0) {
+              return Number(a.tr.dataset.origIdx || 0) - Number(b.tr.dataset.origIdx || 0);
+            }
+            const ka = extractSortKey(a.tr.cells[cIdx]?.textContent || '');
+            const kb = extractSortKey(b.tr.cells[cIdx]?.textContent || '');
+            if (ka.num !== null && kb.num !== null && ka.num !== kb.num) {
+              return (ka.num - kb.num) * sortDir;
+            }
+            return ka.str.localeCompare(kb.str, 'zh-CN') * sortDir;
+          });
+
+          sorted.forEach((item, visIdx) => {
+            item.tr.style.setProperty('--row-idx', String(visIdx));
+            if (!reducedMotion) {
+              item.tr.classList.remove('is-row-anim');
+              void item.tr.offsetWidth;
+              item.tr.classList.add('is-row-anim');
+            }
+            tbody.append(item.tr);
+            cardGrid.append(item.card);
+          });
+        };
+
+        th.addEventListener('click', triggerSort);
+        th.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            triggerSort();
+          }
+        });
+      });
+    }
+
+    // 8. Live Filter Input
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        const q = searchInput!.value.trim().toLowerCase();
+        let matched = 0;
+        cardItems.forEach((item, idx) => {
+          const hit = !q || item.searchText.includes(q);
+          item.tr.hidden = !hit;
+          item.card.hidden = !hit;
+          if (hit) {
+            item.tr.style.setProperty('--row-idx', String(matched));
+            item.card.style.setProperty('--card-idx', String(matched));
+            matched++;
+          } else {
+            item.tr.style.setProperty('--row-idx', String(idx));
+          }
+        });
+        countBadge.textContent = q ? `${matched}/${rowCount}` : `${rowCount} × ${colCount}`;
+        emptyNotice.hidden = matched > 0;
+        syncCollapseUi();
+      });
+    }
+
+    // 9. View Switcher (Table ⇄ Cards) & Copy Table
+    viewToggle.addEventListener('click', () => {
+      runViewSwap(() => {
+        cardMode = !cardMode;
+        scrollBox.hidden = cardMode;
+        cardGrid.hidden = !cardMode;
+        viewToggle.classList.toggle('is-active', cardMode);
+        viewToggle.textContent = cardMode ? '表格视图' : '卡片视图';
+        syncCollapseUi();
+      });
+    });
+
+    copyTableBtn.addEventListener('click', async () => {
+      const headers = headCells
+        .map((th) => (th.textContent || '').replace(/[⇅↑↓]/g, '').trim())
+        .join('\t');
+      const lines = cardItems
+        .filter((item) => !item.tr.hidden)
+        .map((item) =>
+          Array.from(item.tr.cells)
+            .map((td) => (td.textContent || '').replace(/\s+/g, ' ').trim())
+            .join('\t'),
+        );
+      const tsv = [headers, ...lines].filter(Boolean).join('\n');
+      try {
+        await navigator.clipboard.writeText(tsv);
+        copyTableBtn.textContent = '已复制 ✓';
+        copyTableBtn.classList.add('is-active');
+        window.setTimeout(() => {
+          copyTableBtn.textContent = '复制';
+          copyTableBtn.classList.remove('is-active');
+        }, 1500);
+      } catch {
+        copyTableBtn.textContent = '失败';
+      }
+    });
+
+    // Delegated click-to-copy for standalone <code> chips in both Table & Card views
+    wrapper.addEventListener('click', async (e) => {
+      const codeTarget = (e.target as Element | null)?.closest<HTMLElement>('code.is-copyable-code');
+      if (!codeTarget || codeTarget.closest('a')) return;
+      const val = (codeTarget.textContent || '').trim();
+      if (!val) return;
+      try {
+        await navigator.clipboard.writeText(val);
+        codeTarget.classList.add('is-copied-flash');
+        window.setTimeout(() => codeTarget.classList.remove('is-copied-flash'), 900);
+      } catch {
+        // Ignore clipboard errors in restricted contexts
+      }
+    });
+
+    // Mount into DOM
     table.parentNode?.insertBefore(wrapper, table);
     scrollBox.append(table);
-    bar.append(btn);
-    wrapper.append(scrollBox, bar);
+    wrapper.append(topBar, scrollBox, cardGrid, emptyNotice);
+    if (foldBar) wrapper.append(foldBar);
   });
 </script>

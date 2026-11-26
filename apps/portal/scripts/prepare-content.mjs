@@ -146,10 +146,10 @@ export function convertCallouts(text) {
 
 function detectMermaidLabel(source) {
   const first = (source.split('\n').find((l) => l.trim() && !l.trim().startsWith('%%')) || '').trim();
-  if (/^sequenceDiagram\b/.test(first)) return '交互时序图 · 点击画布可全屏缩放';
-  if (/^stateDiagram/.test(first)) return '状态迁移图 · 点击画布可全屏缩放';
-  if (/^(flowchart|graph)\b/.test(first)) return '架构信号流图 · 点击画布可全屏缩放';
-  return '工程示意图 · 点击画布可全屏缩放';
+  if (/^sequenceDiagram\b/.test(first)) return '时序图 · 点击缩放';
+  if (/^stateDiagram/.test(first)) return '状态图 · 点击缩放';
+  if (/^(flowchart|graph)\b/.test(first)) return '信号流图 · 点击缩放';
+  return '示意图 · 点击缩放';
 }
 
 export function buildMermaidFigure(rawSource) {
@@ -161,8 +161,8 @@ export function buildMermaidFigure(rawSource) {
     `  <div class="kb-mermaid-toolbar" hidden>`,
     `    <span class="kb-mermaid-caption">${escapeHtml(caption)}</span>`,
     `    <div class="kb-mermaid-actions">`,
-    `      <button type="button" class="kb-mmd-btn" data-mmd-action="copy" aria-label="复制 Mermaid 源码" title="复制 Mermaid 源码">复制源码</button>`,
-    `      <button type="button" class="kb-mmd-btn" data-mmd-action="zoom" aria-label="全屏缩放查看图表" title="全屏放大并支持滚轮缩放与拖拽平移">放大检视 ⤢</button>`,
+    `      <button type="button" class="kb-mmd-btn" data-mmd-action="copy" aria-label="复制 Mermaid 源码" title="复制 Mermaid 源码">源码</button>`,
+    `      <button type="button" class="kb-mmd-btn" data-mmd-action="zoom" aria-label="全屏缩放查看图表" title="全屏放大并支持滚轮缩放与拖拽平移">全屏 ⤢</button>`,
     `    </div>`,
     `  </div>`,
     `  <div class="kb-mermaid-stage" data-mmd-stage-zoom title="点击全屏放大检视">`,

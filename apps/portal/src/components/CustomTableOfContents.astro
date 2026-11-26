@@ -34,9 +34,9 @@ function shortTitle(title: string, id: string, type: string): string {
   if (type === 'adr' || type === 'troubleshooting') {
     const prefix = id.split('-').slice(0, 2).join('-');
     const rest = title.split('·')[1]?.trim() || title;
-    return `${prefix} · ${rest.length > 10 ? rest.slice(0, 10) + '…' : rest}`;
+    return `${prefix} · ${rest.length > 9 ? rest.slice(0, 9) + '…' : rest}`;
   }
-  return title.length > 14 ? title.slice(0, 14) + '…' : title;
+  return title.length > 13 ? title.slice(0, 13) + '…' : title;
 }
 ---
 
@@ -45,33 +45,46 @@ function shortTitle(title: string, id: string, type: string): string {
 {doc && neighbors.length > 0 && (
   <aside class="kb-local-net" aria-label="局部知识网络" data-local-net>
     <div class="kb-local-net-head">
-      <h2>关联脉络（{neighbors.length}）</h2>
+      <h2>脉络 · {neighbors.length}</h2>
       <a
         class="kb-local-net-jump"
         href={`${withBase('/graph/')}?node=${encodeURIComponent(doc.id)}`}
         title="在全局关系图谱中聚焦本节点"
       >
-        全局图谱 →
+        图谱 →
       </a>
     </div>
 
     <div class="kb-mini-graph-box">
       <svg viewBox={`0 0 ${svgW} ${svgH}`} aria-label={`${doc.title} 的局部关联微图谱`}>
+        <ellipse cx={cx} cy={cy} rx={rx} ry={ry} class="kb-mini-orbit" aria-hidden="true" />
         <g aria-hidden="true">
-          {visualNeighbors.map((n) => (
-            <line
-              class={`kb-mini-edge ${n.kinds.includes('frontmatter') ? 'is-solid' : 'is-dashed'}`}
-              x1={cx}
-              y1={cy}
-              x2={n.x.toFixed(1)}
-              y2={n.y.toFixed(1)}
-              data-mini-edge={n.item.id}
-            />
+          {visualNeighbors.map((n, idx) => (
+            <g>
+              <line
+                class={`kb-mini-edge ${n.kinds.includes('frontmatter') ? 'is-solid' : 'is-dashed'}`}
+                x1={cx}
+                y1={cy}
+                x2={n.x.toFixed(1)}
+                y2={n.y.toFixed(1)}
+                data-mini-edge={n.item.id}
+              />
+              <line
+                class="kb-mini-photon"
+                x1={cx}
+                y1={cy}
+                x2={n.x.toFixed(1)}
+                y2={n.y.toFixed(1)}
+                pathLength="100"
+                style={`animation-delay: ${-(idx * 0.38).toFixed(2)}s;`}
+                data-mini-edge={n.item.id}
+              />
+            </g>
           ))}
         </g>
 
         <g class={`kb-mini-center kb-type-${doc.type}`} transform={`translate(${cx}, ${cy})`}>
-          <circle r="10.5" class="kb-mini-pulse" />
+          <circle r="11" class="kb-mini-pulse" />
           <circle r="6.5" />
           <title>当前文档：{doc.title}</title>
         </g>
@@ -108,7 +121,7 @@ function shortTitle(title: string, id: string, type: string): string {
         class="kb-local-net-more"
         href={`${withBase('/graph/')}?node=${encodeURIComponent(doc.id)}`}
       >
-        查看全部 {neighbors.length} 个关联节点 →
+        全部 {neighbors.length} 节点 →
       </a>
     )}
   </aside>

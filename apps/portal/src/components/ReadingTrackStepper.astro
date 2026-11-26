@@ -34,19 +34,23 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
     const accentClass = trackAccents[tIdx % trackAccents.length];
 
     return (
-      <article class={`kb-track-card ${accentClass}`} data-track-stepper>
+      <article
+        class={`kb-track-card ${accentClass}`}
+        data-track-stepper
+        data-track-offset={tIdx}
+      >
         <div class="kb-track-top">
-          <span class="kb-track-idx">ROUTE 0{tIdx + 1}</span>
-          <span class="kb-track-count">{resolvedSteps.length} 步闭环</span>
+          <span class="kb-track-idx">TRACK 0{tIdx + 1}</span>
+          <span class="kb-track-count">{resolvedSteps.length} NODES</span>
         </div>
 
-        <h3>{track.title}</h3>
-        <p class="kb-track-summary">{track.summary}</p>
+        <h3 title={track.summary}>{track.title}</h3>
 
-        <!-- Interactive Stepper Pipeline Rail -->
+        <!-- Animated Stepper Signal Rail with Glowing Runner Orb -->
         <div class="kb-stepper-rail-wrap">
           <div class="kb-stepper-line">
             <div class="kb-stepper-line-fill" data-stepper-fill style="width: 0%;"></div>
+            <span class="kb-stepper-orb" data-stepper-orb style="left: 0%;" aria-hidden="true"></span>
           </div>
           <div class="kb-stepper-nodes" role="tablist" aria-label={`${track.title} 步骤节点`}>
             {resolvedSteps.map((step, sIdx) => (
@@ -72,7 +76,7 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
           </div>
         </div>
 
-        <!-- Progressive Disclosure Focus Box (1 step shown at a time -> minimal text clutter) -->
+        <!-- Compact Single-Line Progressive Focus Box -->
         <div class="kb-step-focus-box kb-blueprint-canvas">
           {resolvedSteps.map((step, sIdx) => (
             <div
@@ -88,9 +92,11 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
                 <a class="kb-step-doc-link" href={step.href}>
                   {step.title}
                 </a>
-                <span class="kb-step-mins">{step.mins} min</span>
+                <a class="kb-step-go" href={step.href} aria-label={`阅读 ${step.title}`}>
+                  {step.mins}m <span aria-hidden="true">→</span>
+                </a>
               </div>
-              <p class="kb-step-focus-text">{step.focus}</p>
+              <p class="kb-step-focus-text" title={step.focus}>{step.focus}</p>
             </div>
           ))}
         </div>
@@ -100,12 +106,20 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
 </div>
 
 <script>
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   document.querySelectorAll<HTMLElement>('[data-track-stepper]').forEach((card) => {
     const triggers = Array.from(card.querySelectorAll<HTMLButtonElement>('[data-step-trigger]'));
     const details = Array.from(card.querySelectorAll<HTMLElement>('[data-step-detail]'));
     const fill = card.querySelector<HTMLElement>('[data-stepper-fill]');
+    const orb = card.querySelector<HTMLElement>('[data-stepper-orb]');
+    const offsetIdx = Number(card.dataset.trackOffset || '0');
+
+    let currentIdx = 0;
+    let paused = false;
 
     function activate(idx: number) {
+      currentIdx = idx;
       triggers.forEach((btn, i) => {
         const active = i === idx;
         const passed = i <= idx;
@@ -117,9 +131,9 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
       details.forEach((d, i) => {
         d.hidden = i !== idx;
       });
-      if (fill && triggers[idx]) {
-        fill.style.width = `${triggers[idx].dataset.stepPct || 0}%`;
-      }
+      const pct = triggers[idx]?.dataset.stepPct || '0';
+      if (fill) fill.style.width = `${pct}%`;
+      if (orb) orb.style.left = `${pct}%`;
     }
 
     triggers.forEach((btn, idx) => {
@@ -140,7 +154,25 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
       });
     });
 
+    card.addEventListener('mouseenter', () => (paused = true));
+    card.addEventListener('mouseleave', () => (paused = false));
+    card.addEventListener('focusin', () => (paused = true));
+    card.addEventListener('focusout', (e) => {
+      const next = e.relatedTarget as Node | null;
+      paused = Boolean(next && card.contains(next));
+    });
+
     activate(0);
+
+    if (!reducedMotion && triggers.length > 1) {
+      window.setTimeout(() => {
+        window.setInterval(() => {
+          if (!paused && !document.hidden) {
+            activate((currentIdx + 1) % triggers.length);
+          }
+        }, 4200);
+      }, offsetIdx * 1350);
+    }
   });
 </script>
 
@@ -154,30 +186,32 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
   .kb-track-card {
     display: flex;
     flex-direction: column;
-    gap: 0.52rem;
-    padding: 0.95rem 1.05rem;
+    gap: 0.48rem;
+    padding: 0.88rem 1rem;
     border: 1px solid var(--kb-border);
-    border-radius: 0.75rem;
+    border-radius: 0.78rem;
     background: var(--kb-surface);
     box-shadow: var(--kb-shadow-sm);
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.2s, box-shadow 0.22s, transform 0.22s;
   }
 
   .kb-track-card:hover {
     border-color: var(--kb-border-strong);
     box-shadow: var(--kb-shadow-hover);
+    transform: translateY(-2px);
   }
 
   .kb-track-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 0.68rem;
+    font-size: 0.66rem;
     font-family: var(--sl-font-mono);
+    letter-spacing: 0.03em;
   }
 
   .kb-track-idx {
-    padding: 0.08rem 0.44rem;
+    padding: 0.07rem 0.42rem;
     border-radius: 999px;
     background: var(--kb-type-soft);
     color: var(--kb-type-color);
@@ -190,59 +224,68 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
 
   .kb-track-card h3 {
     margin: 0;
-    font-size: 1rem;
+    font-size: 0.98rem;
     color: var(--sl-color-white);
-  }
-
-  .kb-track-summary {
-    margin: 0;
-    color: var(--sl-color-gray-3);
-    font-size: var(--sl-text-xs);
-    line-height: 1.52;
   }
 
   .kb-stepper-rail-wrap {
     position: relative;
-    margin-top: 0.25rem;
-    padding-top: 0.15rem;
+    margin-top: 0.15rem;
+    padding-top: 0.12rem;
   }
 
   .kb-stepper-line {
     position: relative;
     height: 3px;
-    margin: 0 0.75rem 0.48rem;
+    margin: 0.2rem 0.65rem 0.55rem;
     border-radius: 999px;
     background: var(--kb-surface-soft);
-    overflow: hidden;
   }
 
   .kb-stepper-line-fill {
     height: 100%;
     border-radius: 999px;
-    background: linear-gradient(90deg, var(--kb-accent), var(--kb-topic));
-    transition: width 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    background: linear-gradient(90deg, var(--kb-accent), var(--kb-topic), var(--kb-type-color));
+    transition: width 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .kb-stepper-orb {
+    position: absolute;
+    top: 50%;
+    width: 0.58rem;
+    height: 0.58rem;
+    border-radius: 50%;
+    background: var(--kb-type-color);
+    box-shadow: 0 0 0 3px var(--kb-type-soft);
+    transform: translate(-50%, -50%);
+    transition: left 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
   }
 
   .kb-stepper-nodes {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.3rem;
+    gap: 0.28rem;
   }
 
   .kb-step-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.26rem;
-    padding: 0.18rem 0.46rem;
+    gap: 0.24rem;
+    padding: 0.16rem 0.44rem;
     border-radius: 999px;
     border: 1px solid var(--kb-border);
     background: var(--kb-surface-elevated);
     color: var(--sl-color-gray-2);
     font: inherit;
-    font-size: 0.7rem;
+    font-size: 0.69rem;
     font-weight: 600;
     cursor: pointer;
-    transition: border-color 0.16s, background 0.16s, color 0.16s, transform 0.16s;
+    transition: border-color 0.18s, background 0.18s, color 0.18s, transform 0.18s;
+  }
+
+  .kb-step-btn.is-passed:not(.is-active) {
+    border-color: color-mix(in srgb, var(--kb-type-color) 40%, var(--kb-border));
   }
 
   .kb-step-btn:hover,
@@ -262,50 +305,49 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1rem;
-    height: 1rem;
+    width: 0.96rem;
+    height: 0.96rem;
     border-radius: 50%;
     background: var(--kb-surface);
     color: var(--kb-type-ink, var(--kb-type-color));
     font-family: var(--sl-font-mono);
-    font-size: 0.64rem;
+    font-size: 0.62rem;
     font-weight: 700;
   }
 
   .kb-step-focus-box {
     margin-top: auto;
-    padding: 0.6rem 0.72rem;
-    border-radius: 0.55rem;
+    padding: 0.52rem 0.66rem;
+    border-radius: 0.54rem;
     border: 1px solid var(--kb-border);
-    min-height: 4.5rem;
   }
 
   .kb-step-detail:not([hidden]) {
     display: flex;
     flex-direction: column;
-    gap: 0.26rem;
-    animation: kbFadeSlideUp 0.18s ease-out;
+    gap: 0.2rem;
+    animation: kbFadeSlideUp 0.2s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .kb-step-detail-head {
     display: flex;
     align-items: center;
-    gap: 0.38rem;
+    gap: 0.36rem;
     font-size: var(--sl-text-xs);
   }
 
   .kb-step-kind {
-    padding: 0.06rem 0.38rem;
-    border-radius: 0.25rem;
+    padding: 0.05rem 0.36rem;
+    border-radius: 0.24rem;
     background: var(--kb-type-soft);
     color: var(--kb-type-color);
-    font-size: 0.66rem;
+    font-size: 0.64rem;
     font-weight: 700;
     flex-shrink: 0;
   }
 
   .kb-step-doc-link {
-    color: var(--kb-accent);
+    color: var(--sl-color-white);
     font-weight: 600;
     text-decoration: none;
     overflow: hidden;
@@ -314,21 +356,44 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
   }
 
   .kb-step-doc-link:hover {
+    color: var(--kb-accent);
     text-decoration: underline;
   }
 
-  .kb-step-mins {
+  .kb-step-go {
     margin-left: auto;
-    color: var(--sl-color-gray-3);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.16rem;
+    color: var(--kb-accent);
     font-family: var(--sl-font-mono);
     font-size: 0.68rem;
+    font-weight: 600;
+    text-decoration: none;
     flex-shrink: 0;
+  }
+
+  .kb-step-go span {
+    transition: transform 0.16s ease;
+  }
+
+  .kb-step-detail:hover .kb-step-go span {
+    transform: translateX(2px);
   }
 
   .kb-step-focus-text {
     margin: 0;
+    color: var(--sl-color-gray-3);
+    font-size: 0.72rem;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .kb-track-card:is(:hover, :focus-within) .kb-step-focus-text {
+    -webkit-line-clamp: 2;
     color: var(--sl-color-gray-2);
-    font-size: 0.74rem;
-    line-height: 1.48;
   }
 </style>
