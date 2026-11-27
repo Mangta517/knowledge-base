@@ -16,5 +16,30 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv run --locked python scripts/lint_kb.py
+      - name: Confirm source repositories are still public
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uv run --locked python scripts/sync_github.py --check-public
       - run: uv run --locked python scripts/build_indexes.py --check
       - run: uv run --locked python -m unittest discover -s tests -v
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
+
+      - name: Test and build frontend
+        env:
+          SITE_BASE: /${{ github.event.repository.name }}
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm typecheck
+          pnpm test:portal
+          pnpm build:site

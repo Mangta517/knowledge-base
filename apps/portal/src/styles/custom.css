@@ -1224,6 +1224,7 @@ h6,
 
 .kb-table-scroll[hidden],
 .kb-ds-cards[hidden],
+.kb-ds-card[hidden],
 .kb-ds-empty[hidden],
 .kb-table-fold-bar[hidden] {
   display: none !important;

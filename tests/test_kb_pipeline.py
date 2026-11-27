@@ -170,6 +170,16 @@ class LintTests(TemporaryWorkspace):
             self.assertEqual(indexes.main(), 1)
         self.assertFalse((self.root / "data/catalog.json").exists())
 
+    def test_published_project_requires_snapshot_commit_and_files(self):
+        notes = {"demo": self.project}
+        self.repos["demo"]["snapshot_commit"] = None
+        errors, _ = lint.check_content(notes, {"repos": self.repos})
+        self.assertEqual(errors, [f"{self.project.path}: 公开档案的 snapshot_commit 必须是 40 位 Git SHA"])
+        self.repos["demo"]["snapshot_commit"] = SHA
+        errors, _ = lint.check_content(notes, {"repos": self.repos})
+        self.assertEqual(len(errors), len(lint.SNAPSHOT_FILES))
+        self.assertTrue(all("缺少快照文件" in error for error in errors))
+
     def test_embedded_asset_resolves_nested_path_for_catalog(self):
         self.write("wiki/assets/boards/front-panel.svg", "<svg/>")
         notes = {"demo": self.project}
@@ -186,6 +196,66 @@ class LintTests(TemporaryWorkspace):
         self.assertIn("图片名称不唯一", errors[0])
         self.project.body = "![[assets/boards/front-panel.svg]]"
         self.assertEqual(lint.check_links(notes), ([], []))
+
+    def test_catalog_ignores_examples_in_markdown_code_blocks(self):
+        self.write("wiki/assets/panel.svg", "<svg/>")
+        self.project.body = (
+            "    ![[example-only.svg]]\n\n"
+            ">     ![[quoted-example.svg]]\n\n"
+            "> ```markdown\n> ![[quoted-fence.svg]]\n> ```\n\n"
+            "```text\n![[fenced-example.svg]]\n```\n\n"
+            "示例 ``第一行\n![[multiline-example.svg]] `x` ``，以及正文。\n\n"
+            "正文\n    ![[panel.svg]]"
+        )
+        notes = {"demo": self.project}
+        self.assertEqual(lint.check_links(notes), ([], []))
+        catalog, _, _ = indexes.build_data(notes, "owner")
+        self.assertEqual(catalog["projects"][0]["assets"], {"panel.svg": "panel.svg"})
+
+    def test_markdown_images_must_resolve_within_published_assets(self):
+        self.write("wiki/assets/boards/board (v2).svg", "<svg/>")
+        self.write("wiki/projects/internal.svg", "<svg/>")
+        self.project.body = (
+            "![面板 [v2]](../assets/boards/board%20(v2).svg#pins)\n\n"
+            "![内部][outside]\n\n"
+            "[outside]: internal.svg\n\n"
+            "![外部](https://example.org/board.svg)\n\n"
+            "    ![示例](internal.svg)\n"
+        )
+        errors, warnings = lint.check_links({"demo": self.project})
+        self.assertEqual(warnings, [])
+        self.assertEqual(len(errors), 1)
+        self.assertIn("wiki/assets 下存在的文件 internal.svg", errors[0])
+
+    def test_wikilink_with_square_brackets_reaches_graph(self):
+        topic = lint.Note(Path("wiki/topics/embedded/bus.md"), {
+            "title": "总线", "description": "总线说明", "type": "topic", "id": "bus", "tags": [],
+            "created": "2026-11-24", "updated": "2026-11-24", "draft": False,
+            "domain": "embedded", "related_projects": [],
+        }, "")
+        self.project.body = "[[bus|总线 [v2]]]，示例 `[[missing|版本 [v2]]]`"
+        notes = {"demo": self.project, "bus": topic}
+        self.assertEqual(lint.check_links(notes), ([], []))
+        _, graph, _ = indexes.build_data(notes, "owner")
+        self.assertEqual(graph["edges"], [{"source": "demo", "target": "bus", "kind": "wikilink"}])
+        self.assertIn(r"[总线 \[v2\]](./topics/embedded/bus/)", indexes.corpus_body(self.project, notes))
+
+    def test_unregistered_snapshot_blocks_lint_and_public_source_check(self):
+        self.snapshot()
+        errors, warnings = lint.check_content({}, {"repos": {}})
+        self.assertEqual(warnings, [])
+        self.assertEqual(len(errors), 1)
+        self.assertIn("快照目录未登记在 registry.yaml", errors[0])
+        self.repos["demo"]["snapshot_commit"] = None
+        errors, _ = lint.check_registry({}, self.repos)
+        self.assertIn("快照目录必须登记有效", errors[0])
+
+        with (patch.object(sync, "load_notes", return_value=({}, [])),
+              patch.object(sync, "gh") as gh,
+              contextlib.redirect_stderr(io.StringIO()) as stderr):
+            self.assertEqual(sync.check_public_sources({"repos": {}}), 1)
+            gh.assert_not_called()
+        self.assertIn("快照目录未登记", stderr.getvalue())
 
     def test_source_links_validate_refs_and_tree_paths(self):
         self.snapshot()
@@ -302,8 +372,9 @@ class LintTests(TemporaryWorkspace):
         self.assertNotIn("lock", output.getvalue())
 
 
-class TroubleshootingTests(unittest.TestCase):
+class TroubleshootingTests(TemporaryWorkspace):
     def setUp(self):
+        super().setUp()
         self.note = lint.Note(Path("wiki/troubleshooting/TS-0001-demo.md"), {
             "title": "示例", "description": "排障示例", "type": "troubleshooting", "id": "TS-0001-demo",
             "tags": [], "created": "2026-11-21", "updated": "2026-11-24", "draft": False,
@@ -385,6 +456,7 @@ int port
 '''
         self.assertEqual(indexes.word_count(markup), indexes.word_count("驱动 示意 text int port"))
         self.assertEqual(indexes.word_count("`[keep](literal text)`"), 3)
+        self.assertEqual(indexes.word_count("[`appmain`](https://example.org/file)"), 1)
         self.assertEqual(indexes.table_count("| A | B |\n| :- | -: |\n```text\n| a |\n| --- |\n```"), 1)
 
     def test_human_notes_and_corpus_links(self):
@@ -400,6 +472,34 @@ int port
         self.assertIn("`[[ADR-0001-demo|示例]]`", body)
         self.assertNotIn("HUMAN-NOTES", body)
         self.assertEqual(indexes.clean_body(REVIEW), "")
+
+    def test_corpus_preserves_code_with_wikilinks_and_comments(self):
+        examples = (
+            "    [[demo|示例]] <!-- literal -->\n\n"
+            ">     [[demo|引用示例]]\n\n"
+            "示例 ``第一行\n[[demo|行内示例]] <!-- literal --> `x` ``。\n\n"
+            "> ```md\n> [[demo|引用围栏]]\n> ```\n\n"
+        )
+        project = lint.Note(Path("wiki/projects/demo.md"), {}, examples + "[[demo|档案]]")
+        self.assertEqual(indexes.corpus_body(project, {"demo": project}), examples + "[档案](./projects/demo/)")
+
+    def test_corpus_rebases_inline_and_reference_attachments_to_site_root(self):
+        body = (
+            "[`手册`](<../../assets/boards/参考 (v2).pdf?mode=1&amp;lang=zh#pins> \"板卡手册\")\n\n"
+            "> ![引脚][pins]\n>\n"
+            "> [pins]:\n>   ../../assets/boards/pins.svg#top\n\n"
+            "[原始源码](https://example.org/repo.pdf)\n\n"
+            "普通文本](../../assets/boards/pins.svg#top)\n\n"
+            "    [示例](../../assets/boards/pins.svg#top)\n\n"
+            "`[示例](../../assets/boards/pins.svg#top)`"
+        )
+        note = lint.Note(Path("wiki/topics/embedded/demo.md"), {}, body)
+        corpus = indexes.corpus_body(note, {})
+        self.assertEqual(corpus, body.replace(
+            "../../assets/boards/参考 (v2).pdf", "./wiki-assets/boards/%E5%8F%82%E8%80%83%20%28v2%29.pdf",
+        ).replace(
+            ">   ../../assets/boards/pins.svg#top", ">   <./wiki-assets/boards/pins.svg#top>",
+        ))
 
     def test_timestamp_reuse_includes_added_fields(self):
         stamp = "2026-11-24T03:04:05Z"
@@ -433,6 +533,44 @@ class SyncTests(TemporaryWorkspace):
         self.registry = {"owner": "owner", "repos": {"demo": self.item}}
         self.head = {"sha": SHA, "commit": {"tree": {"sha": NEW_SHA}, "committer": {"date": "2026-11-24"}}}
         self.enterContext(patch.object(sync, "head", return_value=self.head))
+
+    def test_discovery_keeps_knowledge_base_in_inventory_as_ignored(self):
+        repo = {**self.remote, "nameWithOwner": "Mangta517/Knowledge-Base", "diskUsage": 300,
+                "primaryLanguage": {"name": "Python"}, "pushedAt": "2026-11-27T00:00:00Z"}
+        repos = {"mangta517/knowledge-base": repo}
+        registry = sync.discovered({"repos": {}}, "Mangta517", repos)
+        item = registry["repos"]["knowledge-base"]
+        self.assertTrue(item["available"])
+        self.assertEqual(item["tier"], "ignore")
+        self.assertIsNone(item["snapshot_commit"])
+        self.assertEqual(list(sync.drift_rows(registry, repos))[0]["status"], "ignored")
+
+    def test_check_public_queries_only_published_sources_and_fails_closed(self):
+        self.registry["repos"]["ignored"] = {"repo": "owner/ignored", "tier": "ignore"}
+        sync.write_registry(self.registry)
+        before = sync.REGISTRY.read_bytes()
+        project = lint.Note(Path("wiki/projects/demo.md"), {
+            "repo": "Owner/Demo", "type": "project", "draft": False,
+        }, "")
+        draft = lint.Note(Path("wiki/projects/draft.md"), {
+            "repo": "owner/draft", "type": "project", "draft": True,
+        }, "")
+        with (patch.object(sync, "load_notes", side_effect=lambda: ({"demo": project, "draft": draft}, [])),
+              patch.object(sync, "gh", side_effect=[
+                  {"private": False, "visibility": "public"}, {"private": True, "visibility": "private"},
+                  sync.GitHubError("GitHub HTTP 404 (api)", 404),
+              ]) as gh,
+              patch.object(sys, "argv", ["sync_github.py", "--check-public"]),
+              contextlib.redirect_stdout(io.StringIO()),
+              contextlib.redirect_stderr(io.StringIO()) as errors):
+            self.assertEqual(sync.main(), 0)
+            self.assertEqual(sync.main(), 1)
+            self.assertEqual(sync.main(), 1)
+        self.assertEqual([call.args[1] for call in gh.call_args_list], ["repos/owner/demo"] * 3)
+        self.assertIn("owner/demo: 源仓当前不是公开仓库", errors.getvalue())
+        self.assertIn("owner/demo: GitHub HTTP 404", errors.getvalue())
+        self.assertEqual(sync.REGISTRY.read_bytes(), before)
+        self.assertFalse((self.root / ".snapshot-sync.lock").exists())
 
     def test_failed_snapshot_update_preserves_old_files_and_registry(self):
         sync.write_registry(self.registry)

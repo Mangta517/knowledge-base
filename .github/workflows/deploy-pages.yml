@@ -87,6 +87,11 @@ jobs:
           SITE_BASE: ${{ steps.paths.outputs.site_base }}
         run: pnpm build:site
 
+      - name: Confirm source repositories are still public
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uv run --locked python scripts/sync_github.py --check-public
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:

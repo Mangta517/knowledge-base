@@ -13,7 +13,7 @@ from urllib.parse import quote
 
 import yaml
 
-from lint_kb import ROOT, SLUG, SNAPSHOT_FILES, load_yaml, redact_secrets, secret_hits
+from lint_kb import ROOT, SLUG, SNAPSHOT_FILES, load_notes, load_yaml, redact_secrets, secret_hits, snapshot_inventory_errors
 
 REGISTRY = ROOT / "registry.yaml"
 FIELDS = (
@@ -22,6 +22,7 @@ FIELDS = (
 )
 SKIP_DIRS = {"node_modules", ".git", "build", "dist", "target", "__pycache__"}
 CORE_PRIORITY = {"watch", "bootloader", "flight"}
+KNOWLEDGE_BASE_REPO = "mangta517/knowledge-base"
 DRIFT_LABELS = {
     "unavailable": "已不在公开清单",
     "ignored": "已忽略",
@@ -74,6 +75,8 @@ def inventory(owner):
 
 
 def guessed_tier(repo, core_names):
+    if repo["nameWithOwner"].casefold() == KNOWLEDGE_BASE_REPO:
+        return "ignore"
     if repo["isFork"] or not repo.get("defaultBranchRef") or not repo["diskUsage"]:
         return "ignore"
     name = repo["nameWithOwner"].split("/")[-1].lower()
@@ -313,12 +316,39 @@ def drift(registry, repos, as_json=False):
         print(row["id"] or row["repo"], *commits, DRIFT_LABELS[row["status"]], sep="\t", flush=True)
 
 
+def check_public_sources(registry):
+    notes, errors = load_notes()
+    errors.extend(snapshot_inventory_errors(registry["repos"]))
+    if not errors:
+        repositories = {
+            note.meta["repo"].casefold() for note in notes.values()
+            if note.meta["type"] == "project" and note.meta["draft"] is False
+        }
+        repositories.update(
+            item["repo"].casefold() for item in registry["repos"].values() if item.get("snapshot_commit")
+        )
+        for repository in sorted(repositories):
+            try:
+                remote = gh("api", f"repos/{repository}", "--jq", "{private, visibility}")
+                if remote.get("private") is not False or remote.get("visibility") != "public":
+                    raise ValueError("源仓当前不是公开仓库")
+            except (OSError, ValueError) as error:
+                errors.append(f"{repository}: {error}")
+    if errors:
+        for error in errors:
+            print(f"ERROR {redact_secrets(error)}", file=sys.stderr)
+        return 1
+    print(f"已实时确认 {len(repositories)} 个发布来源均为公开仓库。")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--discover", action="store_true")
     action.add_argument("--sync", nargs="?", const="", metavar="ID")
     action.add_argument("--check-drift", action="store_true")
+    action.add_argument("--check-public", action="store_true", help="实时检查公开档案和快照的源仓可见性")
     parser.add_argument("--all", action="store_true")
     parser.add_argument("--force", action="store_true", help="强制重新下载选定快照")
     parser.add_argument("--json", action="store_true", help="将漂移报告输出为 JSON")
@@ -331,13 +361,15 @@ def main():
         parser.error("--json 仅用于 --check-drift")
     lock = None
     try:
-        if not args.check_drift:
+        if args.discover or args.sync is not None:
             lock_path = ROOT / ".snapshot-sync.lock"
             with lock_path.open("x"):
                 lock = lock_path
         registry = {"owner": None, "repos": {}}
         if REGISTRY.exists():
             registry = load_yaml(REGISTRY)
+        if args.check_public:
+            return check_public_sources(registry)
         owner, repos = inventory(registry["owner"])
         if args.discover:
             registry = discovered(registry, owner, repos)

@@ -1,16 +1,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse, postprocess, preprocess } from 'micromark';
+import { decodeString } from 'micromark-util-decode-string';
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(SCRIPT_PATH);
 const PORTAL_ROOT = path.resolve(__dirname, '..');
 const REPO_ROOT = path.resolve(PORTAL_ROOT, '../..');
 const WIKI_DIR = path.join(REPO_ROOT, 'wiki');
-const WIKI_ASSETS_DIR = path.join(WIKI_DIR, 'assets');
+export const WIKI_ASSETS_DIR = path.join(WIKI_DIR, 'assets');
 const DATA_DIR = path.join(REPO_ROOT, 'data');
-const OUT_DOCS_DIR = path.join(PORTAL_ROOT, 'src/content/docs');
-const OUT_ASSETS_DIR = path.join(PORTAL_ROOT, 'public/wiki-assets');
+export const OUT_DOCS_DIR = path.join(PORTAL_ROOT, 'src/content/docs');
+export const OUT_ASSETS_DIR = path.join(PORTAL_ROOT, 'public/wiki-assets');
 
 export function normalizeBase(raw = '') {
   const trimmed = String(raw).trim().replace(/^\/+|\/+$/g, '');
@@ -70,7 +72,7 @@ export function splitFrontmatter(raw) {
   if (endIdx !== -1) {
     return {
       frontmatter: normalized.slice(4, endIdx),
-      body: normalized.slice(endIdx + 5).trim(),
+      body: normalized.slice(endIdx + 5).replace(/^(?:[ \t]*\n)*/, '').trimEnd(),
     };
   }
   if (normalized.endsWith('\n---')) {
@@ -83,10 +85,18 @@ export function splitFrontmatter(raw) {
 }
 
 export function stripOrPreserveHumanNotes(body, hasHumanNotesHint) {
+  const code = markdownEvents(body).filter(([action, token]) => action === 'enter' && codeTypes.has(token.type));
   return body.replace(
     /<!--\s*HUMAN-NOTES:START\s*-->([\s\S]*?)<!--\s*HUMAN-NOTES:END\s*-->/g,
-    (_, inner = '') => {
-      const trimmed = inner.trim();
+    (full, inner, start) => {
+      const end = start + full.length;
+      if (code.some(([, token]) =>
+        (token.start.offset <= start && start < token.end.offset) ||
+        (token.start.offset < end && end <= token.end.offset)
+      )) {
+        return full;
+      }
+      const trimmed = inner.replace(/^(?:[ \t]*\n)*/, '').trimEnd();
       if (!trimmed) return '';
       const withoutHeading = trimmed
         .replace(/^#{1,6}\s*个人复盘与后续思考\s*/m, '')
@@ -105,7 +115,6 @@ export function stripOrPreserveHumanNotes(body, hasHumanNotesHint) {
 
 export function convertCallouts(text) {
   const lines = text.split('\n');
-  const out = [];
   const calloutMap = {
     NOTE: 'note',
     INFO: 'note',
@@ -119,29 +128,18 @@ export function convertCallouts(text) {
     BUG: 'danger',
   };
 
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    const m = line.match(/^>\s*\[!([A-Za-z]+)\]\s*(.*)$/);
-    if (m) {
-      const kind = calloutMap[m[1].toUpperCase()] || 'note';
-      const title = m[2].trim();
-      const bodyLines = [];
-      i++;
-      while (i < lines.length && /^>\s?/.test(lines[i])) {
-        bodyLines.push(lines[i].replace(/^>\s?/, ''));
-        i++;
-      }
-      out.push(title ? `:::${kind}[${title}]` : `:::${kind}`);
-      out.push(...bodyLines);
-      out.push(':::');
-      continue;
-    }
-    out.push(line);
-    i++;
+  const marker = lines[0].match(/^> {0,4}\[!([A-Za-z]+)\][ \t]*(.*)$/);
+  if (!marker) {
+    return text;
   }
-
-  return out.join('\n');
+  const kind = calloutMap[marker[1].toUpperCase()] || 'note';
+  const title = marker[2].trim();
+  let opening = `:::${kind}`;
+  if (title) {
+    opening += `[${title}]`;
+  }
+  const body = lines.slice(1).map((line) => line.replace(/^> ?/, ''));
+  return [opening, ...body, ':::'].join('\n');
 }
 
 function detectMermaidLabel(source) {
@@ -172,239 +170,162 @@ export function buildMermaidFigure(rawSource) {
   ].join('\n');
 }
 
-// Deterministic CommonMark block scanner aligned with lint_kb.py:
-// Recognizes HTML comments <!-- ... --> and CommonMark fenced code blocks (``` / ~~~)
-function tokenizeBlocks(text) {
-  const tokens = [];
-  let pos = 0;
-  let proseStart = 0;
-  const len = text.length;
+const codeTypes = new Set(['codeText', 'codeIndented', 'codeFenced']);
+const containers = new Set(['blockQuote', 'listOrdered', 'listUnordered']);
 
-  while (pos < len) {
-    // 1. Check HTML comment at current position
-    if (text.startsWith('<!--', pos)) {
-      const endComment = text.indexOf('-->', pos + 4);
-      const commentEnd = endComment === -1 ? len : endComment + 3;
-      if (pos > proseStart) {
-        tokens.push({ kind: 'prose', raw: text.slice(proseStart, pos) });
-      }
-      tokens.push({ kind: 'comment', raw: text.slice(pos, commentEnd) });
-      pos = commentEnd;
-      proseStart = pos;
-      continue;
-    }
-
-    // 2. Check CommonMark fenced code block at start of line
-    if (pos === 0 || text[pos - 1] === '\n') {
-      const lineEnd = text.indexOf('\n', pos);
-      const firstLine = lineEnd === -1 ? text.slice(pos) : text.slice(pos, lineEnd);
-      const openMatch = firstLine.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
-      if (openMatch) {
-        const fence = openMatch[1];
-        const marker = fence[0];
-        const info = openMatch[2];
-        // CommonMark §4.5: backtick fence info string cannot contain backticks
-        if (!(marker === '`' && info.includes('`'))) {
-          if (pos > proseStart) {
-            tokens.push({ kind: 'prose', raw: text.slice(proseStart, pos) });
-          }
-          if (lineEnd === -1) {
-            tokens.push({ kind: 'fence', raw: firstLine, info, code: '' });
-            pos = len;
-            proseStart = pos;
-            break;
-          }
-
-          let cursor = lineEnd + 1;
-          const codeStart = cursor;
-          let codeEnd = len;
-          let blockEnd = len;
-          const closeRe = new RegExp(`^ {0,3}${marker}{${fence.length},}[ \\t]*$`);
-
-          while (cursor <= len) {
-            const nextNl = text.indexOf('\n', cursor);
-            const curLine = nextNl === -1 ? text.slice(cursor) : text.slice(cursor, nextNl);
-            if (closeRe.test(curLine)) {
-              codeEnd = cursor > codeStart ? cursor - 1 : codeStart;
-              blockEnd = nextNl === -1 ? len : nextNl;
-              break;
-            }
-            if (nextNl === -1) break;
-            cursor = nextNl + 1;
-          }
-
-          tokens.push({
-            kind: 'fence',
-            raw: text.slice(pos, blockEnd),
-            info,
-            code: text.slice(codeStart, codeEnd),
-          });
-          pos = blockEnd;
-          proseStart = pos;
-          continue;
-        }
-      }
-    }
-
-    pos++;
-  }
-
-  if (proseStart < len) {
-    tokens.push({ kind: 'prose', raw: text.slice(proseStart) });
-  }
-  return tokens;
+function markdownEvents(text) {
+  return postprocess(parse().document().write(preprocess()(text, undefined, true)));
 }
 
-// Exact CommonMark backtick inline code spans (matching exact backtick delimiter count)
-const INLINE_CODE_RE = /(?<!`)(`+)(?!`)[^\n]+?(?<!`)\1(?!`)/g;
-
-// Standard Markdown image syntax: ![alt](<dest> title) or ![alt](dest title) with balanced parens
-const MARKDOWN_IMAGE_RE =
-  /!\[([^\]\n]*)\]\(\s*(?:<([^>\n]+)>|((?:\\[()]|[^()\s]|\([^()\n]*\))+))([ \t]+(?:"[^"\n]*"|'[^'\n]*'))?\s*\)/g;
-
 function resolveRelativeMarkdownAsset(rawTarget, noteDir, assetsDir) {
-  const unescaped = rawTarget.replace(/\\\(/g, '(').replace(/\\\)/g, ')');
-  let pathname = unescaped;
+  const target = decodeString(rawTarget.replace(/^<|>$/g, ''));
+  const suffixStart = target.search(/[?#]/);
+  let pathname = target;
   let suffix = '';
-  const hashIdx = pathname.indexOf('#');
-  if (hashIdx !== -1) {
-    suffix = pathname.slice(hashIdx);
-    pathname = pathname.slice(0, hashIdx);
+  if (suffixStart !== -1) {
+    pathname = target.slice(0, suffixStart);
+    suffix = target.slice(suffixStart);
   }
-  const queryIdx = pathname.indexOf('?');
-  if (queryIdx !== -1) {
-    suffix = pathname.slice(queryIdx) + suffix;
-    pathname = pathname.slice(0, queryIdx);
-  }
-  if (!pathname || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(pathname) || pathname.startsWith('//') || pathname.startsWith('/')) {
+  if (!pathname || /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(pathname) || pathname.startsWith('/')) {
     return null;
   }
 
-  let decodedPath = pathname;
   try {
-    decodedPath = decodeURIComponent(pathname);
+    pathname = decodeURIComponent(pathname);
   } catch {
     return null;
   }
-  if (decodedPath.includes('\0')) return null;
-
-  if (noteDir && assetsDir && fs.existsSync(assetsDir)) {
-    const resolvedCandidate = path.resolve(noteDir, decodedPath);
-    if (!isWithin(assetsDir, resolvedCandidate) || !fs.existsSync(resolvedCandidate)) {
-      return null;
-    }
-    const stat = fs.lstatSync(resolvedCandidate);
-    if (stat.isSymbolicLink() || !stat.isFile()) {
-      return null;
-    }
-    const realAssets = fs.realpathSync(assetsDir);
-    const realFile = fs.realpathSync(resolvedCandidate);
-    if (!isWithin(realAssets, realFile)) {
-      return null;
-    }
-    const relPosix = path.relative(realAssets, realFile).split(path.sep).join('/');
-    return isSafeRelativeAssetPosix(relPosix) ? { relPosix, suffix } : null;
+  if (pathname.startsWith('/') || pathname.includes('\\') || pathname.includes('\0')) {
+    return null;
   }
 
-  // Pure fallback when noteDir/assetsDir are not provided
-  const match = decodedPath.match(/^(?:\.\/)?(?:\.\.\/)+assets\/(.+)$/);
-  if (!match) return null;
-  const normalized = path.posix.normalize(match[1]);
-  return isSafeRelativeAssetPosix(normalized) ? { relPosix: normalized, suffix } : null;
+  const candidate = path.resolve(noteDir, pathname);
+  if (!isWithin(assetsDir, candidate)) {
+    return null;
+  }
+  const relPosix = path.relative(assetsDir, candidate).split(path.sep).join('/');
+  if (!isSafeRelativeAssetPosix(relPosix)) {
+    return null;
+  }
+  return { relPosix, suffix };
 }
 
-function transformInlineProse(text, { linkMap, assets, base, noteDir, assetsDir }) {
-  const converted = convertCallouts(text);
-  const out = [];
-  let lastIdx = 0;
-
-  INLINE_CODE_RE.lastIndex = 0;
-  let codeMatch;
-  const transformChunk = (part) => {
-    let chunk = part.replace(
-      /(!)?\[\[([^\]\n|]+)(?:\|([^\n]+?))?\]\](?!\])/g,
-      (full, embed, target, label) => {
-      if (embed) {
-        if (!assets || !Object.hasOwn(assets, target)) {
-          return full;
-        }
-        const assetPath = assets[target];
-        if (!isSafeRelativeAssetPosix(assetPath)) {
-          return full;
-        }
-        const alt = escapeMarkdownLabel((label || path.posix.basename(assetPath)).trim());
-        return `![${alt}](<${encodeAssetUrl(assetPath, base)}>)`;
-      }
-      const cleanTarget = target.trim();
-      const route = Object.hasOwn(linkMap, cleanTarget) ? linkMap[cleanTarget] : undefined;
-      const display = escapeMarkdownLabel((label || cleanTarget).trim());
-      if (!route) return (label || cleanTarget).trim();
-      return `[${display}](${withDocRoute(route, base)})`;
-    });
-
-    chunk = chunk.replace(MARKDOWN_IMAGE_RE, (full, alt, angleDest, bareDest, titlePart = '') => {
-      const rawDest = angleDest ?? bareDest ?? '';
-      const resolved = resolveRelativeMarkdownAsset(rawDest, noteDir, assetsDir);
-      if (!resolved) return full;
-      const url = `${encodeAssetUrl(resolved.relPosix, base)}${resolved.suffix}`;
-      return `![${alt}](<${url}>${titlePart || ''})`;
-    });
-
-    return chunk;
-  };
-
-  while ((codeMatch = INLINE_CODE_RE.exec(converted)) !== null) {
-    if (codeMatch.index > lastIdx) {
-      out.push(transformChunk(converted.slice(lastIdx, codeMatch.index)));
-    }
-    out.push(codeMatch[0]);
-    lastIdx = INLINE_CODE_RE.lastIndex;
+function rewriteSource(text, edits) {
+  let out = '';
+  let end = 0;
+  for (const edit of edits) {
+    out += text.slice(end, edit.start) + edit.replacement;
+    end = edit.end;
   }
-  if (lastIdx < converted.length) {
-    out.push(transformChunk(converted.slice(lastIdx)));
-  }
-
-  return out.join('');
+  return out + text.slice(end);
 }
 
-export function transformBody(
-  body,
-  linkMap = {},
-  hasHumanNotesHint = undefined,
-  assets = {},
-  options = {},
-) {
+export function transformBody(body, linkMap = {}, hasHumanNotesHint, assets = {}, options = {}) {
   const base = options.base ?? SITE_BASE;
-  const noteDir = options.noteDir ?? null;
   const assetsDir = options.assetsDir ?? WIKI_ASSETS_DIR;
-
+  const noteDir = options.noteDir ?? path.join(WIKI_DIR, 'projects');
   const text = stripOrPreserveHumanNotes(body, hasHumanNotesHint);
-  const out = [];
+  const edits = [];
+  const protectedRanges = [];
+  let containerDepth = 0;
+  let fence;
+  for (const [action, token] of markdownEvents(text)) {
+    const { type } = token;
+    const start = token.start.offset;
+    const end = token.end.offset;
+    if (action === 'enter') {
+      if (containers.has(type)) {
+        containerDepth++;
+      }
+      if (codeTypes.has(type) || ['htmlFlow', 'htmlText', 'resource', 'definition', 'reference'].includes(type)) {
+        protectedRanges.push({ start, end });
+      }
 
-  for (const token of tokenizeBlocks(text)) {
-    if (token.kind === 'prose') {
-      out.push(
-        transformInlineProse(token.raw, {
-          linkMap,
-          assets,
-          base,
-          noteDir,
-          assetsDir,
-        }),
-      );
-    } else if (token.kind === 'fence') {
-      const langToken = token.info.trim().split(/\s+/)[0] || '';
-      if (langToken === 'mermaid') {
-        out.push(buildMermaidFigure(token.code));
-      } else {
-        out.push(token.raw);
+      if (type === 'codeFenced' && containerDepth === 0) {
+        fence = { start, end, language: '', lines: [] };
+      } else if (fence && type === 'codeFencedFenceInfo') {
+        fence.language = text.slice(start, end);
+      } else if (fence && type === 'codeFlowValue') {
+        fence.lines.push({ line: token.start.line, start, end });
+      }
+
+      if (type === 'resourceDestination' || type === 'definitionDestination') {
+        const resolved = resolveRelativeMarkdownAsset(text.slice(start, end), noteDir, assetsDir);
+        if (resolved) {
+          // The rendered HTML selects the files, and copyAssets enforces existence and exact case.
+          const suffix = resolved.suffix.replace(/[<>\s\\]/g, encodeURIComponent).replaceAll('&', '&amp;');
+          edits.push({ start, end, replacement: `<${encodeAssetUrl(resolved.relPosix, base)}${suffix}>` });
+        }
       }
     } else {
-      out.push(token.raw);
+      if (containers.has(type)) {
+        containerDepth--;
+      }
+      if (type === 'codeFenced' && fence) {
+        if (fence.language === 'mermaid') {
+          const lines = [];
+          let previous = fence.lines[0]?.line;
+          for (const line of fence.lines) {
+            while (previous < line.line) {
+              lines.push('');
+              previous++;
+            }
+            lines.push(text.slice(line.start, line.end));
+            previous++;
+          }
+          edits.push({ start: fence.start, end: fence.end, replacement: buildMermaidFigure(lines.join('\n')) });
+        }
+        fence = undefined;
+      }
     }
   }
 
-  return out.join('').trim();
+  for (const match of text.matchAll(/(!)?\[\[([^\]\n|]+)(?:\|([^\n]+?))?\]\](?!\])/g)) {
+    const [full, embed, target, label] = match;
+    const start = match.index;
+    const end = start + full.length;
+    if (protectedRanges.some((range) => start < range.end && end > range.start)) {
+      continue;
+    }
+    let replacement;
+    if (embed) {
+      if (!Object.hasOwn(assets, target) || !isSafeRelativeAssetPosix(assets[target])) {
+        continue;
+      }
+      const asset = assets[target];
+      const alt = escapeMarkdownLabel((label || path.posix.basename(asset)).trim());
+      replacement = `![${alt}](<${encodeAssetUrl(asset, base)}>)`;
+    } else {
+      const cleanTarget = target.trim();
+      replacement = (label || cleanTarget).trim();
+      if (Object.hasOwn(linkMap, cleanTarget)) {
+        replacement = `[${escapeMarkdownLabel(replacement)}](${withDocRoute(linkMap[cleanTarget], base)})`;
+      }
+    }
+    edits.push({ start, end, replacement });
+  }
+
+  edits.sort((a, b) => a.start - b.start);
+  const rewritten = rewriteSource(text, edits);
+  const callouts = [];
+  containerDepth = 0;
+  for (const [action, token] of markdownEvents(rewritten)) {
+    if (!containers.has(token.type)) {
+      continue;
+    }
+    if (action === 'enter') {
+      if (token.type === 'blockQuote' && containerDepth === 0) {
+        const start = token.start.offset;
+        const end = token.end.offset;
+        const replacement = convertCallouts(rewritten.slice(start, end));
+        callouts.push({ start, end, replacement });
+      }
+      containerDepth++;
+    } else {
+      containerDepth--;
+    }
+  }
+  return rewriteSource(rewritten, callouts).replace(/^(?:[ \t]*\n)*/, '').trimEnd();
 }
 
 function buildBacklinksSection(incoming, allById) {
@@ -478,9 +399,12 @@ function buildStarlightFrontmatter(item, order) {
   return lines.join('\n');
 }
 
-export function copyAssets(srcDir, dstDir) {
+export function copyAssets(srcDir, dstDir, publishedAssets) {
   fs.rmSync(dstDir, { recursive: true, force: true });
-  if (!fs.existsSync(srcDir)) return;
+  const pending = new Set(publishedAssets);
+  if (!fs.existsSync(srcDir) && pending.size === 0) {
+    return;
+  }
   const rootStat = fs.lstatSync(srcDir);
   if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
     throw new Error(`Refusing symbolic or non-directory assets root: ${srcDir}`);
@@ -502,13 +426,16 @@ export function copyAssets(srcDir, dstDir) {
       }
       if (stat.isDirectory()) {
         walk(from, to);
-      } else if (stat.isFile()) {
+      } else if (stat.isFile() && pending.delete(path.relative(srcDir, from).split(path.sep).join('/'))) {
         fs.mkdirSync(path.dirname(to), { recursive: true });
         fs.copyFileSync(realFrom, to);
       }
     }
   };
   walk(srcDir, dstDir);
+  if (pending.size > 0) {
+    throw new Error(`Missing referenced wiki assets: ${[...pending].join(', ')}`);
+  }
 }
 
 export function main() {
@@ -533,9 +460,6 @@ export function main() {
 
   fs.rmSync(OUT_DOCS_DIR, { recursive: true, force: true });
   fs.mkdirSync(OUT_DOCS_DIR, { recursive: true });
-
-  // Copy wiki/assets -> public/wiki-assets
-  copyAssets(WIKI_ASSETS_DIR, OUT_ASSETS_DIR);
 
   // Order projects with core featured first
   const orderedGroups = [
@@ -566,9 +490,14 @@ export function main() {
       const relFromWiki = path.relative(WIKI_DIR, srcPath);
       const outPath = path.join(OUT_DOCS_DIR, relFromWiki);
       fs.mkdirSync(path.dirname(outPath), { recursive: true });
+      let bodyPrefix = '';
+      if (/^(?: {4}| {0,3}\t)/.test(transformed)) {
+        // Astro trims leading whitespace when loading Markdown bodies.
+        bodyPrefix = '<!-- -->\n\n';
+      }
       fs.writeFileSync(
         outPath,
-        `${frontmatter}\n\n${transformed}${backlinks}\n`,
+        `${frontmatter}\n\n${bodyPrefix}${transformed}${backlinks}\n`,
         'utf-8',
       );
       written++;

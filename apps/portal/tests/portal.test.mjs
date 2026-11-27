@@ -4,6 +4,9 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { createHash } from 'node:crypto';
+import { micromark } from 'micromark';
+import { checkPage } from '../scripts/check-built-pages.mjs';
 
 import {
   copyAssets,
@@ -67,6 +70,17 @@ test('prepare-content: CommonMark fences, comments, multi-backtick inline code, 
   const md = [
     '正文引用 [[ADR-0001-stage-image-before-boot|镜像 [暂存] 决策]] 与 `` `[[watch|不转换]]` ``。',
     '',
+    '    [[watch|缩进示例]]',
+    '',
+    '>     [[watch|引用缩进示例]]',
+    '',
+    '> ```md',
+    '> [[watch|引用围栏示例]]',
+    '> ```',
+    '',
+    '多行 ``第一行',
+    '[[watch|行内示例]] `x` ``。',
+    '',
     '```inline``` 后继续 [[watch|手表档案]]。',
     '',
     '<!--',
@@ -103,6 +117,10 @@ test('prepare-content: CommonMark fences, comments, multi-backtick inline code, 
 
   // Double-backtick code span containing single backtick + wikilink stays untouched
   assert.ok(out.includes('`` `[[watch|不转换]]` ``'));
+  assert.ok(out.includes('    [[watch|缩进示例]]'));
+  assert.ok(out.includes('>     [[watch|引用缩进示例]]'));
+  assert.ok(out.includes('> ```md\n> [[watch|引用围栏示例]]\n> ```'));
+  assert.ok(out.includes('``第一行\n[[watch|行内示例]] `x` ``'));
 
   // HTML comments stay untouched (no figure conversion inside comment)
   assert.ok(out.includes('[[watch|注释内不转换]]'));
@@ -118,6 +136,45 @@ test('prepare-content: CommonMark fences, comments, multi-backtick inline code, 
   assert.ok(out.includes(':::caution[实板注意]\n请核对 [手表信号](/konwlegde/projects/watch/)。\n:::'));
 });
 
+test('release: Markdown download links publish under SITE_BASE and fail on missing attachments', (t) => {
+  const tmp = makeTempDir(t);
+  const assetsDir = path.join(tmp, 'wiki/assets');
+  const noteDir = path.join(tmp, 'wiki/topics/embedded');
+  const distAssets = path.join(tmp, 'dist/wiki-assets');
+  fs.mkdirSync(path.join(assetsDir, 'boards'), { recursive: true });
+  fs.writeFileSync(path.join(assetsDir, 'boards', '参考 (v2).pdf'), 'pdf');
+  fs.writeFileSync(path.join(assetsDir, 'firmware.bin'), Buffer.from([0, 255]));
+  const markdown = [
+    '[下载](<../../assets/boards/参考 (v2).pdf?edition=2&amp;lang=zh#pins> "手册")',
+    '[固件][firmware]',
+    '[远端](https://example.org/firmware.bin)',
+    '',
+    '[firmware]: ../../assets/firmware.bin',
+    '',
+    '    [示例](../../assets/example.bin)',
+    '',
+    '`示例',
+    '[内联](../../assets/example.bin)`',
+  ].join('\n');
+  const options = { base: '/knowledge-base', noteDir, assetsDir };
+  const site = new URL('https://example.org/knowledge-base/');
+  const page = new URL('topics/embedded/board/', site);
+  const assetRoot = new URL('wiki-assets/', site);
+  const head = "<head><meta http-equiv=\"content-security-policy\" content=\"script-src 'self'\"></head>";
+  const rendered = micromark(transformBody(markdown, {}, false, {}, options));
+  assert.match(rendered, /href="\/knowledge-base\/wiki-assets\/boards\/[^"]+\.pdf\?edition=2&amp;lang=zh#pins"/);
+  assert.match(rendered, /href="https:\/\/example\.org\/firmware\.bin"/);
+  const referenced = new Set();
+  checkPage(head + rendered, page, assetRoot, referenced);
+  assert.deepEqual([...referenced], ['boards/参考 (v2).pdf', 'firmware.bin']);
+  copyAssets(assetsDir, distAssets, referenced);
+  assert.deepEqual(fs.readFileSync(path.join(distAssets, 'firmware.bin')), Buffer.from([0, 255]));
+
+  const missing = transformBody('[手册](../../assets/missing.pdf)', {}, false, {}, options);
+  checkPage(head + micromark(missing), page, assetRoot, referenced);
+  assert.throws(() => copyAssets(assetsDir, distAssets, referenced), /Missing referenced wiki assets: missing\.pdf/);
+});
+
 test('prepare-content: nested Obsidian embeds, relative Markdown images, and traversal rejection', (t) => {
   const tmp = makeTempDir(t);
   const wikiDir = path.join(tmp, 'wiki');
@@ -126,6 +183,8 @@ test('prepare-content: nested Obsidian embeds, relative Markdown images, and tra
   fs.mkdirSync(path.join(assetsDir, 'boards'), { recursive: true });
   fs.mkdirSync(noteDir, { recursive: true });
   fs.writeFileSync(path.join(assetsDir, 'boards', 'front panel(v2).svg'), '<svg/>', 'utf-8');
+  fs.writeFileSync(path.join(assetsDir, 'boards', 'pinout.svg'), '<svg/>', 'utf-8');
+  fs.writeFileSync(path.join(assetsDir, 'draft.svg'), '<svg/>', 'utf-8');
   fs.writeFileSync(path.join(wikiDir, 'secret.svg'), '<svg/>', 'utf-8');
 
   const body = [
@@ -133,6 +192,9 @@ test('prepare-content: nested Obsidian embeds, relative Markdown images, and tra
     '![[escape.svg|越界]]',
     '![示意](<../assets/boards/front panel(v2).svg> "板框图")',
     '![括号](../assets/boards/front%20panel(v2).svg)',
+    '![引脚](../assets/boards/pinout.svg#pins)',
+    '<!-- ![草稿](../assets/draft.svg) -->',
+    '`![草稿](../assets/draft.svg)`',
     '![越出assets](../secret.svg)',
   ].join('\n');
 
@@ -162,6 +224,27 @@ test('prepare-content: nested Obsidian embeds, relative Markdown images, and tra
   );
   // Image outside wiki/assets is not rewritten to /wiki-assets/
   assert.ok(out.includes('![越出assets](../secret.svg)'));
+});
+
+test('release: check inline script hashes and collect actual same-site attachment references', () => {
+  const site = new URL('https://example.org/kb/');
+  const assets = new URL('wiki-assets/', site);
+  const page = new URL('projects/board/', site);
+  const script = 'const version = 1;';
+  const digest = createHash('sha256').update(script).digest('base64');
+  const html = [
+    `<head><meta http-equiv="Content-Security-Policy" content="script-src 'self' 'sha256-${digest}'"><script>${script}</script></head>`,
+    '<a href="../../wiki-assets/boards/guide.pdf#pins">Guide</a>',
+    '<img src="/kb/wiki-assets/panel%20v2.png" srcset="/kb/wiki-assets/small.png 1x, /kb/wiki-assets/large.png 2x">',
+    '<code>&lt;img src="/kb/wiki-assets/example.png"&gt;</code>',
+    '<!-- <img src="/kb/wiki-assets/comment.png"> -->',
+    '<img src="https://another.example/kb/wiki-assets/external.png">',
+  ].join('');
+  const referenced = new Set();
+  checkPage(html, page, assets, referenced);
+  assert.deepEqual([...referenced].sort(), ['boards/guide.pdf', 'large.png', 'panel v2.png', 'small.png']);
+  assert.throws(() => checkPage(html.replace(script, 'const version = 2;'), page, assets, new Set()), /Unapproved inline script/);
+  assert.throws(() => checkPage('<head><script src="theme.js"></script></head>', page, assets, new Set()), /precedes/);
 });
 
 test('prepare-content: human notes collapsing and symlink rejection in copyAssets', (t) => {
@@ -194,6 +277,9 @@ test('prepare-content: human notes collapsing and symlink rejection in copyAsset
     frontmatter: 'title: "x"',
     body: '',
   });
+  const example = '    ![[example-only.svg]]';
+  assert.equal(splitFrontmatter(`---\ntitle: "x"\n---\n\n${example}\n`).body, example);
+  assert.equal(transformBody(example), example);
 
   const tmp = makeTempDir(t);
   const srcAssets = path.join(tmp, 'assets');
@@ -205,14 +291,17 @@ test('prepare-content: human notes collapsing and symlink rejection in copyAsset
   fs.writeFileSync(path.join(srcAssets, 'sub', 'ok.svg'), '<svg/>', 'utf-8');
   fs.writeFileSync(path.join(outsideDir, 'leak.txt'), 'secret', 'utf-8');
 
-  copyAssets(srcAssets, dstAssets);
+  const publishedAssets = new Set(['sub/ok.svg']);
+  copyAssets(srcAssets, dstAssets, publishedAssets);
   assert.equal(fs.existsSync(path.join(dstAssets, '.gitkeep')), false);
   assert.equal(fs.existsSync(path.join(dstAssets, 'sub', 'ok.svg')), true);
+  copyAssets(srcAssets, dstAssets, new Set());
+  assert.equal(fs.existsSync(path.join(dstAssets, 'sub', 'ok.svg')), false);
 
   // Create a directory junction/symlink inside assets pointing outside -> must throw
   const linkPath = path.join(srcAssets, 'linked-outside');
   fs.symlinkSync(outsideDir, linkPath, process.platform === 'win32' ? 'junction' : 'dir');
-  assert.throws(() => copyAssets(srcAssets, dstAssets), /Refusing symbolic link/);
+  assert.throws(() => copyAssets(srcAssets, dstAssets, publishedAssets), /Refusing symbolic link/);
 });
 
 test('build-site: exact case, site origin validation, and published asset verification', (t) => {
@@ -406,6 +495,7 @@ test('card hit-area: stretched primary links and z-index layering stay intact ac
   );
   for (const secondarySelector of [
     '\\.kb-card-tech',
+    '\\.kb-tech-overflow',
     '\\.kb-rel-pill',
     '\\.kb-project-ext a',
     '\\.kb-proj-mini-tag',

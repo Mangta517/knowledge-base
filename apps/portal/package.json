@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "prepare:content": "node scripts/prepare-content.mjs",
-    "typecheck": "node scripts/prepare-content.mjs && astro sync && tsc --noEmit",
+    "typecheck": "node scripts/prepare-content.mjs && astro check",
     "test": "node --test tests/portal.test.mjs",
     "dev": "node scripts/prepare-content.mjs && astro dev --host 127.0.0.1 --port 4321",
     "build": "node scripts/prepare-content.mjs && astro build",
@@ -23,6 +23,10 @@
     "sharp": "^0.35.5"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "micromark": "^4.0.3",
+    "micromark-util-decode-string": "^2.0.1",
+    "parse5": "^8.1.1",
     "typescript": "^5.9.3"
   }
 }
