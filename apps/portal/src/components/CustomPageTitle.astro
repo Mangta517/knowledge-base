@@ -6,6 +6,7 @@ import {
   SEVERITY_LABELS,
   TYPE_LABELS,
   type ProjectItem,
+  getDocCAnchors,
   getProjectSignalFlow,
   getReadingMinutes,
   isCommitSha,
@@ -20,8 +21,19 @@ const entryId = Astro.locals.starlightRoute?.entry?.id || '';
 const cleanId = normalizeDocKey(entryId);
 const isHome = cleanId === '' || cleanId === 'index';
 
-const { byRouteKey, byId } = loadKbData();
+const bundle = loadKbData();
+const { byRouteKey, byId } = bundle;
 const doc = byRouteKey.get(cleanId);
+const docCAnchors = doc ? getDocCAnchors(doc.id, bundle) : [];
+const docCAnchorCount = docCAnchors.length;
+const hasInlineDocCAnchors = docCAnchors.some((a) => Boolean(a.code && a.code.trim()));
+const docCAnchorHref = hasInlineDocCAnchors
+  ? '#kb-doc-c-anchors'
+  : doc?.type === 'project'
+    ? `${withBase('/evidence/')}?repo=${encodeURIComponent(doc.repo.toLowerCase())}`
+    : doc
+      ? `${withBase('/evidence/')}?q=${encodeURIComponent(doc.title)}`
+      : withBase('/evidence/');
 
 const readingMinutes = doc ? getReadingMinutes(doc) : 0;
 const typeLabel = doc ? TYPE_LABELS[doc.type] : '';
@@ -113,8 +125,18 @@ const tsRelatedProjects: ProjectItem[] =
 
         <div class="kb-doc-metrics" data-pagefind-ignore>
           <span>{readingMinutes}m</span>
-          {typeof doc.evidence_count === 'number' && doc.evidence_count > 0 && (
-            <span>{doc.evidence_count} 锚点</span>
+          {docCAnchorCount > 0 && (
+            <a
+              class="kb-doc-c-jump"
+              href={docCAnchorHref}
+              title={
+                hasInlineDocCAnchors
+                  ? '直达本页内联 C 源码精讲'
+                  : '在 C 源码精讲索引中查看关联的 .c / .h 源码'
+              }
+            >
+              {docCAnchorCount} C 源码{hasInlineDocCAnchors ? ' ↓' : ' →'}
+            </a>
           )}
           {typeof doc.mermaid_count === 'number' && doc.mermaid_count > 0 && (
             <span>{doc.mermaid_count} 图</span>

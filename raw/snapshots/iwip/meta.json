@@ -10,5 +10,11 @@
   "is_fork": false,
   "is_archived": false,
   "primary_language": "C",
-  "stars": 0
+  "stars": 0,
+  "source_blobs": {
+    "Drivers/BSP/ETHERNET/ethernet_chip.c": "072c4bb84efb736cfd63bd10ed0ce685bf6c140e",
+    "Middlewares/Iwip/arch/ethernetif.c": "988e73ffbe76f3626e05008f07a1ec3c48b8ddaa",
+    "Middlewares/Iwip/arch/lwip_comm.c": "64b4329e59f848fcd824210a8509331d3572571a",
+    "Middlewares/Iwip/arch/lwipopts.h": "5a95baa7263ad4a73e5225ef11565df2790d6252"
+  }
 }

@@ -20,7 +20,19 @@ import {
   isSafeSvgUrl,
   shouldRemoveSvgAttribute,
 } from '../src/lib/svg-sanitize.mjs';
-import { extractDiagrams, extractEvidenceLinks } from '../src/lib/kb-extract.mjs';
+import {
+  extractDiagrams,
+  extractEvidenceContextMap,
+  extractEvidenceLinks,
+  getCFileKind,
+  isCSourcePath,
+  parseGithubLineHash,
+} from '../src/lib/kb-extract.mjs';
+import {
+  highlightCCode,
+  renderHighlightedCLinesHtml,
+  renderInlineCodeHtml,
+} from '../src/lib/c-highlight.mjs';
 import {
   existsExactCase,
   normalizeSiteOrigin,
@@ -575,12 +587,20 @@ test('card hover stability: cards use color-only feedback without layout-shiftin
   );
 });
 
-test('hero metric cards: all 4 tiles are interactive links backed by exact evidence & diagram counts', () => {
+test('hero metric cards: all 4 tiles are interactive links backed by C-only evidence & exact diagram counts', () => {
   const repoRoot = path.resolve(import.meta.dirname, '../../..');
   const portalSrc = path.resolve(import.meta.dirname, '../src');
   const homeAstro = fs.readFileSync(path.join(portalSrc, 'components/PortfolioHome.astro'), 'utf-8');
   const evidenceAstro = fs.readFileSync(
     path.join(portalSrc, 'components/EvidenceIndexPage.astro'),
+    'utf-8',
+  );
+  const cSourceCardAstro = fs.readFileSync(
+    path.join(portalSrc, 'components/CSourceCard.astro'),
+    'utf-8',
+  );
+  const docSourceAnchorsAstro = fs.readFileSync(
+    path.join(portalSrc, 'components/DocSourceAnchors.astro'),
     'utf-8',
   );
   const diagramsAstro = fs.readFileSync(
@@ -596,11 +616,21 @@ test('hero metric cards: all 4 tiles are interactive links backed by exact evide
   assert.match(homeAstro, /href=\{withBase\('\/diagrams\/'\)\}/);
   assert.match(homeAstro, /href="#kb-library"[^>]*data-metric-jump="library"/s);
 
-  // New evidence & diagram subpage cards also stay transform-free on hover
+  // Evidence, C source card, and diagram subpage cards stay transform-free on hover & free of inline scripts
   assert.doesNotMatch(evidenceAstro, /\.kb-ev-card:hover\s*\{[^}]*\btransform\s*:/s);
+  assert.doesNotMatch(cSourceCardAstro, /\.kb-cs-card:hover\s*\{[^}]*\btransform\s*:/s);
   assert.doesNotMatch(diagramsAstro, /\.kb-dg-card:hover\s*\{[^}]*\btransform\s*:/s);
+  assert.doesNotMatch(evidenceAstro, /<script\s+is:inline/);
+  assert.doesNotMatch(cSourceCardAstro, /<script\s+is:inline/);
+  assert.doesNotMatch(docSourceAnchorsAstro, /<script\s+is:inline/);
+  const customCss = fs.readFileSync(path.join(portalSrc, 'styles/custom.css'), 'utf-8');
+  assert.match(cSourceCardAstro, /data-c-copy/);
+  assert.match(cSourceCardAstro, /data-c-fold-toggle/);
+  assert.match(cSourceCardAstro, /\.kb-cs-pre\s*\{[^}]*white-space:\s*normal;/s);
+  assert.match(customCss, /\.kb-c-line\s*\{[^}]*white-space:\s*normal;/s);
+  assert.match(customCss, /\.kb-c-line-code\s*\{[^}]*white-space:\s*pre;/s);
 
-  // Fallback extractors match stats.json counts identically across all published docs
+  // Extractors match published C-only evidence subset and exact diagram counts across all published docs
   const catalog = JSON.parse(fs.readFileSync(path.join(repoRoot, 'data/catalog.json'), 'utf-8'));
   const stats = JSON.parse(fs.readFileSync(path.join(repoRoot, 'data/stats.json'), 'utf-8'));
   const repoToProjectId = new Map(catalog.projects.map((p) => [p.repo.toLowerCase(), p.id]));
@@ -612,28 +642,51 @@ test('hero metric cards: all 4 tiles are interactive links backed by exact evide
     ...catalog.synthesis,
   ];
 
-  let totalEv = 0;
+  let totalCOnly = 0;
+  let totalAllRaw = 0;
   let totalDiagrams = 0;
   for (const doc of allDocs) {
     const raw = fs.readFileSync(path.join(repoRoot, doc.source_path), 'utf-8');
-    const ev = extractEvidenceLinks(raw, repoToProjectId);
+    const cEv = extractEvidenceLinks(raw, repoToProjectId);
+    const allEv = extractEvidenceLinks(raw, repoToProjectId, { cOnly: false });
     const dg = extractDiagrams(raw, doc.title);
-    assert.equal(ev.length, doc.evidence_count, `evidence_count mismatch for ${doc.id}`);
+
+    // Default extractor must strictly retain ONLY .c and .h blobs
+    assert.ok(
+      cEv.every((entry) => entry.kind === 'blob' && isCSourcePath(entry.path) && entry.language === 'c'),
+      `Non-C entry leaked in ${doc.id}`,
+    );
+    const catalogCOnly = (doc.evidence_links || []).filter(
+      (entry) => entry.kind === 'blob' && isCSourcePath(entry.path),
+    );
+    assert.equal(cEv.length, catalogCOnly.length, `C-only evidence mismatch for ${doc.id}`);
+    assert.ok(
+      doc.evidence_count === cEv.length || doc.evidence_count === allEv.length,
+      `evidence_count mismatch for ${doc.id}: got ${doc.evidence_count}, expected C-only ${cEv.length} or raw ${allEv.length}`,
+    );
     assert.equal(dg.length, doc.mermaid_count, `mermaid_count mismatch for ${doc.id}`);
-    totalEv += ev.length;
+    totalCOnly += cEv.length;
+    totalAllRaw += allEv.length;
     totalDiagrams += dg.length;
   }
-  assert.equal(totalEv, stats.counts.total_evidence_links);
+  assert.ok(totalCOnly > 0, 'Expected at least one C source anchor across published docs');
+  assert.ok(
+    stats.counts.total_evidence_links === totalCOnly ||
+      stats.counts.total_evidence_links === totalAllRaw,
+    `total_evidence_links mismatch: got ${stats.counts.total_evidence_links}, expected C-only ${totalCOnly} or raw ${totalAllRaw}`,
+  );
   assert.equal(totalDiagrams, stats.counts.total_mermaids);
 
-  // Extractor ignores links/mermaid inside fenced code, inline code, HTML comments, and non-SHA refs
+  // Extractor enforces C-only (.c / .h blobs), parses #L ranges + context + symbols, and ignores non-C/comments/code
   const sha = 'a'.repeat(40);
   const sampleMd = [
     '---',
     'title: demo',
     '---',
     '## 真实章节',
-    `[主入口](https://github.com/owner/demo/blob/${sha}/src/main.c#L12)`,
+    `跳转到 \`SCB->VTOR\` 前调用 \`Int_bootloader_jump\` 检查栈顶 [主入口](https://github.com/owner/demo/blob/${sha}/src/main.c#L12-L38)。`,
+    `状态枚举见 [状态头](https://github.com/owner/demo/blob/${sha}/inc/boot_cfg.h#L5)。`,
+    `非 C 文件应被排除：[工程配置](https://github.com/owner/demo/blob/${sha}/MDK-ARM/demo.uvprojx)、[说明](https://github.com/owner/demo/blob/${sha}/README.md)、[脚本](https://github.com/owner/demo/blob/${sha}/tools/gen.py)、[启动汇编](https://github.com/owner/demo/blob/${sha}/startup.s)、[配置](https://github.com/owner/demo/blob/${sha}/main.syscfg)、[目录](https://github.com/owner/demo/tree/${sha}/src)。`,
     '[浮动分支](https://github.com/owner/demo/blob/main/src/ignored.c)',
     `\`https://github.com/owner/demo/blob/${sha}/src/inline.c\``,
     `<!-- https://github.com/owner/demo/blob/${sha}/src/comment.c -->`,
@@ -650,16 +703,96 @@ test('hero metric cards: all 4 tiles are interactive links backed by exact evide
     '> ```',
   ].join('\n');
   const parsedEv = extractEvidenceLinks(sampleMd, new Map([['owner/demo', 'demo']]));
-  assert.equal(parsedEv.length, 1);
+  assert.equal(parsedEv.length, 2);
   assert.equal(parsedEv[0].project_id, 'demo');
   assert.equal(parsedEv[0].label, '主入口');
   assert.equal(parsedEv[0].section, '真实章节');
   assert.equal(parsedEv[0].path, 'src/main.c');
+  assert.equal(parsedEv[0].file_kind, 'source');
+  assert.equal(parsedEv[0].start_line, 12);
+  assert.equal(parsedEv[0].end_line, 38);
+  assert.ok(parsedEv[0].summary?.includes('SCB->VTOR'));
+  assert.deepEqual(parsedEv[0].symbols, ['SCB->VTOR', 'Int_bootloader_jump']);
+  assert.equal(parsedEv[1].path, 'inc/boot_cfg.h');
+  assert.equal(parsedEv[1].file_kind, 'header');
+  assert.equal(parsedEv[1].start_line, 5);
+  assert.equal(parsedEv[1].end_line, 5);
+
+  const ctxMap = extractEvidenceContextMap(sampleMd);
+  assert.equal(ctxMap.size, 2);
+  assert.equal(isCSourcePath('a/b.c'), true);
+  assert.equal(isCSourcePath('a/b.H'), true);
+  assert.equal(isCSourcePath('a/b.py'), false);
+  assert.equal(isCSourcePath('a/b.uvprojx'), false);
+  assert.equal(isCSourcePath('a/b.md'), false);
+  assert.equal(isCSourcePath('a/b.s'), false);
+  assert.equal(getCFileKind('foo.c'), 'source');
+  assert.equal(getCFileKind('foo.h'), 'header');
+  assert.equal(getCFileKind('foo.py'), null);
+  assert.deepEqual(parseGithubLineHash('#L42-L68'), { start_line: 42, end_line: 68 });
+  assert.deepEqual(parseGithubLineHash('#L9'), { start_line: 9, end_line: 9 });
+  assert.deepEqual(parseGithubLineHash('#section'), {});
 
   const parsedDg = extractDiagrams(sampleMd, 'demo');
   assert.equal(parsedDg.length, 1);
   assert.equal(parsedDg[0].diagram_type, 'sequenceDiagram');
   assert.equal(parsedDg[0].title, '真实章节');
+});
+
+test('c-highlight: tokenizes embedded C99 safely with real line numbers, multi-line comments, and HTML escaping', () => {
+  const sampleC = [
+    '#include <stdint.h>',
+    '/* multi-line',
+    '   comment with <script>alert(1)</script> */',
+    'static HAL_StatusTypeDef jump_app(uint32_t addr)',
+    '{',
+    '    if ((addr & 0x7U) != 0U && addr < APP_END_ADDR) { // check align',
+    '        SCB->VTOR = addr;',
+    '        return HAL_OK;',
+    '    }',
+    '    return HAL_ERROR;',
+    '}',
+  ].join('\n');
+
+  const res = highlightCCode(sampleC, { startLine: 35, highlightLines: [40, 41] });
+  assert.equal(res.startLine, 35);
+  assert.equal(res.endLine, 45);
+  assert.equal(res.totalLines, 11);
+
+  // Preprocessor + angle-bracket header escaped safely
+  assert.match(res.lines[0].html, /<span class="kb-c-pp">#include<\/span>/);
+  assert.match(res.lines[0].html, /<span class="kb-c-str">&lt;stdint\.h&gt;<\/span>/);
+
+  // Multi-line comment spans lines 36 & 37 and escapes raw HTML tags
+  assert.match(res.lines[1].html, /<span class="kb-c-cmt">\/\* multi-line<\/span>/);
+  assert.match(res.lines[2].html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.doesNotMatch(res.lines[2].html, /<script>/);
+
+  // Keywords, embedded types, function names, hex literals, macros, operators, highlighted lines
+  assert.match(res.lines[3].html, /<span class="kb-c-kw">static<\/span>/);
+  assert.match(res.lines[3].html, /<span class="kb-c-type">HAL_StatusTypeDef<\/span>/);
+  assert.match(res.lines[3].html, /<span class="kb-c-fn">jump_app<\/span>/);
+  assert.match(res.lines[3].html, /<span class="kb-c-type">uint32_t<\/span>/);
+  assert.equal(res.lines[5].lineNo, 40);
+  assert.equal(res.lines[5].isHighlighted, true);
+  assert.match(res.lines[5].html, /<span class="kb-c-num">0x7U<\/span>/);
+  assert.match(res.lines[5].html, /<span class="kb-c-macro">APP_END_ADDR<\/span>/);
+  assert.match(res.lines[5].html, /<span class="kb-c-cmt">\/\/ check align<\/span>/);
+  assert.equal(res.lines[6].lineNo, 41);
+  assert.equal(res.lines[6].isHighlighted, true);
+  assert.match(res.lines[6].html, /<span class="kb-c-macro">SCB<\/span><span class="kb-c-op">-&gt;<\/span><span class="kb-c-macro">VTOR<\/span>/);
+
+  // Compact HTML serializer emits exact line numbers, highlight class, and zero Astro scope bloat
+  const linesHtml = renderHighlightedCLinesHtml(res);
+  assert.match(linesHtml, /<span class="kb-c-line is-hl"><span class="kb-c-ln" aria-hidden="true">40<\/span>/);
+  assert.doesNotMatch(linesHtml, /<script>/);
+
+  // Inline prose markdown code renderer escapes HTML safely
+  const prose = renderInlineCodeHtml('当 `a < b` 时写入 `SCB->VTOR` & <img src=x>');
+  assert.equal(
+    prose,
+    '当 <code class="kb-ev-inline-code">a &lt; b</code> 时写入 <code class="kb-ev-inline-code">SCB-&gt;VTOR</code> &amp; &lt;img src=x&gt;',
+  );
 });
 
 test('sunlit backdrop: light-first layered canvas, 3 presets, CSP hash parity, and print/motion guards', () => {

@@ -10,5 +10,13 @@
   "is_fork": false,
   "is_archived": false,
   "primary_language": "C",
-  "stars": 0
+  "stars": 0,
+  "source_blobs": {
+    "Core/Inc/stm32f4xx_hal_conf.h": "5cd71a4dfeefabe03f299682dd04a9f606e75796",
+    "application/app_diag.h": "707e3a4d866875830c6030e1da126a68e51ed368",
+    "application/app_imu.c": "887e09788aa7cbaf69b1dff356428d0f2cd9ca61",
+    "application/app_task.c": "892ba313915b034f5c91842de796974749c81039",
+    "interface/kt6368a.c": "af6ceb14b740fe07c93575d4fbca0a5b5c513480",
+    "interface/lcd.c": "ee070114cfd252afd85cc57506c807461860548d"
+  }
 }

@@ -13,7 +13,10 @@ from urllib.parse import quote
 
 import yaml
 
-from lint_kb import ROOT, SLUG, SNAPSHOT_FILES, load_notes, load_yaml, redact_secrets, secret_hits, snapshot_inventory_errors
+from lint_kb import (
+    ROOT, SHA, SLUG, SNAPSHOT_FILES, checked_snapshot_path, git_blob_sha, load_notes, load_yaml,
+    read_source_anchor_specs, redact_secrets, secret_hits, snapshot_inventory_errors, source_text, valid_source_path,
+)
 
 REGISTRY = ROOT / "registry.yaml"
 FIELDS = (
@@ -40,19 +43,22 @@ class GitHubError(ValueError):
         self.status = status
 
 
-def gh(*args, decode=True):
+def gh(*args, decode=True, raw=False):
     env = os.environ.copy()
     env.update(GH_PROMPT_DISABLED="1", GH_PAGER="cat", GH_NO_UPDATE_NOTIFIER="1")
-    result = subprocess.run(["gh", *args], env=env, capture_output=True, encoding="utf-8", errors="replace")
+    result = subprocess.run(["gh", *args], env=env, capture_output=True)
     if result.returncode:
-        status = re.search(r"\bHTTP (\d{3})\b", result.stderr)
+        status = re.search(rb"\bHTTP (\d{3})\b", result.stderr)
         if status:
             code = int(status[1])
             raise GitHubError(f"GitHub HTTP {code} ({args[0]})", code)
         raise GitHubError(f"gh {args[0]} 失败，请检查 gh auth status 和 GitHub 网络连接")
+    if raw:
+        return result.stdout
+    stdout = result.stdout.decode("utf-8", errors="replace").replace("\r\n", "\n").replace("\r", "\n")
     if decode:
-        return json.loads(result.stdout)
-    return result.stdout
+        return json.loads(stdout)
+    return stdout
 
 
 def inventory(owner):
@@ -183,12 +189,12 @@ def blocked_path(path, kind):
     return any(part.lower() in SKIP_DIRS for part in directories)
 
 
-def tree_paths(repository, tree_sha):
+def tree_entries(repository, tree_sha):
     endpoint = f"repos/{repository}/git/trees/"
     result = gh("api", f"{endpoint}{tree_sha}?recursive=1")
     if not result["truncated"]:
-        return [entry["path"] for entry in result["tree"] if not blocked_path(entry["path"], entry["type"])]
-    paths = []
+        return {entry["path"]: entry for entry in result["tree"] if not blocked_path(entry["path"], entry["type"])}
+    entries = {}
     pending = [("", tree_sha)]
     while pending:
         prefix, sha = pending.pop()
@@ -199,10 +205,14 @@ def tree_paths(repository, tree_sha):
             path = prefix + entry["path"]
             if blocked_path(path, entry["type"]):
                 continue
-            paths.append(path)
+            entries[path] = entry
             if entry["type"] == "tree":
                 pending.append((path + "/", entry["sha"]))
-    return paths
+    return entries
+
+
+def tree_paths(repository, tree_sha):
+    return list(tree_entries(repository, tree_sha))
 
 
 def download_readme(repository, sha):
@@ -214,18 +224,140 @@ def download_readme(repository, sha):
         return "# README\n\n此提交没有 GitHub 可识别的 README。\n"
 
 
-def sync_one(key, item, repo, force=False, registry=None):
-    if not re.fullmatch(SLUG, key):
-        raise ValueError(f"非法快照 ID：{key}")
+def source_paths_by_project():
+    paths = {}
+    for spec in read_source_anchor_specs():
+        if not isinstance(spec, dict):
+            raise ValueError("source_anchors.yaml: 源码精讲项必须是映射")
+        key, path = spec.get("project_id"), spec.get("path")
+        if not isinstance(key, str) or not re.fullmatch(SLUG, key) or not valid_source_path(path):
+            raise ValueError("source_anchors.yaml: project_id 或 .c/.h 相对路径非法")
+        paths.setdefault(key, set()).add(path)
+    return {key: sorted(project_paths) for key, project_paths in paths.items()}
+
+
+def cached_sources(key, meta, paths):
+    blobs = meta.get("source_blobs", {})
+    if not isinstance(blobs, dict):
+        raise ValueError(f"{key}: meta.json 的 source_blobs 必须是映射")
+    cached = {}
+    for path in paths:
+        source = checked_snapshot_path(key, "sources", *path.split("/"))
+        if source.is_file():
+            raw = source.read_bytes()
+            if blobs.get(path) == git_blob_sha(raw):
+                source_text(raw, path)
+                cached[path] = raw
+    return cached
+
+
+def stage_sources(staged, repository, sha, paths, entries, cached):
+    blobs = {}
+    spelling = {}
+    for path in paths:
+        entry = entries.get(path, {})
+        if entry.get("type") != "blob" or entry.get("mode") not in {"100644", "100755"}:
+            raise ValueError(f"{path}: 固定提交中须为普通 C 文件，禁止符号链接")
+        for prefix in (PurePosixPath(path), *PurePosixPath(path).parents):
+            name = prefix.as_posix()
+            if spelling.setdefault(name.casefold(), name) != name:
+                raise ValueError(f"{path}: 源码缓存路径大小写冲突")
+        raw = cached.get(path)
+        if raw is None:
+            endpoint = f"repos/{repository}/contents/{quote(path)}?ref={sha}"
+            raw = gh("api", endpoint, "-H", "Accept: application/vnd.github.raw+json", raw=True)
+        source_text(raw, path)
+        if git_blob_sha(raw) != entry["sha"]:
+            raise ValueError(f"{path}: 源码字节与固定提交的 Git blob 不一致")
+        target = staged / "sources" / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(raw)
+        blobs[path] = entry["sha"]
+    return blobs
+
+
+def replace_snapshot(staged, directory, updated_registry=None):
+    backup = staged.with_name(staged.name + ".previous")
+    if directory.exists():
+        directory.replace(backup)
+    try:
+        staged.replace(directory)
+        if updated_registry is not None:
+            write_registry(updated_registry)
+    except (OSError, ValueError):
+        if directory.exists():
+            directory.replace(staged)
+        if backup.exists():
+            backup.replace(directory)
+        raise
+    if backup.exists():
+        shutil.rmtree(backup, ignore_errors=True)
+
+
+def sync_pinned_sources(key, item, paths, force=False):
+    directory = checked_snapshot_path(key)
+    sources = checked_snapshot_path(key, "sources")
+    if not paths and not sources.exists():
+        return
+    sha = item.get("snapshot_commit")
+    if not isinstance(sha, str) or not SHA.fullmatch(sha):
+        raise ValueError(f"{key}: 请先同步固定 SHA 的项目快照")
+    meta_path = checked_snapshot_path(key, "meta.json")
+    if not meta_path.is_file():
+        raise ValueError(f"{key}: 缺少固定 SHA 的快照元数据，请先同步项目快照")
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    if not isinstance(meta, dict) or meta.get("commit") != sha or meta.get("repo") != item["repo"]:
+        raise ValueError(f"{key}: 快照元数据的仓库或提交与 registry.yaml 不一致")
+    if paths:
+        local_tree = checked_snapshot_path(key, "tree.txt").read_text(encoding="utf-8").splitlines()
+        if not set(paths).issubset(local_tree):
+            raise ValueError(f"{key}: 源码路径不在固定 SHA 的 tree.txt 中")
+    cached = {}
+    if force:
+        for path in paths:
+            checked_snapshot_path(key, "sources", *path.split("/"))
+    else:
+        cached = cached_sources(key, meta, paths)
+        if set(cached) == set(meta.get("source_blobs", {})) == set(paths) and (paths or not sources.exists()):
+            print(f"源码已最新 {key} {sha[:12]}（{len(paths)} 个文件）", flush=True)
+            return
+    repository = item["repo"]
+    entries = {}
+    if paths:
+        commit = gh("api", f"repos/{repository}/git/commits/{sha}")
+        if commit.get("sha") != sha:
+            raise ValueError(f"{key}: GitHub 返回的提交与 snapshot_commit 不一致")
+        entries = tree_entries(repository, commit["tree"]["sha"])
+    with TemporaryDirectory(dir=directory.parent, prefix=f".{key}-") as temporary:
+        staged = Path(temporary)
+        blobs = stage_sources(staged, repository, sha, paths, entries, cached)
+        meta.pop("source_blobs", None)
+        if blobs:
+            meta["source_blobs"] = blobs
+        for name in ("tree.txt", "readme.md"):
+            shutil.copyfile(checked_snapshot_path(key, name), staged / name)
+        write_text(staged / "meta.json", json.dumps(meta, ensure_ascii=False, indent=2) + "\n")
+        replace_snapshot(staged, directory)
+    print(f"已同步源码 {key} {sha[:12]}（{len(paths)} 个文件）", flush=True)
+
+
+def sync_one(key, item, repo, force=False, registry=None, source_paths=()):
+    directory = checked_snapshot_path(key)
     repository = repo["nameWithOwner"]
     commit = head(repo)
     sha = commit["sha"]
-    directory = ROOT / "raw" / "snapshots" / key
     if not force and sha == item.get("snapshot_commit") and all((directory / name).is_file() for name in SNAPSHOT_FILES):
+        sync_pinned_sources(key, item, source_paths)
         print(f"已最新 {key} {sha[:12]}", flush=True)
         return
 
-    paths = tree_paths(repository, commit["commit"]["tree"]["sha"])
+    tree_sha = commit["commit"]["tree"]["sha"]
+    entries = {}
+    if source_paths:
+        entries = tree_entries(repository, tree_sha)
+        paths = entries.keys()
+    else:
+        paths = tree_paths(repository, tree_sha)
     readme = download_readme(repository, sha)
     info = {
         "id": key, "repo": repository, "repo_url": repo["url"], "description": repo["description"],
@@ -238,35 +370,21 @@ def sync_one(key, item, repo, force=False, registry=None):
     files = {
         "tree.txt": "\n".join(sorted(paths)) + "\n",
         "readme.md": readme.strip("\ufeff\r\n") + "\n",
-        "meta.json": json.dumps(info, ensure_ascii=False, indent=2) + "\n",
     }
-    for name, content in files.items():
-        hits = list(secret_hits(content))
-        if hits:
-            label, line = hits[0]
-            raise ValueError(f"{key}/{name}:{line}: 疑似凭据 ({label})")
     directory.parent.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory(dir=directory.parent, prefix=f".{key}-") as temporary:
         staged = Path(temporary)
-        backup = staged.with_name(staged.name + ".previous")
+        if source_paths:
+            info["source_blobs"] = stage_sources(staged, repository, sha, source_paths, entries, {})
+        files["meta.json"] = json.dumps(info, ensure_ascii=False, indent=2) + "\n"
         for name, content in files.items():
             write_text(staged / name, content)
 
-        if directory.exists():
-            directory.replace(backup)
-        try:
-            staged.replace(directory)
-            if registry is not None and item.get("snapshot_commit") != sha:
-                updated = {**registry["repos"], key: {**item, "snapshot_commit": sha}}
-                write_registry({**registry, "repos": updated})
-        except (OSError, ValueError):
-            if directory.exists():
-                directory.replace(staged)
-            if backup.exists():
-                backup.replace(directory)
-            raise
-        if backup.exists():
-            shutil.rmtree(backup, ignore_errors=True)
+        updated_registry = None
+        if registry is not None and item.get("snapshot_commit") != sha:
+            updated = {**registry["repos"], key: {**item, "snapshot_commit": sha}}
+            updated_registry = {**registry, "repos": updated}
+        replace_snapshot(staged, directory, updated_registry)
     item["snapshot_commit"] = sha
     print(f"已同步 {key} {sha[:12]}", flush=True)
 
@@ -316,6 +434,12 @@ def drift(registry, repos, as_json=False):
         print(row["id"] or row["repo"], *commits, DRIFT_LABELS[row["status"]], sep="\t", flush=True)
 
 
+def require_public_repo(repository):
+    remote = gh("api", f"repos/{repository}", "--jq", "{private, visibility}")
+    if remote.get("private") is not False or remote.get("visibility") != "public":
+        raise ValueError("源仓当前不是公开仓库")
+
+
 def check_public_sources(registry):
     notes, errors = load_notes()
     errors.extend(snapshot_inventory_errors(registry["repos"]))
@@ -329,9 +453,7 @@ def check_public_sources(registry):
         )
         for repository in sorted(repositories):
             try:
-                remote = gh("api", f"repos/{repository}", "--jq", "{private, visibility}")
-                if remote.get("private") is not False or remote.get("visibility") != "public":
-                    raise ValueError("源仓当前不是公开仓库")
+                require_public_repo(repository)
             except (OSError, ValueError) as error:
                 errors.append(f"{repository}: {error}")
     if errors:
@@ -347,21 +469,25 @@ def main():
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--discover", action="store_true")
     action.add_argument("--sync", nargs="?", const="", metavar="ID")
+    action.add_argument("--sync-sources", nargs="?", const="", metavar="ID", help="按已登记的快照 SHA 缓存精讲源码")
     action.add_argument("--check-drift", action="store_true")
     action.add_argument("--check-public", action="store_true", help="实时检查公开档案和快照的源仓可见性")
     parser.add_argument("--all", action="store_true")
     parser.add_argument("--force", action="store_true", help="强制重新下载选定快照")
     parser.add_argument("--json", action="store_true", help="将漂移报告输出为 JSON")
     args = parser.parse_args()
-    if (args.all and args.sync != "") or (args.sync == "" and not args.all):
-        parser.error("使用 --sync <id> 或 --sync --all")
-    if args.force and args.sync is None:
-        parser.error("--force 仅用于 --sync")
+    target = args.sync
+    if args.sync_sources is not None:
+        target = args.sync_sources
+    if (args.all and target != "") or (target == "" and not args.all):
+        parser.error("使用 --sync <id> / --sync --all 或 --sync-sources <id> / --sync-sources --all")
+    if args.force and target is None:
+        parser.error("--force 仅用于 --sync 或 --sync-sources")
     if args.json and not args.check_drift:
         parser.error("--json 仅用于 --check-drift")
     lock = None
     try:
-        if args.discover or args.sync is not None:
+        if args.discover or target is not None:
             lock_path = ROOT / ".snapshot-sync.lock"
             with lock_path.open("x"):
                 lock = lock_path
@@ -370,7 +496,8 @@ def main():
             registry = load_yaml(REGISTRY)
         if args.check_public:
             return check_public_sources(registry)
-        owner, repos = inventory(registry["owner"])
+        if args.sync_sources is None:
+            owner, repos = inventory(registry["owner"])
         if args.discover:
             registry = discovered(registry, owner, repos)
             write_registry(registry)
@@ -385,13 +512,18 @@ def main():
         if args.check_drift:
             drift(registry, repos, as_json=args.json)
             return 0
-        if args.all:
+        anchor_paths = source_paths_by_project()
+        if args.all and args.sync_sources is not None:
+            keys = sorted(anchor_paths.keys() | {
+                key for key in registry["repos"] if (ROOT / "raw" / "snapshots" / key / "sources").exists()
+            })
+        elif args.all:
             keys = [
                 key for key, item in registry["repos"].items()
                 if item["tier"] != "ignore" and item["repo"].casefold() in repos
             ]
         else:
-            keys = [args.sync]
+            keys = [target]
         failed = False
         for key in keys:
             try:
@@ -400,10 +532,18 @@ def main():
                     raise ValueError(f"{key}: 未登记，请先运行 --discover")
                 if item["tier"] == "ignore":
                     raise ValueError(f"{key}: 已忽略，请先审核分级")
-                repo = repos.get(item["repo"].casefold())
-                if repo is None or not repo["defaultBranchRef"]:
-                    raise ValueError(f"{key}: 当前公开清单中没有可同步的默认分支")
-                sync_one(key, item, repo, force=args.force, registry=registry)
+                paths = anchor_paths.get(key, ())
+                if paths and (item.get("available") is not True or item.get("visibility") != "public"
+                              or item.get("publish_policy") != "public"):
+                    raise ValueError(f"{key}: 仅缓存已登记为公开发布的源码")
+                if args.sync_sources is not None:
+                    require_public_repo(item["repo"])
+                    sync_pinned_sources(key, item, paths, force=args.force)
+                else:
+                    repo = repos.get(item["repo"].casefold())
+                    if repo is None or not repo["defaultBranchRef"]:
+                        raise ValueError(f"{key}: 当前公开清单中没有可同步的默认分支")
+                    sync_one(key, item, repo, force=args.force, registry=registry, source_paths=paths)
             except (OSError, ValueError) as error:
                 print(f"ERROR {redact_secrets(str(error))}", file=sys.stderr, flush=True)
                 failed = True

@@ -10,5 +10,11 @@
   "is_fork": false,
   "is_archived": false,
   "primary_language": "C",
-  "stars": 0
+  "stars": 0,
+  "source_blobs": {
+    "stm32f407vet6/application/app_bootloader.c": "1eedc5a2ef274ba2737d4ddeb998daf7116c7f7e",
+    "stm32f407vet6/interface/int_bootloader.c": "0258481517627ea869a015693c50180140955f5c",
+    "stm32f407vet6led/application/app_update.c": "1b8fc58ec25ac72bdad96b4fed300683c0e4c93b",
+    "stm32f407vet6reset/interface/int_bootloader.c": "87429aa0a611e36b9626c38911e832366ff6e31b"
+  }
 }

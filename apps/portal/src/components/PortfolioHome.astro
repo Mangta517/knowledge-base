@@ -5,16 +5,20 @@ import ReadingTrackStepper from './ReadingTrackStepper.astro';
 import {
   DECISION_STATUS_LABELS,
   DOMAIN_LABELS,
-   getReadingMinutes,
+  getDocCAnchorCount,
+  getReadingMinutes,
   getReadingTracks,
   getRelatedTroubleshooting,
+  getSourceAnchorCatalog,
   loadKbData,
   safeExternalUrl,
   withBase,
   withDocRoute,
 } from '../lib/kb-data';
 
-const { catalog, stats, byId, allItems } = loadKbData();
+const bundle = loadKbData();
+const { catalog, stats, byId, allItems } = bundle;
+const sourceAnchorCatalog = getSourceAnchorCatalog(bundle);
 const { counts } = stats;
 const tierOrder = { core: 0, active: 1, archive: 2 };
 const projects = [...catalog.projects].sort((a, b) => {
@@ -105,7 +109,7 @@ const groups: Array<{ id: string; label: string; colorClass: string; items: Libr
       route: t.route,
       readingMinutes: getReadingMinutes(t),
       mermaidCount: t.mermaid_count ?? 0,
-      evidenceCount: t.evidence_count ?? 0,
+      evidenceCount: getDocCAnchorCount(t.id, bundle),
       meta: DOMAIN_LABELS[t.domain] || t.domain,
       metaTone: 'neutral',
       relatedProjects: mapRelatedProjects(t.related_projects),
@@ -123,7 +127,7 @@ const groups: Array<{ id: string; label: string; colorClass: string; items: Libr
       route: ts.route,
       readingMinutes: getReadingMinutes(ts),
       mermaidCount: ts.mermaid_count ?? 0,
-      evidenceCount: ts.evidence_count ?? 0,
+      evidenceCount: getDocCAnchorCount(ts.id, bundle),
       meta: SEVERITY_SHORT[ts.severity] || ts.severity,
       metaTone: ts.severity === 'high' ? 'danger' : 'neutral',
       phases: ts.phases,
@@ -144,7 +148,7 @@ const groups: Array<{ id: string; label: string; colorClass: string; items: Libr
       route: a.route,
       readingMinutes: getReadingMinutes(a),
       mermaidCount: a.mermaid_count ?? 0,
-      evidenceCount: a.evidence_count ?? 0,
+      evidenceCount: getDocCAnchorCount(a.id, bundle),
       meta: DECISION_STATUS_LABELS[a.decision_status] || a.decision_status,
       metaTone: 'accent',
       relatedProjects: mapRelatedProjects(a.related_projects),
@@ -161,7 +165,7 @@ const groups: Array<{ id: string; label: string; colorClass: string; items: Libr
       route: s.route,
       readingMinutes: getReadingMinutes(s),
       mermaidCount: s.mermaid_count ?? 0,
-      evidenceCount: s.evidence_count ?? 0,
+      evidenceCount: getDocCAnchorCount(s.id, bundle),
       meta: '横向对照',
       metaTone: 'accent',
       relatedProjects: mapRelatedProjects(s.related_projects),
@@ -171,9 +175,7 @@ const groups: Array<{ id: string; label: string; colorClass: string; items: Libr
 
 const latestUpdate = stats.recent_updates[0]?.updated;
 const synthesis = catalog.synthesis[0];
-const totalEvidence =
-  counts.total_evidence_links ??
-  allItems.reduce((sum, item) => sum + (item.evidence_count ?? 0), 0);
+const totalEvidence = sourceAnchorCatalog.items.length;
 const totalMermaids =
   counts.total_mermaids ??
   allItems.reduce((sum, item) => sum + (item.mermaid_count ?? 0), 0);
@@ -233,7 +235,7 @@ const heroDomains = [
         <a
           class="kb-metric-card kb-type-topic"
           href={withBase('/evidence/')}
-          title="打开全部公开源码锚点索引"
+          title="打开全部 C 语言源码精讲与锚点索引"
         >
           <div class="kb-metric-row">
             <span class="kb-metric-num" data-count-to={totalEvidence}>{totalEvidence}</span>
@@ -242,7 +244,9 @@ const heroDomains = [
             </svg>
           </div>
           <span class="kb-metric-foot">
-            <span class="kb-metric-label">源码锚点</span>
+            <span class="kb-metric-label">
+              {sourceAnchorCatalog.mode === 'curated' ? 'C 源码精讲' : 'C 源码锚点'}
+            </span>
             <span class="kb-metric-go" aria-hidden="true">→</span>
           </span>
         </a>
@@ -594,11 +598,11 @@ const heroDomains = [
                   <>
                     <p class="kb-bento-desc" title={item.description}>{item.description}</p>
                     {item.evidenceCount > 0 && (
-                      <div class="kb-bento-meter" aria-label={`包含 ${item.evidenceCount} 处源码锚点`}>
+                      <div class="kb-bento-meter" aria-label={`包含 ${item.evidenceCount} 处 C 源码锚点`}>
                         <div class="kb-bento-meter-track">
                           <span class="kb-bento-meter-fill" style={`--meter-w: ${evidencePct}%;`}></span>
                         </div>
-                        <span class="kb-bento-meter-num">{item.evidenceCount} 锚点</span>
+                        <span class="kb-bento-meter-num">{item.evidenceCount} C 源码</span>
                       </div>
                     )}
                   </>

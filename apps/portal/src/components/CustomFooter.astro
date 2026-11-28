@@ -1,5 +1,6 @@
 ---
 import DefaultFooter from '@astrojs/starlight/components/Footer.astro';
+import DocSourceAnchors from './DocSourceAnchors.astro';
 import MermaidInit from './MermaidInit.astro';
 import { loadKbData, normalizeDocKey, withBase } from '../lib/kb-data';
 
@@ -18,6 +19,12 @@ const shouldLoadMermaid =
   cleanId === 'diagrams' || (!isNoMermaidSplash && (doc ? (doc.mermaid_count ?? 1) > 0 : true));
 ---
 
+{doc && (
+  <DocSourceAnchors
+    docId={doc.id}
+    projectRepo={doc.type === 'project' ? doc.repo : undefined}
+  />
+)}
 <DefaultFooter {...Astro.props}><slot /></DefaultFooter>
 <nav class="kb-footer-index" aria-label="公开索引">
   <span>公开数据与 AI 索引</span>
@@ -26,7 +33,7 @@ const shouldLoadMermaid =
   <a href={withBase('/data/catalog.json')}>catalog.json</a>
   <a href={withBase('/data/graph.json')}>graph.json</a>
   <a href={withBase('/data/stats.json')}>stats.json</a>
-  <a href={withBase('/evidence/')}>源码锚点</a>
+  <a href={withBase('/evidence/')}>C 源码精讲</a>
   <a href={withBase('/diagrams/')}>架构图画廊</a>
   <a href={withBase('/graph/')}>知识图谱</a>
 </nav>
