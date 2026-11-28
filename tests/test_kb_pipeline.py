@@ -63,6 +63,82 @@ class LintTests(TemporaryWorkspace):
         self.write("raw/snapshots/demo/readme.md", "README")
         self.write("raw/snapshots/demo/tree.txt", "src\nsrc/main file.c\nsrc/name(x).c\nMakefile\n")
 
+    def source_anchor(self):
+        self.snapshot()
+        self.project.body = "## 接口 · USART1\n\n" + REVIEW
+        raw = b"/* header */\r\n\tint service(void)\r\n\t{\r\n\t\treturn 1;  \r\n\t}\r\n"
+        path = "src/main file.c"
+        source = self.write(f"raw/snapshots/demo/sources/{path}", "")
+        source.write_bytes(raw)
+        self.write("raw/snapshots/demo/meta.json", json.dumps({
+            "commit": SHA, "source_blobs": {path: lint.git_blob_sha(raw)},
+        }))
+        return {
+            "id": "demo-service", "project_id": "demo", "path": path, "symbol": "service",
+            "start_line": 2, "end_line": 5, "highlight_lines": [2, 4], "title": "串口服务",
+            "category": "外设驱动", "summary": "处理串口输入。", "engineering_details": ["按行读取。"],
+            "related_docs": [{"id": "demo", "section": "接口 · USART1", "section_slug": "接口--usart1"}],
+        }
+
+    def test_source_anchor_rejects_invalid_declarations_and_cache(self):
+        spec = self.source_anchor()
+        draft = lint.Note(Path("wiki/topics/draft.md"), {"draft": True}, "")
+        notes = {"demo": self.project, "draft": draft}
+        _, trees = lint.check_registry(notes, self.repos)
+        for change, reason in (
+            ({"id": "demo"}, "唯一"),
+            ({"path": "Makefile"}, ".c 或 .h"),
+            ({"path": "src/not-listed.c"}, "目录树"),
+            ({"path": "../main.c"}, "目录树"),
+            ({"path": "src/name(x).c"}, "缺少源码缓存"),
+            ({"end_line": 6}, "超出源码行号范围"),
+            ({"start_line": True}, "超出源码行号范围"),
+            ({"highlight_lines": [2, 6]}, "highlight_lines"),
+            ({"highlight_lines": [4, 2, 2]}, "highlight_lines"),
+            ({"symbol": "serv"}, "symbol"),
+            ({"category": "未知"}, "category"),
+            ({"related_docs": [{"id": "draft"}]}, "未发布"),
+            ({"related_docs": [{"id": "demo", "section_slug": "不存在"}]}, "未命中 H2/H3"),
+        ):
+            with self.subTest(change=change):
+                self.write(lint.SOURCE_ANCHORS_PATH, json.dumps([{**spec, **change}]))
+                anchors, errors = lint.load_source_anchors(notes, self.repos, trees)
+                self.assertEqual(anchors, [])
+                self.assertIn(reason, errors[0])
+        self.write(lint.SOURCE_ANCHORS_PATH, json.dumps([spec]))
+        with patch.dict(self.repos["demo"], {"snapshot_commit": NEW_SHA}):
+            self.assertIn("snapshot_commit", lint.load_source_anchors(notes, self.repos, trees)[1][0])
+        self.write("raw/snapshots/demo/sources/src/main file.c", "int service(void);")
+        self.assertIn("blob 校验值不一致", lint.load_source_anchors(notes, self.repos, trees)[1][0])
+
+    def test_build_indexes_slices_offline_and_reuses_output_bytes(self):
+        spec = self.source_anchor()
+        self.project.meta["created"] = self.project.meta["created"].isoformat()
+        self.write(lint.SOURCE_ANCHORS_PATH, json.dumps([spec]))
+        self.write("registry.yaml", json.dumps({"owner": "owner", "repos": self.repos}))
+        with (patch.object(indexes, "load_notes", return_value=({"demo": self.project}, [])),
+              patch.object(sys, "argv", ["build_indexes.py"]), contextlib.redirect_stdout(io.StringIO())):
+            self.assertEqual(indexes.main(), 0)
+            before = {path: (self.root / path).read_bytes() for path in indexes.JSON_PATHS}
+            self.assertEqual(indexes.main(), 0)
+        self.assertEqual({path: (self.root / path).read_bytes() for path in before}, before)
+        catalog, _, stats = (json.loads(raw) for raw in before.values())
+        anchor, = catalog["source_anchors"]
+        self.assertEqual(anchor["code"], "\tint service(void)\n\t{\n\t\treturn 1;  \n\t}")
+        self.assertEqual(anchor["url"], f"https://github.com/owner/demo/blob/{SHA}/src/main%20file.c#L2-L5")
+        self.assertEqual(anchor["highlight_lines"], [2, 4])
+        self.assertEqual(stats["counts"]["total_source_anchors"], 1)
+        self.assertEqual(stats["counts"]["total_source_lines"], 4)
+        self.assertEqual(stats["by_anchor_category"], {"外设驱动": 1})
+
+    def test_evidence_stats_deduplicate_files_across_equivalent_urls(self):
+        base = f"https://github.com/owner/demo/blob/{SHA}"
+        self.project.body = f"{base}/main.c#L1\n{base}/main%2Ec#L9\n{base}/other.c\n{base}/config.ioc\n"
+        catalog, _, stats = indexes.build_data({"demo": self.project}, "owner")
+        self.assertEqual(catalog["projects"][0]["evidence_count"], 3)
+        self.assertEqual(stats["counts"]["unique_evidence_files"], 2)
+        self.assertEqual(stats["by_evidence_repo"], {"owner/demo": {"project_id": "demo", "count": 3, "unique_files": 2}})
+
     def test_frontmatter_fields_and_human_notes(self):
         malformed = self.write("wiki/projects/invalid.md", "---\n- list\n---\n")
         with self.assertRaisesRegex(ValueError, "YAML 映射"):
@@ -628,7 +704,7 @@ int port
         base = f"{repo}/blob/{SHA}/src"
         external = f"https://github.com/other/external/tree/{NEW_SHA}"
         body = (
-            f"<{external}>\n\n"
+            f"<{external}/directory.c>\n\n"
             f"## **接口** · `USART1`\n\n"
             f"<!-- {base}/comment.c\n## 隐藏标题\n-->\n\n"
             f"[`接收`驱动](<{base}/name\\(v2\\)%20test.c#L4-L8>)\n\n"
@@ -638,21 +714,23 @@ int port
             f"```md\n{base}/fenced.c\n```\n\n"
             f"{repo}/blob/main/src/not-pinned.c\n"
             f"{repo}/blob/{SHA}a/src/invalid-ref.c\n\n"
-            f"### 接口 · USART1\n\n{base}/main.c#L20\n"
+            f"### 接口 · USART1\n\n{base}/main.H#L20\n"
         )
+        body += "\n".join(f"{base}/config{suffix}" for suffix in (
+            ".md", ".uvprojx", ".ioc", ".py", ".s", ".syscfg", ".ccsproject", ".cproject",
+        ))
+        body += f"\n{repo}/tree/{SHA}/src/directory.h\nhttps://github.com/other/unverified/blob/{SHA}/external.c\n"
         note = lint.Note(Path("wiki/projects/demo.md"), {"title": "示例"}, body)
-        first, second, third = lint.extract_evidence_links(note, {"owner/demo": "demo"})
+        first, second = lint.extract_evidence_links(note, {"owner/demo": "demo"})
         self.assertEqual(first, {
-            "url": external, "repo": "other/external", "kind": "tree", "commit": NEW_SHA,
-            "path": "", "label": "other/external", "section": "",
-        })
-        self.assertEqual(second, {
             "url": f"{base}/name(v2)%20test.c#L4-L8", "repo": "Owner/Demo", "project_id": "demo", "kind": "blob",
             "commit": SHA, "path": "src/name(v2) test.c", "label": "接收驱动", "section": "接口 · USART1",
-            "section_slug": "接口--usart1",
+            "section_slug": "接口--usart1", "language": "c", "file_kind": "source", "start_line": 4, "end_line": 8,
         })
-        self.assertEqual(third["label"], "main.c")
-        self.assertEqual(third["section_slug"], "接口--usart1-1")
+        self.assertEqual(second["label"], "main.H")
+        self.assertEqual(second["section_slug"], "接口--usart1-1")
+        self.assertEqual(second["file_kind"], "header")
+        self.assertEqual((second["start_line"], second["end_line"]), (20, 20))
 
     def test_extract_diagrams_uses_visible_headings_and_top_level_fences(self):
         note = lint.Note(Path("wiki/projects/demo.md"), {"title": "文档标题"}, (
@@ -674,18 +752,6 @@ int port
             {"index": 3, "diagram_type": "stateDiagram-v2", "title": "重复", "section_slug": "重复-2",
              "source": "stateDiagram-v2\n[*] --> Idle"},
         ])
-
-    def test_evidence_stats_deduplicate_urls_without_fragments(self):
-        base = f"https://github.com/owner/demo/blob/{SHA}"
-        note = lint.Note(Path("wiki/topics/embedded/demo.md"), {
-            "title": "示例", "description": "专题示例", "type": "topic", "id": "demo", "tags": [],
-            "created": "2026-11-24", "updated": "2026-11-24", "draft": False, "domain": "embedded", "related_projects": [],
-        }, f"{base}/main.c#L1\n{base}/main.c#L9\n{base}/other.c\n\n```mermaid\ngraph TD\nA --> B\n```\n")
-        catalog, _, stats = indexes.build_data({"demo": note}, "owner")
-        self.assertEqual(catalog["topics"][0]["evidence_count"], 3)
-        self.assertEqual(stats["counts"]["unique_evidence_files"], 2)
-        self.assertEqual(stats["by_evidence_repo"], {"owner/demo": {"project_id": None, "count": 3, "unique_files": 2}})
-        self.assertEqual(stats["by_diagram_type"], {"flowchart": 1})
 
     def test_recent_updates_sort_by_date_then_type_then_id(self):
         entries = [
@@ -709,6 +775,81 @@ class SyncTests(TemporaryWorkspace):
         self.registry = {"owner": "owner", "repos": {"demo": self.item}}
         self.head = {"sha": SHA, "commit": {"tree": {"sha": NEW_SHA}, "committer": {"date": "2026-11-24"}}}
         self.enterContext(patch.object(sync, "head", return_value=self.head))
+
+    def test_pinned_source_sync_keeps_bytes_and_rolls_back_on_download_failure(self):
+        self.item.update(available=True, visibility="public", publish_policy="public")
+        sync.write_registry(self.registry)
+        self.write("raw/snapshots/demo/meta.json", json.dumps({"commit": SHA, "repo": "owner/demo"}))
+        self.write("raw/snapshots/demo/readme.md", "README")
+        self.write("raw/snapshots/demo/tree.txt", "src\nsrc/one file.c\nsrc/two.H\n")
+        paths = {"src/one file.c": b"int one;\r\n", "src/two.H": b"#define TWO 2\n"}
+        self.write(lint.SOURCE_ANCHORS_PATH, json.dumps([{"project_id": "demo", "path": path} for path in paths]))
+        entries = {path: {"type": "blob", "mode": "100644", "sha": lint.git_blob_sha(raw)} for path, raw in paths.items()}
+        raw_response = [*paths.values()]
+        directory = self.root / "raw/snapshots/demo"
+
+        def current_files():
+            return {path.relative_to(directory): path.read_bytes() for path in directory.rglob("*") if path.is_file()}
+
+        def github(*args, **kwargs):
+            endpoint = args[1]
+            if endpoint == "repos/owner/demo":
+                return {"private": False, "visibility": "public"}
+            if endpoint == f"repos/owner/demo/git/commits/{SHA}":
+                return {"sha": SHA, "tree": {"sha": NEW_SHA}}
+            self.assertIn(endpoint, {
+                f"repos/owner/demo/contents/src/one%20file.c?ref={SHA}", f"repos/owner/demo/contents/src/two.H?ref={SHA}",
+            })
+            self.assertEqual(args[2:], ("-H", "Accept: application/vnd.github.raw+json"))
+            self.assertTrue(kwargs["raw"])
+            response = raw_response.pop(0)
+            if isinstance(response, Exception):
+                raise response
+            return response
+
+        with (patch.object(sync, "gh", side_effect=github), patch.object(sync, "tree_entries", return_value=entries) as tree,
+              patch.object(sys, "argv", ["sync_github.py", "--sync-sources", "--all"]),
+              contextlib.redirect_stdout(io.StringIO())):
+            self.assertEqual(sync.main(), 0)
+            before = current_files()
+            for path, raw in paths.items():
+                self.assertEqual(before[Path("sources") / path], raw)
+            self.assertEqual(sync.main(), 0)
+            tree.assert_called_once()
+            secret = b"ghp_" + b"x" * 30
+            for failure, reason in ((secret, "疑似凭据"), (sync.GitHubError("下载失败"), "下载失败")):
+                with self.subTest(reason=reason):
+                    raw_response[:] = [paths["src/one file.c"], failure]
+                    with self.assertRaisesRegex(ValueError, reason):
+                        sync.sync_pinned_sources("demo", self.item, sorted(paths), force=True)
+                    self.assertEqual(current_files(), before)
+            with patch.dict(entries["src/two.H"], {"mode": "120000"}):
+                raw_response[:] = [paths["src/one file.c"]]
+                with self.assertRaisesRegex(ValueError, "禁止符号链接"):
+                    sync.sync_pinned_sources("demo", self.item, sorted(paths), force=True)
+                self.assertEqual(current_files(), before)
+            sync.sync_pinned_sources("demo", self.item, ())
+            self.assertFalse((directory / "sources").exists())
+            self.assertNotIn("source_blobs", json.loads((directory / "meta.json").read_bytes()))
+
+    def test_new_snapshot_replaces_old_source_cache_and_keeps_content_sha(self):
+        self.write("raw/snapshots/demo/sources/stale.c", "int stale;\n")
+        sync.write_registry(self.registry)
+        self.head["sha"] = NEW_SHA
+        raw = b"int replacement;\r\n"
+        entries = {"next.c": {"type": "blob", "mode": "100644", "sha": lint.git_blob_sha(raw)}}
+        with (patch.object(sync, "tree_entries", return_value=entries),
+              patch.object(sync, "download_readme", return_value="# README"),
+              patch.object(sync, "gh", return_value=raw) as gh, contextlib.redirect_stdout(io.StringIO())):
+            sync.sync_one("demo", self.item, self.remote, registry=self.registry, source_paths=["next.c"])
+        gh.assert_called_once_with(
+            "api", f"repos/owner/demo/contents/next.c?ref={NEW_SHA}", "-H", "Accept: application/vnd.github.raw+json", raw=True,
+        )
+        directory = self.root / "raw/snapshots/demo"
+        self.assertFalse((directory / "sources/stale.c").exists())
+        self.assertEqual((directory / "sources/next.c").read_bytes(), raw)
+        saved = lint.load_yaml(sync.REGISTRY)["repos"]["demo"]
+        self.assertEqual((saved["snapshot_commit"], saved["synced_commit"]), (NEW_SHA, SHA))
 
     def test_discovery_keeps_knowledge_base_in_inventory_as_ignored(self):
         repo = {**self.remote, "nameWithOwner": "Mangta517/Knowledge-Base", "diskUsage": 300,
@@ -859,11 +1000,22 @@ class CurrentRepositoryTests(unittest.TestCase):
         self.assertEqual(route_errors, [])
         presets, backdrop_errors = lint.load_backdrop_presets()
         self.assertEqual(backdrop_errors, [])
-        catalog, graph, stats = indexes.build_data(published, registry["owner"], tracks, presets)
+        _, trees = lint.check_registry(notes, registry["repos"])
+        anchors, anchor_errors = lint.load_source_anchors(notes, registry["repos"], trees)
+        self.assertEqual(anchor_errors, [])
+        catalog, graph, stats = indexes.build_data(published, registry["owner"], tracks, presets, anchors)
         self.assertIsNotNone(indexes.reuse_timestamp((catalog, graph, stats)))
         self.assertEqual(set(catalog), {
             "owner", "projects", "topics", "adrs", "troubleshooting", "synthesis", "link_map", "reading_tracks", "backdrop_presets",
+            "source_anchors",
         })
+        self.assertEqual(catalog["source_anchors"], anchors)
+        self.assertTrue(28 <= len(anchors) <= 40)
+        self.assertEqual({anchor["project_id"] for anchor in anchors}, {
+            "bootloader", "flight", "iwip", "mspm0g3507", "watch",
+        })
+        self.assertEqual(stats["counts"]["total_source_anchors"], len(anchors))
+        self.assertEqual(stats["counts"]["total_source_lines"], sum(len(anchor["code"].split("\n")) for anchor in anchors))
         self.assertEqual(catalog["reading_tracks"], tracks)
         self.assertEqual(catalog["backdrop_presets"], presets)
         self.assertEqual(catalog["link_map"], {key: note.route for key, note in published.items()})
@@ -871,7 +1023,7 @@ class CurrentRepositoryTests(unittest.TestCase):
         self.assertEqual(set(graph), {"nodes", "edges"})
         self.assertEqual(set(stats), {
             "counts", "by_tier", "by_domain", "by_tech_stack", "by_language", "by_evidence_repo", "by_diagram_type", "recent_updates",
-            "by_backdrop_motif",
+            "by_backdrop_motif", "by_anchor_category",
         })
         self.assertEqual(sum(repo["count"] for repo in stats["by_evidence_repo"].values()), stats["counts"]["total_evidence_links"])
         self.assertEqual(sum(stats["by_diagram_type"].values()), stats["counts"]["total_mermaids"])
@@ -903,7 +1055,11 @@ class CurrentRepositoryTests(unittest.TestCase):
                 for key in ("reading_minutes", "mermaid_count", "table_count", "evidence_count", "word_count"):
                     self.assertIs(type(item[key]), int)
                 self.assertIs(type(item["has_human_notes"]), bool)
-                pinned_links = [link for link in lint.source_links(note.body) if lint.SHA.fullmatch(link["ref"])]
+                pinned_links = [
+                    link for link in lint.source_links(note.body)
+                    if lint.SHA.fullmatch(link["ref"]) and link["kind"].lower() == "blob"
+                    and Path(link["path"]).suffix.lower() in {".c", ".h"}
+                ]
                 self.assertEqual(len(item["evidence_links"]), item["evidence_count"])
                 self.assertEqual(len(pinned_links), item["evidence_count"])
                 self.assertEqual(len(item["diagrams"]), item["mermaid_count"])

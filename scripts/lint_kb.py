@@ -1,14 +1,15 @@
 """Validate the published knowledge base and provide its shared Markdown parser."""
 
+import hashlib
 import json
 import os
 import re
 from bisect import bisect_right
 from dataclasses import dataclass
 from datetime import date
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from unicodedata import category
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 import yaml
 from markdown_it import MarkdownIt
@@ -45,6 +46,8 @@ TROUBLESHOOTING_SECTIONS = ("错误原因与触发机理", "定位过程与关�
 MARKDOWN = MarkdownIt("commonmark")
 READING_TRACKS_PATH = "wiki/reading_tracks.yaml"
 BACKDROP_PRESETS_PATH = "wiki/backdrop_presets.yaml"
+SOURCE_ANCHORS_PATH = "wiki/source_anchors.yaml"
+ANCHOR_CATEGORIES = {"启动与跳转", "状态机与协议", "任务与总线", "控制算法", "网络协议栈", "外设驱动", "诊断与容错"}
 BACKDROP_PRESETS = {"blueprint", "vellum", "aurora"}
 BACKDROP_MOTIFS = {"atlas", "control", "bus", "network", "rtos", "ledger", "probe", "index"}
 BACKDROP_TONES = {"sky", "mint", "amber", "rose", "violet", "teal"}
@@ -296,6 +299,10 @@ def unescape_source_path(path):
     return path.replace(r"\(", "(").replace(r"\)", ")")
 
 
+def c_file_kind(path):
+    return {".c": "source", ".h": "header"}.get(PurePosixPath(path).suffix.lower())
+
+
 def extract_evidence_links(note, registered_repos):
     lines = note.body.split("\n")
     offsets = line_offsets(lines)
@@ -304,18 +311,24 @@ def extract_evidence_links(note, registered_repos):
     labels = markdown_link_labels(tokens, lines, offsets)
     entries = []
     for link in source_links(note.body):
-        if not SHA.fullmatch(link["ref"]):
-            continue
         repo = link["repo"]
         path = unquote(unescape_source_path(link["path"] or ""))
+        file_kind = c_file_kind(path)
+        project_id = registered_repos.get(repo.casefold())
+        if not project_id or link["kind"].lower() != "blob" or not file_kind or not SHA.fullmatch(link["ref"]):
+            continue
         section, slug = section_at(headings, bisect_right(offsets, link.start()) - 1)
         entry = {
-            "url": unescape_source_path(link[0]), "repo": repo, "kind": link["kind"].lower(),
+            "url": unescape_source_path(link[0]), "repo": repo, "kind": "blob", "project_id": project_id,
             "commit": link["ref"], "path": path,
             "label": labels.get(link.start()) or PurePosixPath(path).name or repo, "section": section,
+            "language": "c", "file_kind": file_kind,
         }
-        if repo.casefold() in registered_repos:
-            entry["project_id"] = registered_repos[repo.casefold()]
+        line_range = re.fullmatch(r"L([1-9][0-9]*)(?:-L([1-9][0-9]*))?", entry["url"].partition("#")[2])
+        if line_range:
+            start, end = int(line_range[1]), int(line_range[2] or line_range[1])
+            if start <= end:
+                entry.update(start_line=start, end_line=end)
         if slug:
             entry["section_slug"] = slug
         entries.append(entry)
@@ -567,6 +580,147 @@ def load_backdrop_presets():
     return presets, errors
 
 
+def valid_source_path(path):
+    return is_text(path) and bool(c_file_kind(path)) and all(
+        part not in {"", ".", ".."} and not re.search(r'[\\:*?"<>|\x00-\x1f]', part)
+        and not part.endswith((".", " ")) and not PureWindowsPath(part).is_reserved()
+        for part in path.split("/")
+    )
+
+
+def checked_snapshot_path(key, *parts):
+    if not re.fullmatch(SLUG, key):
+        raise ValueError(f"非法快照 ID：{key}")
+    path = ROOT
+    for part in ("raw", "snapshots", key, *parts):
+        parent = path
+        path /= part
+        if path.is_symlink() or path.is_junction():
+            raise ValueError(f"{path.relative_to(ROOT)}: 快照路径禁止符号链接或目录联接")
+        if os.name == "nt" and path.exists() and not any(child.name == part for child in parent.iterdir()):
+            raise ValueError(f"{path.relative_to(ROOT)}: 快照路径大小写不匹配")
+    return path
+
+
+def git_blob_sha(raw):
+    return hashlib.sha1(f"blob {len(raw)}\0".encode() + raw, usedforsecurity=False).hexdigest()
+
+
+def source_text(raw, path):
+    text = raw.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
+    hit = next(secret_hits(text), None)
+    if hit:
+        label, line = hit
+        raise ValueError(f"{path}:{line}: 疑似凭据 ({label})")
+    return text
+
+
+def read_source_anchor_specs():
+    try:
+        anchors = load_yaml(ROOT / SOURCE_ANCHORS_PATH)
+    except FileNotFoundError:
+        return []
+    except (OSError, UnicodeError, yaml.YAMLError) as error:
+        raise ValueError(f"{SOURCE_ANCHORS_PATH}: 无法读取源码精讲") from error
+    if not isinstance(anchors, list):
+        raise ValueError(f"{SOURCE_ANCHORS_PATH}: 源码精讲必须是数组")
+    return anchors
+
+
+def load_source_anchors(notes, repos, trees):
+    try:
+        specs = read_source_anchor_specs()
+    except ValueError as error:
+        return [], [str(error)]
+    required = {"id", "project_id", "path", "symbol", "start_line", "end_line", "title", "category", "summary",
+                "engineering_details", "related_docs"}
+    ids = {key.casefold() for key in notes}
+    anchors, errors = [], []
+    sources, snapshot_meta = {}, {}
+    for number, spec in enumerate(specs, start=1):
+        prefix = f"{SOURCE_ANCHORS_PATH}: 第 {number} 条精讲"
+        try:
+            if not isinstance(spec, dict) or not required <= spec.keys() <= required | {"highlight_lines"}:
+                raise ValueError("字段缺失或存在未声明字段")
+            for field in ("id", "project_id", "path", "symbol", "title", "category", "summary"):
+                if not is_text(spec[field]):
+                    raise ValueError(f"{field} 必须为非空单行字符串")
+            anchor_id, key, path = spec["id"], spec["project_id"], spec["path"]
+            prefix += f" ({anchor_id})"
+            if not re.fullmatch(SLUG, anchor_id) or anchor_id in ids:
+                raise ValueError("id 必须是全库唯一的英文 kebab-case")
+            ids.add(anchor_id)
+            item, project = repos.get(key, {}), notes.get(key)
+            if (not project or project.meta.get("draft") is not False or project.meta.get("type") != "project"
+                    or item.get("available") is not True or item.get("visibility") != "public"
+                    or item.get("publish_policy") != "public"):
+                raise ValueError(f"project_id 必须引用已发布的公开项目 ({key})")
+            commit = item.get("synced_commit")
+            if not isinstance(commit, str) or not SHA.fullmatch(commit) or commit != item.get("snapshot_commit"):
+                raise ValueError("synced_commit 必须是与 snapshot_commit 一致的完整 SHA")
+            if not valid_source_path(path) or path not in trees.get(key, (set(),))[0]:
+                raise ValueError(f"path 必须是快照目录树中大小写一致的 .c 或 .h 文件 ({path})")
+            if key not in snapshot_meta:
+                meta_path = checked_snapshot_path(key, "meta.json")
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                if not isinstance(meta, dict) or meta.get("commit") != commit:
+                    raise ValueError("源码缓存的 meta.json 提交与档案不一致")
+                snapshot_meta[key] = meta.get("source_blobs")
+            if (key, path) not in sources:
+                source = checked_snapshot_path(key, "sources", *path.split("/"))
+                if not source.is_file():
+                    raise ValueError(f"缺少源码缓存 ({path})")
+                raw = source.read_bytes()
+                blobs = snapshot_meta[key]
+                if not isinstance(blobs, dict) or blobs.get(path) != git_blob_sha(raw):
+                    raise ValueError(f"源码缓存与快照 blob 校验值不一致 ({path})")
+                code = source_text(raw, path)
+                sources[key, path] = code.removesuffix("\n").split("\n") if code else []
+            lines = sources[key, path]
+            start, end = spec["start_line"], spec["end_line"]
+            if type(start) is not int or type(end) is not int or not 1 <= start <= end <= len(lines):
+                raise ValueError(f"start_line / end_line 超出源码行号范围 (1–{len(lines)})")
+            if end - start + 1 > 80:
+                raise ValueError("每段源码最多 80 行")
+            code = "\n".join(lines[start - 1:end])
+            if not re.search(rf"(?<!\w){re.escape(spec['symbol'])}(?!\w)", code):
+                raise ValueError(f"symbol 未出现在截取的源码中 ({spec['symbol']})")
+            highlights = spec.get("highlight_lines", [])
+            if (not isinstance(highlights, list)
+                    or any(type(line) is not int or not start <= line <= end for line in highlights)
+                    or highlights != sorted(set(highlights))):
+                raise ValueError("highlight_lines 必须是区间内去重递增的行号数组")
+            if spec["category"] not in ANCHOR_CATEGORIES or len(spec["summary"]) > 180:
+                raise ValueError("category 枚举值非法或 summary 超过 180 字")
+            details = spec["engineering_details"]
+            if not isinstance(details, list) or not 1 <= len(details) <= 5 or not all(map(is_text, details)):
+                raise ValueError("engineering_details 必须包含 1–5 条非空单行说明")
+            refs = spec["related_docs"]
+            if not isinstance(refs, list) or not refs:
+                raise ValueError("related_docs 必须是非空数组")
+            for ref in refs:
+                if (not isinstance(ref, dict) or "id" not in ref or not ref.keys() <= {"id", "section", "section_slug"}
+                        or not all(map(is_text, ref.values()))):
+                    raise ValueError("related_docs 每项须含 id，section 和 section_slug 如提供须为非空单行")
+                doc = notes.get(ref["id"])
+                if not doc or doc.meta.get("draft") is not False:
+                    raise ValueError(f"related_docs 页面未发布或不存在 ({ref['id']})")
+                if "section_slug" in ref and not any(
+                    slug == ref["section_slug"] and title == ref.get("section", title)
+                    for _, title, slug in extract_headings(doc.body)
+                ):
+                    raise ValueError(f"related_docs 的 section_slug 未命中 H2/H3 ({ref['id']}#{ref['section_slug']})")
+            repo = item["repo"]
+            anchors.append({
+                **spec, "repo": repo, "commit": commit, "kind": "blob", "language": "c",
+                "file_kind": c_file_kind(path), "code": code, "highlight_lines": highlights,
+                "url": f"https://github.com/{repo}/blob/{commit}/{quote(path)}#L{start}-L{end}",
+            })
+        except (OSError, ValueError) as error:
+            errors.append(f"{prefix}: {error}")
+    return anchors, errors
+
+
 def relative_wiki_asset(note, pathname):
     pathname = unquote(pathname)
     if not pathname or pathname.startswith("/") or "\\" in pathname or "\0" in pathname:
@@ -810,10 +964,12 @@ def check_troubleshooting_sections(note):
             yield f"{note.path}: 公开排障页缺少二级标题「{heading}」"
 
 
-def check_content(notes, registry):
+def check_content(notes, registry, registry_check=None):
     errors, warnings = check_links(notes)
     repos = registry["repos"]
-    registry_errors, trees = check_registry(notes, repos)
+    if registry_check is None:
+        registry_check = check_registry(notes, repos)
+    registry_errors, trees = registry_check
     errors.extend(registry_errors)
     registered = {item["repo"].casefold(): (key, item.get("synced_commit")) for key, item in repos.items()}
     for note in notes.values():
@@ -856,12 +1012,15 @@ def scan_secrets():
 def main():
     notes, errors = load_notes()
     registry = load_yaml(ROOT / "registry.yaml")
-    content_errors, warnings = check_content(notes, registry)
+    registry_check = check_registry(notes, registry["repos"])
+    content_errors, warnings = check_content(notes, registry, registry_check)
     errors.extend(content_errors)
     _, route_errors = load_reading_tracks(notes)
     errors.extend(route_errors)
     _, backdrop_errors = load_backdrop_presets()
     errors.extend(backdrop_errors)
+    _, anchor_errors = load_source_anchors(notes, registry["repos"], registry_check[1])
+    errors.extend(anchor_errors)
     errors.extend(scan_secrets())
     for warning in warnings:
         print(f"WARNING {redact_secrets(warning)}")

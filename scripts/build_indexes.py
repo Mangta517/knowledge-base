@@ -10,8 +10,8 @@ from urllib.parse import quote, urlsplit
 
 from lint_kb import (
     COMMENT, COMMON, FIELDS, MARKDOWN, NOTES, OUTPUT_KEYS, RELATED_TYPES, ROOT, SECTIONS, WIKILINK,
-    VISUAL_FIELDS, check_content, extract_diagrams, extract_evidence_links, inline_source_positions,
-    line_offsets, load_backdrop_presets, load_notes, load_reading_tracks, load_yaml, markup_chunks, redact_secrets,
+    VISUAL_FIELDS, check_content, check_registry, extract_diagrams, extract_evidence_links, inline_source_positions,
+    line_offsets, load_backdrop_presets, load_notes, load_reading_tracks, load_source_anchors, load_yaml, markup_chunks, redact_secrets,
     relative_wiki_asset, resolve_wiki_asset, visible_markup, wikilinks,
 )
 
@@ -111,21 +111,24 @@ def resolve_page_backdrop(meta):
     return {"motif": meta.get("backdrop_motif", motif), "tone": meta.get("backdrop_tone", tone)}
 
 
-def build_data(notes, owner, reading_tracks=(), backdrop_presets=()):
+def build_data(notes, owner, reading_tracks=(), backdrop_presets=(), source_anchors=()):
     keys = {kind: OUTPUT_KEYS.get(kind, directory) for kind, (directory, _) in SECTIONS.items()}
     catalog = {"owner": owner, **{key: [] for key in keys.values()}, "link_map": {}}
     if reading_tracks:
         catalog["reading_tracks"] = reading_tracks
     if backdrop_presets:
         catalog["backdrop_presets"] = backdrop_presets
+    if source_anchors:
+        catalog["source_anchors"] = source_anchors
     repo_names = {}
     project_ids = {}
     for note in notes.values():
-        if note.meta["type"] == "project":
+        if (note.meta["type"] == "project" and note.meta["draft"] is False
+                and note.meta["visibility"] == "public" and note.meta["publish_policy"] == "public"):
             repo = note.meta["repo"]
             repo_names[repo.casefold()] = repo
             project_ids[repo.casefold()] = note.meta["id"]
-    evidence_urls = defaultdict(list)
+    evidence_files = defaultdict(list)
     diagram_counts = Counter()
     edges = set()
     for note in notes.values():
@@ -139,7 +142,7 @@ def build_data(notes, owner, reading_tracks=(), backdrop_presets=()):
         diagrams = extract_diagrams(note)
         for link in evidence:
             repo = repo_names.setdefault(link["repo"].casefold(), link["repo"])
-            evidence_urls[repo].append(link["url"].split("#", 1)[0])
+            evidence_files[repo].append((link["commit"].lower(), link["path"]))
         diagram_counts.update(diagram["diagram_type"] for diagram in diagrams)
         item.update(
             route=note.route, source_path=note.path.as_posix(), word_count=words,
@@ -189,17 +192,20 @@ def build_data(notes, owner, reading_tracks=(), backdrop_presets=()):
             "total_mermaids": sum(item["mermaid_count"] for item in items),
             "total_tables": sum(item["table_count"] for item in items),
             "total_evidence_links": sum(item["evidence_count"] for item in items),
-            "unique_evidence_files": len({url for urls in evidence_urls.values() for url in urls}),
+            "unique_evidence_files": sum(len(set(files)) for files in evidence_files.values()),
+            "total_source_anchors": len(source_anchors),
+            "total_source_lines": sum(anchor["end_line"] - anchor["start_line"] + 1 for anchor in source_anchors),
         },
         "by_tier": {tier: tier_counts[tier] for tier in ("core", "active", "archive")},
         "by_domain": dict(sorted(Counter(domain for item in projects for domain in item["domains"]).items())),
         "by_tech_stack": dict(sorted(Counter(tech for item in projects for tech in item["tech_stack"]).items())),
         "by_language": dict(sorted(Counter(item["primary_language"] for item in projects).items())),
         "by_evidence_repo": {
-            repo: {"project_id": project_ids.get(repo.casefold()), "count": len(urls), "unique_files": len(set(urls))}
-            for repo, urls in sorted(evidence_urls.items())
+            repo: {"project_id": project_ids[repo.casefold()], "count": len(files), "unique_files": len(set(files))}
+            for repo, files in sorted(evidence_files.items())
         },
         "by_diagram_type": dict(sorted(diagram_counts.items())),
+        "by_anchor_category": dict(sorted(Counter(anchor["category"] for anchor in source_anchors).items())),
         "by_backdrop_motif": dict(sorted(Counter(item["backdrop"]["motif"] for item in items).items())),
         "recent_updates": [
             {key: item[key] for key in ("id", "title", "type", "updated", "route", "description")}
@@ -343,18 +349,21 @@ def main():
     args = parser.parse_args()
     notes, errors = load_notes()
     registry = load_yaml(ROOT / "registry.yaml")
-    content_errors, _ = check_content(notes, registry)
+    registry_check = check_registry(notes, registry["repos"])
+    content_errors, _ = check_content(notes, registry, registry_check)
     errors.extend(content_errors)
     reading_tracks, route_errors = load_reading_tracks(notes)
     errors.extend(route_errors)
     backdrop_presets, backdrop_errors = load_backdrop_presets()
     errors.extend(backdrop_errors)
+    source_anchors, anchor_errors = load_source_anchors(notes, registry["repos"], registry_check[1])
+    errors.extend(anchor_errors)
     if errors:
         for error in errors:
             print(f"ERROR {redact_secrets(error)}", file=sys.stderr)
         return 1
     notes = {key: notes[key] for key in sorted(notes) if notes[key].meta["draft"] is False}
-    payloads = build_data(notes, registry["owner"], reading_tracks, backdrop_presets)
+    payloads = build_data(notes, registry["owner"], reading_tracks, backdrop_presets, source_anchors)
     stamp = reuse_timestamp(payloads)
     if stamp is None:
         stamp = datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")

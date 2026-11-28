@@ -1,0 +1,851 @@
+- id: boot-eeprom-state-handoff
+  project_id: bootloader
+  path: stm32f407vet6/application/app_bootloader.c
+  symbol: App_bootloader_check_update
+  start_line: 170
+  end_line: 200
+  highlight_lines: [176, 179, 185, 190, 194, 198]
+  title: "从 EEPROM 装载升级状态并保留恢复请求"
+  category: 状态机与协议
+  summary: "启动时先读状态与两个校验字节，仅当标记有效时才把 EEPROM 状态交给运行态。"
+  engineering_details:
+    - "地址 `0x10` 起读 3 字节，高位在前合成 `BOOT_KEY`。标记不符时写入初始记录并等待 10 ms，本轮沿用启动默认状态。"
+    - "锁内再次检查 `BOOT_RESET`，避免覆盖 KEY1 中断已经提交的恢复请求。"
+    - "先保存 `PRIMASK`，更新后恢复原值，保留调用前的中断屏蔽状态。"
+  related_docs:
+    - id: bootloader
+      section: "EEPROM 状态交接"
+      section_slug: "eeprom-状态交接"
+    - id: TS-0001-bootloader-update-phase
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: boot-w25-metadata-preflight
+  project_id: bootloader
+  path: stm32f407vet6/application/app_bootloader.c
+  symbol: App_bootloader_check_meta
+  start_line: 13
+  end_line: 56
+  highlight_lines: [16, 20, 24, 26, 33, 39, 47]
+  title: "擦除前预检 W25Q16 元数据和 APP 向量"
+  category: 诊断与容错
+  summary: "先验证暂存镜像的起点、长度和两个向量字，预检失败时搬运流程直接返回。"
+  engineering_details:
+    - "前 8 字节分别按小端解出 W25Q16 起点和镜像长度。首 4 KiB 留给元数据，镜像长度须大于 `0x0800` 且不超过 `0x78000`。"
+    - "用 `W25Q16_SIZE_BYTES - w25_app_start_addr` 检查剩余容量，避免用起点加长度做范围判定。"
+    - "读回向量后检查栈顶位于 SRAM 或 CCM，复位入口位于搬运后的镜像范围。跳转入口还会检查栈对齐与 Thumb 位。"
+  related_docs:
+    - id: bootloader
+      section: "W25Q16 暂存格式与读取约束"
+      section_slug: "w25q16-暂存格式与读取约束"
+    - id: ADR-0001-stage-image-before-boot
+      section: "决策与落地机制"
+      section_slug: "决策与落地机制"
+    - id: TS-0001-bootloader-update-phase
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: boot-internal-flash-erase
+  project_id: bootloader
+  path: stm32f407vet6/application/app_bootloader.c
+  symbol: App_bootloader_erase_app_flash
+  start_line: 59
+  end_line: 95
+  highlight_lines: [63, 68, 78, 86, 87, 89, 90]
+  title: "按镜像末地址计算 F407 片内 Flash 擦除范围"
+  category: 外设驱动
+  summary: "用镜像最后一个字节定位末扇区，再从应用起始扇区连续擦到该扇区。"
+  engineering_details:
+    - "末地址采用 `APP_START_ADDR + app_size_bytes - 1`，刚好填满扇区的镜像不会多擦下一扇区。"
+    - "用 `0x08010000`、`0x08020000` 区分 16、64、128 KiB 扇区。擦除起点固定为 `FLASH_SECTOR_2`。"
+    - "`HAL_FLASHEx_Erase` 返回后重新锁定 Flash，擦除状态或上锁状态异常均返回失败。"
+  related_docs:
+    - id: bootloader
+      section: "源码入口与核心调用链"
+      section_slug: "源码入口与核心调用链"
+    - id: TS-0001-bootloader-update-phase
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: boot-flash-halfword-staging
+  project_id: bootloader
+  path: stm32f407vet6/application/app_bootloader.c
+  symbol: App_bootloader_write_app_flash
+  start_line: 97
+  end_line: 157
+  highlight_lines: [99, 106, 112, 129, 137, 143, 144, 152]
+  title: "用 512 B 缓冲把暂存镜像按半字写入片内 Flash"
+  category: 外设驱动
+  summary: "预检通过后先擦除所需空间，写入阶段每轮只从 W25Q16 取当前块所需字节。"
+  engineering_details:
+    - "静态缓冲为 512 B，尾块按剩余长度读取。W25Q16 读取失败立即上锁返回。"
+    - "奇数尾块在 RAM 中补 `0xFF`，按小端拼成半字并调用 `HAL_FLASH_Program`。"
+    - "偏移只在当前块写完后推进。调用方在整段成功后清升级标记，失败进入恢复流程。"
+  related_docs:
+    - id: bootloader
+      section: "源码入口与核心调用链"
+      section_slug: "源码入口与核心调用链"
+    - id: TS-0001-bootloader-update-phase
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: boot-can-image-receive-phase
+  project_id: bootloader
+  path: stm32f407vet6led/application/app_update.c
+  symbol: app_update_receive
+  start_line: 73
+  end_line: 111
+  highlight_lines: [76, 83, 94, 95, 99, 108, 109]
+  title: "在读取 CAN FIFO 前判定镜像接收阶段结束"
+  category: 状态机与协议
+  summary: "接收函数先看静默计时，再决定本拍读数据帧还是进入独立 CRC 阶段。"
+  engineering_details:
+    - "从上一有效帧起静默 1000 ms 后先切 `APP_UPDATE_VERIFY`，本次直接返回，避免提前到达 FIFO 的 CRC 帧混入镜像。"
+    - "仅接收标准数据帧、ID 为 1 且 DLC 合法的帧。写入前按剩余缓冲长度检查容量。"
+    - "缓冲和计时只在接收有效数据时更新。静默到期且长度仍为零时转 `APP_UPDATE_ERROR`。"
+  related_docs:
+    - id: bootloader
+      section: "CAN 更新与 USART1 恢复"
+      section_slug: "can-更新与-usart1-恢复"
+    - id: TS-0001-bootloader-update-phase
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: boot-can-deferred-crc
+  project_id: bootloader
+  path: stm32f407vet6led/application/app_update.c
+  symbol: app_update_check_crc
+  start_line: 190
+  end_line: 234
+  highlight_lines: [197, 200, 202, 209, 217, 222, 233]
+  title: "独立接收小端 CRC 并在通过后写入暂存镜像"
+  category: 状态机与协议
+  summary: "校验阶段只把合法的 4 字节 CAN 数据帧解释为 CRC，并以已接收的 BIN 为计算范围。"
+  engineering_details:
+    - "用四个字节按小端拼出接收值，`app_crc_cal` 只覆盖 `can_rx_len` 字节。"
+    - "`CRC OK` 之后才调用 `app_update_save_image`。保存失败进入 `APP_UPDATE_ERROR`，写入成功才置 `APP_UPDATE_DONE`。"
+    - "等不到有效 CRC 帧时从最后一次 BIN 接收计时，2 秒超时或校验值不符后清缓存并回到空闲态。"
+  related_docs:
+    - id: bootloader
+      section: "CAN 更新与 USART1 恢复"
+      section_slug: "can-更新与-usart1-恢复"
+    - id: TS-0001-bootloader-update-phase
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+    - id: ADR-0001-stage-image-before-boot
+      section: "收益、代价与失效边界"
+      section_slug: "收益代价与失效边界"
+
+- id: boot-recovery-dma-ring-cursor
+  project_id: bootloader
+  path: stm32f407vet6reset/interface/int_bootloader.c
+  symbol: bootloader_dma_received_total
+  start_line: 122
+  end_line: 144
+  highlight_lines: [124, 130, 131, 132, 135, 141, 143]
+  title: "用回绕计数和 DMA NDTR 计算串口累计接收量"
+  category: 任务与总线
+  summary: "恢复程序用单调累计量表示 DMA 生产位置，避免仅靠环形下标判断回绕前后的积压。"
+  engineering_details:
+    - "保存 `PRIMASK` 后短暂关中断，读取已处理的 DMA 回绕次数与剩余传输数。"
+    - "若 DMA TC 已置位而 IRQ 尚未更新回绕计数，先补一次回绕再重读 `NDTR`。读到零时将剩余数视为整环。"
+    - "累计量是完整环字节数加当前环写入量。消费端再据此检查环容量和半缓冲就绪状态。"
+  related_docs:
+    - id: bootloader
+      section: "CAN 更新与 USART1 恢复"
+      section_slug: "can-更新与-usart1-恢复"
+    - id: TS-0001-bootloader-update-phase
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: bootloader-vtor-jump-sequence
+  project_id: bootloader
+  path: stm32f407vet6/interface/int_bootloader.c
+  symbol: Int_bootloader_jump_to_app
+  start_line: 8
+  end_line: 73
+  highlight_lines: [16, 29, 32, 40, 46, 49, 55, 58, 59, 60, 61, 66, 67]
+  title: "校验 MSP 和 Thumb 向量后切换 VTOR 并跳转"
+  category: 启动与跳转
+  summary: "入口先限制目标分区，再校验初始 SP 和复位向量，最后清理旧中断来源并交接运行环境。"
+  engineering_details:
+    - "初始 MSP 须满足 8 字节对齐并落在 SRAM 或 CCM 的合法栈顶区间。复位向量须带 Thumb 位，且位于目标分区向量头之后。"
+    - "关中断后调用 `HAL_DeInit`，清零 SysTick，并写 `NVIC->ICER`、`NVIC->ICPR` 和 `SCB->ICSR` 清理旧中断。"
+    - "写入 `SCB->VTOR` 后执行 `__DSB` 和 `__ISB`，再切换 `MSP` 并调用静态函数指针。目标固件在自身入口重开全局中断。"
+  related_docs:
+    - id: bootloader
+      section: "源码入口与核心调用链"
+      section_slug: "源码入口与核心调用链"
+    - id: TS-0001-bootloader-update-phase
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: flight-two-tick-i2c-owner
+  project_id: flight
+  path: flight_hal/MDK-ARM/application/application_freertos_task.c
+  symbol: flight_task_period
+  start_line: 129
+  end_line: 203
+  highlight_lines: [130, 171, 177, 181, 190, 195, 199, 201]
+  title: "用 2 tick 飞行任务串行调度 MPU6050 和 SPL006"
+  category: 任务与总线
+  summary: "飞行任务在同一循环访问 I2C1，按固定节拍解算姿态、分频读取气压，再更新电机输出。"
+  engineering_details:
+    - "`app_flight_get_euler_angle` 每拍处理 MPU6050，`spl_cnt` 到 3 后才调用 `spl_update_data`。"
+    - "定高环另有计数器，且在本拍 SPL006 更新前执行。姿态 PID 只在正常或定高状态、油门至少 50 时运行。"
+    - "`vTaskDelayUntil` 按上一计划唤醒时刻推进，头文件将 `flight_task_period` 定义为 2 tick。"
+  related_docs:
+    - id: flight
+      section: "飞行任务与 I2C1"
+      section_slug: "飞行任务与-i2c1"
+    - id: task-and-bus-ownership
+      section: "跨项目实现对比"
+      section_slug: "跨项目实现对比"
+    - id: ADR-0002-assign-sensor-bus-owner
+      section: "决策与落地机制"
+      section_slug: "决策与落地机制"
+
+- id: flight-cascade-pid-gains
+  project_id: flight
+  path: flight_hal/MDK-ARM/application/application_flight.c
+  symbol: gyro_y_pid
+  start_line: 98
+  end_line: 118
+  highlight_lines: [99, 100, 102, 103, 111, 114]
+  title: "区分姿态外环和角速度内环的增益与限幅"
+  category: 控制算法
+  summary: "各轴独立保存外环和内环系数。俯仰、横滚外环使用 PD，内环保留积分抵消持续扰动。"
+  engineering_details:
+    - "俯仰与横滚外环使用 `kp=2.5`、`ki=0`、`kd=0.3`，输出限幅为 120。"
+    - "两轴对应的角速度内环使用 `kp=1.5`、`ki=0.5`、`kd=0.18`，积分限幅 500，输出限幅 500。"
+    - "偏航的两环单独配置，Z 轴角速度内环的 `kd` 为零。系数与限幅应按同一轴的一对环路读取。"
+  related_docs:
+    - id: flight
+      section: "姿态控制、气压定高与限幅"
+      section_slug: "姿态控制气压定高与限幅"
+    - id: sensor-feedback-pipeline
+      section: "跨项目实现对比"
+      section_slug: "跨项目实现对比"
+
+- id: flight-cascade-pid-tick
+  project_id: flight
+  path: flight_hal/MDK-ARM/application/application_flight.c
+  symbol: app_flight_pid_process
+  start_line: 190
+  end_line: 241
+  highlight_lines: [195, 197, 199, 200, 213, 217, 219, 230, 240]
+  title: "以实际 tick 间隔推进三轴串级 PID"
+  category: 控制算法
+  summary: "姿态外环使用欧拉角，内环使用陀螺角速度。六个 PID 实例共享本次计算的 dt。"
+  engineering_details:
+    - "首拍使用 `PID_Period`，其后按 tick 差除以 1000 得到秒数，把周期限制在 1–50 ms。"
+    - "俯仰用 Y 轴角速度，横滚用 X 轴，偏航用 Z 轴。原始陀螺数据按 `2000/32767` 换算。"
+    - "俯仰与横滚目标分别叠加各自配平角，三轴分别经 `com_pid_calc_chain` 推进。"
+  related_docs:
+    - id: flight
+      section: "姿态控制、气压定高与限幅"
+      section_slug: "姿态控制气压定高与限幅"
+    - id: sensor-feedback-pipeline
+      section: "跨项目实现对比"
+      section_slug: "跨项目实现对比"
+
+- id: flight-x-layout-mixing
+  project_id: flight
+  path: flight_hal/MDK-ARM/application/application_flight.c
+  symbol: app_flight_motor_process
+  start_line: 254
+  end_line: 308
+  highlight_lines: [257, 268, 281, 288, 289, 290, 291, 304, 307]
+  title: "按 X 布局把三轴控制量分配到四路 PWM"
+  category: 控制算法
+  summary: "正常与定高分支将油门、三轴角速度环输出分配给四个电机，各通道单独限幅。"
+  engineering_details:
+    - "俯仰按前后配对，横滚按左右配对，偏航按对角配对。当前电机及桨的转向映射使两种模式都取反 `gyro_z_pid.output`。"
+    - "定高模式给四路叠加同一 `height_pid.output`，前部两通道再各自叠加配平项。"
+    - "急停请求和 `IDLE` 分支把四路速度设为零。飞行分支通过限幅函数将结果转换为 0–1000 的整数比较值。"
+  related_docs:
+    - id: flight
+      section: "姿态控制、气压定高与限幅"
+      section_slug: "姿态控制气压定高与限幅"
+    - id: sensor-feedback-pipeline
+      section: "跨项目实现对比"
+      section_slug: "跨项目实现对比"
+
+- id: flight-radio-17-byte-frame
+  project_id: flight
+  path: flight_hal/MDK-ARM/application/application_recevie_data.c
+  symbol: application_recevie_data
+  start_line: 27
+  end_line: 83
+  highlight_lines: [35, 46, 53, 60, 65, 71, 75, 79]
+  title: "校验 17 B 射频控制帧后解码摇杆与按键"
+  category: 状态机与协议
+  summary: "收到数据后先校验三字节帧头和四字节累计和，再更新共享遥控字段。"
+  engineering_details:
+    - "报文由 3 B 帧头、10 B 控制字段与 4 B 大端累加和组成。油门、偏航、俯仰和横滚分别用两个大端字节。"
+    - "`rx_buff[11] == 1` 时翻转关机状态，`rx_buff[12]` 交给定高字段。帧头或校验失败时返回 1。"
+    - "射频收包成功后的姿态与故障回包发生在控制帧内容校验前，因此收到回包不能单独证明命令已通过校验。"
+  related_docs:
+    - id: flight
+      section: "17 B 射频帧及失联状态"
+      section_slug: "17-b-射频帧及失联状态"
+    - id: embedded-stream-framing
+      section: "跨项目实现对比"
+      section_slug: "跨项目实现对比"
+
+- id: flight-link-loss-transition
+  project_id: flight
+  path: flight_hal/MDK-ARM/application/application_recevie_data.c
+  symbol: application_process_connect_state
+  start_line: 85
+  end_line: 103
+  highlight_lines: [90, 91, 95, 96, 98, 99]
+  title: "用连续接收失败计数触发 FAIL 状态"
+  category: 诊断与容错
+  summary: "一次好帧即确认连接并清零计数，失联判定使用连续失败次数。"
+  engineering_details:
+    - "只有返回 1 的接收结果递增 `retry_count`，成功结果会立即清除先前失败的累积。"
+    - "达到 `MAX_RETRY_COUNT` 后同时标记 `REMOTE_DISCONNECTED` 和 `FAIL`。飞行侧在 FAIL 分支处理减速。"
+  related_docs:
+    - id: flight
+      section: "17 B 射频帧及失联状态"
+      section_slug: "17-b-射频帧及失联状态"
+
+- id: flight-remote-packet-snapshot
+  project_id: flight
+  path: flight_remote_hal/MDK-ARM/application/application_transmit_data.c
+  symbol: application_transmit_data
+  start_line: 14
+  end_line: 57
+  highlight_lines: [28, 29, 30, 31, 32, 43, 44, 57]
+  title: "锁内复制遥控快照并消费一次性命令位"
+  category: 任务与总线
+  summary: "遥控发送任务在同一个互斥区中复制整个遥控结构体，再清除共享结构中的两个一次性命令位。"
+  engineering_details:
+    - "写侧和发送侧共用 `joystick_mutex`，快照与清位之间不会穿插按键任务的更新。"
+    - "`shutdown` 和 `fix_high` 在调用射频发送前已清零，当前帧发的是局部快照。"
+    - "字节编码、累加和及射频发送均在释放锁后完成，避免把发送耗时带入写侧临界路径。"
+  related_docs:
+    - id: flight
+      section: "17 B 射频帧及失联状态"
+      section_slug: "17-b-射频帧及失联状态"
+    - id: ADR-0002-assign-sensor-bus-owner
+      section: "决策与落地机制"
+      section_slug: "决策与落地机制"
+
+- id: flight-remote-stick-publish
+  project_id: flight
+  path: flight_remote_hal/MDK-ARM/application/application_process_data.c
+  symbol: process_joystick_data
+  start_line: 88
+  end_line: 124
+  highlight_lines: [92, 95, 102, 107, 110, 116, 121]
+  title: "把校准后的 ADC 摇杆量作为一组控制值发布"
+  category: 任务与总线
+  summary: "摇杆任务按 12 位 ADC 满量程缩放，再应用零偏、按键配平和限幅。"
+  engineering_details:
+    - "原读数乘 1000 再除以 4095，把四路转换到协议的 0–1000 区间。"
+    - "四路减各自校准偏移，俯仰和横滚另外叠加按键配平，最后分别钳位。"
+    - "`remote_data_value` 的四个字段在同一把锁内提交，与发送侧的整组复制配对。"
+  related_docs:
+    - id: flight
+      section: "17 B 射频帧及失联状态"
+      section_slug: "17-b-射频帧及失联状态"
+
+- id: watch-first-frame-before-services
+  project_id: watch
+  path: application/app_task.c
+  symbol: app_lvgl_task
+  start_line: 74
+  end_line: 125
+  highlight_lines: [82, 83, 84, 86, 93, 95, 106, 116, 120]
+  title: "先提交 LVGL 首帧，再逐轮推进 RTC 与蓝牙"
+  category: 启动与跳转
+  summary: "显示任务先初始化并提交首帧，然后创建传感器任务，把 RTC 和蓝牙初始化分成可逐拍推进的服务。"
+  engineering_details:
+    - "`APP_BOOT_FIRST_FRAME_MS` 记录 `lv_refr_now` 返回后的 HAL 毫秒，LCD DMA 可能仍在传输。"
+    - "RTC 与蓝牙分别记录开始时间，在各自 pending 结束时记录结束时间和 HAL 状态。"
+    - "两项服务之后仍调用 `App_Display_Service`，最后按 LVGL 服务周期延时。"
+  related_docs:
+    - id: watch
+      section: "架构与执行机制"
+      section_slug: "架构与执行机制"
+    - id: TS-0002-watch-startup-latency
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: watch-sensor-task-bus-ownership
+  project_id: watch
+  path: application/app_task.c
+  symbol: app_sensor_task
+  start_line: 131
+  end_line: 176
+  highlight_lines: [141, 144, 145, 148, 151, 152, 156, 163, 172, 176]
+  title: "由传感器任务初始化 I2C 并选择 IMU 零偏来源"
+  category: 任务与总线
+  summary: "传感器任务独立启动 I2C 与各设备，首个电池读数在完成零偏校准之前已发布。"
+  engineering_details:
+    - "传感器任务初始化 MPU、气压计、磁力计和心率器件。UI 通过应用层快照消费传感数据。"
+    - "`app_imu_store_load` 成功时恢复已保存零偏并写入 `MPU6050_CAL_RESTORED`。"
+    - "记录不可用时启动静置校准，并写入 `MPU6050_CAL_WAIT_STILL`。两条路径随后进入同一采样循环。"
+  related_docs:
+    - id: watch
+      section: "从姿态快照到屏幕"
+      section_slug: "从姿态快照到屏幕"
+    - id: ADR-0002-assign-sensor-bus-owner
+      section: "决策与落地机制"
+      section_slug: "决策与落地机制"
+
+- id: watch-imu-mutex-snapshot
+  project_id: watch
+  path: application/app_imu.c
+  symbol: App_IMU_GetSnapshot
+  start_line: 401
+  end_line: 479
+  highlight_lines: [401, 404, 408, 412, 417, 434, 447, 476, 477, 479]
+  title: "用短互斥区交接 IMU 姿态和在线状态"
+  category: 任务与总线
+  summary: "采样任务锁内发布姿态与磁状态，显示侧用同一把锁复制结构体并同步读取在线标志。"
+  engineering_details:
+    - "连续错误达到阈值时发布离线标志，姿态字段保留最近一次成功结果。"
+    - "磁力计校准写 EEPROM 发生在释放数据锁之后，只在发布保存结果时短暂再次上锁。"
+    - "`App_IMU_GetSnapshot` 先处理尚未创建互斥锁的情况，再锁内复制 `s_imu_data` 与 `s_online`，供 UI 任务独立消费。"
+  related_docs:
+    - id: watch
+      section: "从姿态快照到屏幕"
+      section_slug: "从姿态快照到屏幕"
+    - id: ADR-0002-assign-sensor-bus-owner
+      section: "决策与落地机制"
+      section_slug: "决策与落地机制"
+    - id: task-and-bus-ownership
+      section: "跨项目实现对比"
+      section_slug: "跨项目实现对比"
+
+- id: watch-spi-dma-flush-completion
+  project_id: watch
+  path: interface/lcd.c
+  symbol: LCD_Color_Fill_DMA
+  start_line: 151
+  end_line: 186
+  highlight_lines: [153, 155, 157, 162, 166, 176, 178, 181, 184]
+  title: "从 LCD SPI DMA 提交到真正的刷屏完成回调"
+  category: 外设驱动
+  summary: "刷屏先设置矩形窗口。小块交给 SPI1 DMA，回调等待最后一字节实际移出后再交还缓冲。"
+  engineering_details:
+    - "RGB565 每像素 2 B，窗口两端坐标都计入长度。超过 `0xFFFE` 的大块回退分片阻塞刷新，随后手动通知完成。"
+    - "普通路径用 `HAL_SPI_Transmit_DMA` 提交，提交失败直接调用 `Error_Handler`。"
+    - "SPI1 完成回调等待 `SPI_SR_BSY` 清零再读一次 DR，然后调用已注册的刷新完成回调。"
+  related_docs:
+    - id: watch
+      section: "从姿态快照到屏幕"
+      section_slug: "从姿态快照到屏幕"
+    - id: TS-0002-watch-startup-latency
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: watch-sixteen-boot-diagnostic-slots
+  project_id: watch
+  path: application/app_diag.h
+  symbol: APP_BOOT_FIELD_COUNT
+  start_line: 36
+  end_line: 57
+  highlight_lines: [38, 41, 44, 46, 47, 50, 53, 54]
+  title: "用 16 个枚举槽定位手表启动阶段耗时"
+  category: 诊断与容错
+  summary: "启动诊断按枚举序号保存固定槽位，覆盖显示首帧、RTC、蓝牙、传感初始化和零偏校准。"
+  engineering_details:
+    - "RTC 和蓝牙各占起点、终点、返回状态三个槽位，校准另记录状态和有效帧进度。"
+    - "时间槽用 HAL 毫秒，状态槽按对应返回值或枚举解读。计算耗时前先排除尚未填写的 `UINT32_MAX`。"
+    - "`APP_BOOT_FIELD_COUNT` 同时约束启动字段数组容量和启动报文的字数。"
+  related_docs:
+    - id: watch
+      section: "16 个启动诊断字段"
+      section_slug: "16-个启动诊断字段"
+    - id: TS-0002-watch-startup-latency
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: watch-lse-frequency-and-timeout
+  project_id: watch
+  path: Core/Inc/stm32f4xx_hal_conf.h
+  symbol: LSE_STARTUP_TIMEOUT
+  start_line: 118
+  end_line: 132
+  highlight_lines: [119, 126, 127, 130, 131]
+  title: "读取 HAL 的 LSE 频率与起振等待配置"
+  category: 外设驱动
+  summary: "头文件为外部低速晶振提供 32768 Hz 和 5000 ms 的默认配置。"
+  engineering_details:
+    - "`LSE_VALUE` 和 `LSE_STARTUP_TIMEOUT` 各有独立的预定义判断，工具链可通过预定义替换默认值。"
+    - "`5000U` 是 HAL 的 LSE 起振等待参数，以毫秒计。分析板端 RTC 启动应结合服务推进和诊断时间戳。"
+  related_docs:
+    - id: watch
+      section: "硬件资源与外设映射"
+      section_slug: "硬件资源与外设映射"
+    - id: TS-0002-watch-startup-latency
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: watch-ble-at-reply-timeout
+  project_id: watch
+  path: interface/kt6368a.c
+  symbol: KT6368A_AT_TIMEOUT_MS
+  start_line: 521
+  end_line: 597
+  highlight_lines: [525, 531, 535, 536, 541, 544, 548, 552, 576, 580, 589, 594]
+  title: "分批消费 KT6368A 的 AT 响应并检查超时"
+  category: 状态机与协议
+  summary: "启动服务发送一条查询后立即交回调度，每轮限制处理的串口字节数。"
+  engineering_details:
+    - "查询前清接收环并快照串口异常与丢字节计数。回复期间任一计数变化都会返回 `HAL_ERROR`。"
+    - "回复阶段从查询发送时刻计 500 ms。每轮最多处理 64 字节，按换行封行并检查溢出、`ER+` 和当前查询前缀。"
+    - "当前值匹配目标时推进到下一项。已进入写后复核且值仍不匹配时以 `HAL_ERROR` 结束。"
+  related_docs:
+    - id: watch
+      section: "KT6368A 启动与字节流"
+      section_slug: "kt6368a-启动与字节流"
+    - id: TS-0002-watch-startup-latency
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: watch-ble-uart-ring-publish
+  project_id: watch
+  path: interface/kt6368a.c
+  symbol: HAL_UART_RxCpltCallback
+  start_line: 640
+  end_line: 662
+  highlight_lines: [643, 647, 648, 650, 654, 655, 656, 658]
+  title: "KT6368A 串口中断先写字节，再发布环形缓冲写指针"
+  category: 任务与总线
+  summary: "USART1 每次接收一个字节。中断只处理已上电模块的输入，用环形缓冲交给任务消费。"
+  engineering_details:
+    - "`KT6368A_RX_BUFFER_SIZE` 为 1024 B，通过保留一个空槽区分满与空，有效容量 1023 B。"
+    - "写位置追上读位置时累加 `rx_dropped`。有空间则先写数据，再执行 `__DMB`，最后发布 `rx_head`。"
+    - "末尾重新挂接单字节接收中断，挂接失败累加 `rx_errors`，供 AT 层判断回复是否可信。"
+  related_docs:
+    - id: watch
+      section: "KT6368A 启动与字节流"
+      section_slug: "kt6368a-启动与字节流"
+    - id: embedded-stream-framing
+      section: "跨项目实现对比"
+      section_slug: "跨项目实现对比"
+
+- id: iwip-rtos-stack-options
+  project_id: iwip
+  path: Middlewares/Iwip/arch/lwipopts.h
+  symbol: NO_SYS
+  start_line: 21
+  end_line: 43
+  highlight_lines: [24, 25, 26, 27, 32, 38, 41]
+  title: "启用 lwIP 的 FreeRTOS 模式并约束内存开销"
+  category: 网络协议栈
+  summary: "从编译配置确认协议栈运行模式、IP 版本以及内存与缓冲选项。"
+  engineering_details:
+    - "`NO_SYS=0` 选择操作系统模式，为 `tcpip_thread`、信号量和邮箱提供配置基础。"
+    - "启用自定义 `pbuf` 和 IPv4，关闭 IPv6。`SYS_LIGHTWEIGHT_PROT` 为短小内存操作启用跨上下文保护。"
+    - "`MEM_ALIGNMENT` 为 4，`MEM_SIZE` 为 16 KiB，后者仅表示 lwIP 堆大小。"
+  related_docs:
+    - id: iwip
+      section: "lwIP 与 DMA 内存配置"
+      section_slug: "lwip-与-dma-内存配置"
+    - id: ADR-0003-run-lwip-in-rtos-mode
+      section: "决策与落地机制"
+      section_slug: "决策与落地机制"
+
+- id: iwip-tcpip-mailbox-budget
+  project_id: iwip
+  path: Middlewares/Iwip/arch/lwipopts.h
+  symbol: TCPIP_MBOX_SIZE
+  start_line: 145
+  end_line: 175
+  highlight_lines: [148, 159, 168, 169, 170, 171, 175]
+  title: "为 TCP/IP 核心线程、邮箱和 Netconn 配置资源"
+  category: 网络协议栈
+  summary: "头文件分别定义 TCP/IP 核心邮箱和各接收邮箱容量，默认启用 Netconn。"
+  engineering_details:
+    - "TCP/IP 核心邮箱设为 8，UDP、TCP、accept 和 raw 接收邮箱各为 6。区分核心投递队列与应用接收队列。"
+    - "核心线程栈参数为 1024、优先级为 5。栈参数的实际字节换算取决于 `sys_arch`。"
+    - "`LWIP_NETCONN=1`。`LWIP_SOCKET` 未被外部预定义时取零。"
+  related_docs:
+    - id: iwip
+      section: "lwIP 与 DMA 内存配置"
+      section_slug: "lwip-与-dma-内存配置"
+    - id: ADR-0003-run-lwip-in-rtos-mode
+      section: "决策与落地机制"
+      section_slug: "决策与落地机制"
+
+- id: iwip-lan8720-mdio-identify
+  project_id: iwip
+  path: Drivers/BSP/ETHERNET/ethernet_chip.c
+  symbol: eth_chip_init
+  start_line: 65
+  end_line: 127
+  highlight_lines: [83, 86, 88, 94, 103, 106, 114, 119, 123]
+  title: "扫描 MDIO 地址并核对 LAN8720A PHY 标识"
+  category: 外设驱动
+  summary: "先通过两份 PHY 标识寄存器确定器件地址，再等待软件复位位自行清零。"
+  engineering_details:
+    - "在 PHY 地址范围内扫描。单个地址的 MDIO 读失败时继续检查下一个地址。"
+    - "`PHYID1` 要求完整匹配，`PHYID2` 先屏蔽低四位修订号再匹配型号。找不到器件即返回地址错误。"
+    - "写 `ETH_CHIP_BCR_SOFT_RESET` 后轮询该位，读取错误和复位超时有独立返回码。"
+  related_docs:
+    - id: iwip
+      section: "硬件资源与外设映射"
+      section_slug: "硬件资源与外设映射"
+    - id: TS-0003-ethernet-link-without-ip
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: iwip-phy-link-negotiation
+  project_id: iwip
+  path: Drivers/BSP/ETHERNET/ethernet_chip.c
+  symbol: eth_chip_get_link_state
+  start_line: 253
+  end_line: 316
+  highlight_lines: [259, 260, 265, 275, 293, 298, 303]
+  title: "两次读取 PHY 链路位并区分自协商状态"
+  category: 外设驱动
+  summary: "先读当前链路，再根据 BCR 判断要读取手工速率配置还是协商结果。"
+  engineering_details:
+    - "`BSR` 的链路位低电平锁存，连续两次读取后依据第二次判断实时链路。"
+    - "BCR 关闭自协商时用速率和双工位直接判定。启用时需读 `PHYSCSR` 并检查协商完成位。"
+    - "完成后按 `HCDSPEED_MASK` 区分 10M/100M 与半/全双工。未完成或无法识别的组合返回尚未协商完成。"
+  related_docs:
+    - id: iwip
+      section: "架构与执行机制"
+      section_slug: "架构与执行机制"
+    - id: TS-0003-ethernet-link-without-ip
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+    - id: ethernet-link-and-ip
+      section: "核心机制模型"
+      section_slug: "核心机制模型"
+
+- id: iwip-eth-dma-pbuf-handoff
+  project_id: iwip
+  path: Middlewares/Iwip/arch/ethernetif.c
+  symbol: ethernetif_input
+  start_line: 323
+  end_line: 370
+  highlight_lines: [331, 336, 338, 343, 346, 348, 350, 365]
+  title: "从 ETH DMA 接收任务把 pbuf 交给协议栈"
+  category: 网络协议栈
+  summary: "接收完成中断唤醒任务，由任务反复取出 HAL 组装的 pbuf，并根据错误位和投递结果决定释放。"
+  engineering_details:
+    - "`HAL_ETH_RxCpltCallback` 从中断给接收信号量。任务等待信号量后持续取包，直到没有可取的 `pbuf`。"
+    - "RX 缓冲分配正常时调用 `HAL_ETH_ReadData`。描述符带 `ETH_DMARXDESC_ES` 时直接释放包。"
+    - "`netif->input` 在本项目绑定 `tcpip_input`。投递失败由接收任务释放，投递成功后交给协议栈消费。"
+  related_docs:
+    - id: iwip
+      section: "架构与执行机制"
+      section_slug: "架构与执行机制"
+    - id: ADR-0003-run-lwip-in-rtos-mode
+      section: "决策与落地机制"
+      section_slug: "决策与落地机制"
+    - id: TS-0003-ethernet-link-without-ip
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: iwip-netif-core-thread-registration
+  project_id: iwip
+  path: Middlewares/Iwip/arch/lwip_comm.c
+  symbol: lwip_comm_init
+  start_line: 204
+  end_line: 255
+  highlight_lines: [213, 219, 223, 228, 229, 237, 241, 243, 249]
+  title: "注册网络接口并启动独立的链路巡检线程"
+  category: 网络协议栈
+  summary: "首次启动 TCP/IP 核心后，在核心锁中完成 netif 注册，再启动链路巡检和可选 DHCP 线程。"
+  engineering_details:
+    - "初始化状态位限制 `tcpip_init` 只执行一次。DHCP 编译模式先给接口零地址，静态模式装入配置值。"
+    - "`netif_add` 把接收入口绑定到 `tcpip_input`。注册失败释放核心锁并返回错误。"
+    - "注册链路回调后先同步检查一次链路，再创建 `eth_link`，按固定周期推进 PHY/MAC 状态。"
+  related_docs:
+    - id: iwip
+      section: "静态地址与 DHCP 状态流"
+      section_slug: "静态地址与-dhcp-状态流"
+    - id: ADR-0003-run-lwip-in-rtos-mode
+      section: "决策与落地机制"
+      section_slug: "决策与落地机制"
+
+- id: iwip-dhcp-static-fallback
+  project_id: iwip
+  path: Middlewares/Iwip/arch/lwip_comm.c
+  symbol: lwip_dhcp_process
+  start_line: 57
+  end_line: 134
+  highlight_lines: [65, 70, 74, 81, 84, 107, 109, 114, 116, 123, 127]
+  title: "从 DHCP 等待切换到静态回退或链路断开状态"
+  category: 状态机与协议
+  summary: "DHCP 线程在核心锁内推进地址状态，按租约、重试次数和链路结果更新接口配置。"
+  engineering_details:
+    - "开始 DHCP 前先清地址，启动成功进入等待。收到租约时同步 IP、掩码与网关到应用状态。"
+    - "未获地址且重试超过 `LWIP_MAX_DHCP_TRIES` 后停止 DHCP，写入默认静态配置并记录超时状态。"
+    - "链路断开时停止 DHCP、清零接口地址并进入 `LWIP_DHCP_OFF`，下次上线由回调重新发起。"
+  related_docs:
+    - id: iwip
+      section: "静态地址与 DHCP 状态流"
+      section_slug: "静态地址与-dhcp-状态流"
+    - id: TS-0003-ethernet-link-without-ip
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+    - id: ethernet-link-and-ip
+      section: "跨项目实现对比"
+      section_slug: "跨项目实现对比"
+
+- id: mspm0-uart0-rx-interrupt-ring
+  project_id: mspm0g3507
+  path: interface/bsp_uart0_proto.c
+  symbol: UART0_Proto_RX_IRQHandler
+  start_line: 127
+  end_line: 158
+  highlight_lines: [135, 138, 141, 146, 148, 150, 154, 155]
+  title: "UART0 中断把 FIFO 字节写入 128 B 环形队列"
+  category: 任务与总线
+  summary: "接收中断清除状态并排空 FIFO，留下粘滞的异常标记交给轮询解析器处理。"
+  engineering_details:
+    - "先读取并确认 RX 与四类硬件错误中断。错误会累加计数并置 `g_uart0_rx_reset_pending`。"
+    - "用 `UART0_RX_RING_MASK` 回绕探测下一写位置，追上读位置就判定环满并增加溢出计数。"
+    - "有空间时先写入字节再移动 `g_uart0_rx_head`，十进制解析在轮询路径执行。"
+  related_docs:
+    - id: mspm0g3507
+      section: "K230 像素协议和解析"
+      section_slug: "k230-像素协议和解析"
+    - id: TS-0004-k230-vision-timeout
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: mspm0-k230-frame-business-validity
+  project_id: mspm0g3507
+  path: interface/bsp_uart0_proto.c
+  symbol: uart0_parse_frame
+  start_line: 160
+  end_line: 202
+  highlight_lines: [164, 170, 176, 179, 187, 188, 199, 200]
+  title: "区分 K230 的格式错误、新帧与无球状态"
+  category: 状态机与协议
+  summary: "用十进制转换逐字段验证坐标，合法的无球消息仍作为新鲜数据发布。"
+  engineering_details:
+    - "`strtol` 必须消耗数字，字段之间校验逗号，字符串末尾不可残留字符。可选角度限制在 ±90000 mdeg。"
+    - "`cx`、`cy` 均为 -1 也是合法帧。普通坐标须落在 0–799 和 0–479。"
+    - "成对无球坐标发布 `fresh=true`、`valid=false`。格式或范围错误在更新共享帧之前就返回。"
+  related_docs:
+    - id: mspm0g3507
+      section: "K230 像素协议和解析"
+      section_slug: "k230-像素协议和解析"
+    - id: TS-0004-k230-vision-timeout
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: mspm0-pixels-to-millidegrees
+  project_id: mspm0g3507
+  path: mian.c
+  symbol: BAL_CENTER_X
+  start_line: 668
+  end_line: 714
+  highlight_lines: [668, 675, 680, 682, 685, 691, 695, 697, 707, 713]
+  title: "按像素误差调度增益并加上球速前馈"
+  category: 控制算法
+  summary: "以画面中心 400 px 为参考，按误差大小插值 P/D 增益，并将球速前馈叠加到毫度输出。"
+  engineering_details:
+    - "误差在近区时用 `abs_err / gs_near` 求插值比例，超出近区使用远区增益。"
+    - "相邻有效采样时间差在 0–1000 ms 的开区间内才差分速度，先限制尖峰再低通，单位为 px/ms。"
+    - "PID 使用原始坐标，前馈按 `cur_vx * k230_ff_pred_ms * kp_eff` 单独叠加。"
+  related_docs:
+    - id: mspm0g3507
+      section: "从坐标到 Emm_V5"
+      section_slug: "从坐标到-emm_v5"
+    - id: sensor-feedback-pipeline
+      section: "跨项目实现对比"
+      section_slug: "跨项目实现对比"
+    - id: embedded-architecture-evolution
+      section: "控制与排障线"
+      section_slug: "控制与排障线"
+
+- id: mspm0-vision-dropout-recenter
+  project_id: mspm0g3507
+  path: mian.c
+  symbol: K230_TIMEOUT_MS
+  start_line: 769
+  end_line: 819
+  highlight_lines: [772, 778, 781, 791, 799, 800, 804, 813, 815, 819]
+  title: "区分短时漏检、连续无球与串口超时"
+  category: 诊断与容错
+  summary: "漏检时短暂预测或保持，连续无球或视觉链路超时后把目标设为中心。"
+  engineering_details:
+    - "短时使用上一有效坐标和低通速度外推，预测年龄有上限，单次目标变化最多 400 mdeg。"
+    - "当前有效的 `BALL_MISS_TOLERANCE` 为 8。连续无球达到阈值时清预测状态、目标和 PID。"
+    - "独立超时条件对最近一次合法帧做无符号差值，达到 150 ms 时置位并提交 `StepperTrack_SetTarget(0, false)`。"
+  related_docs:
+    - id: mspm0g3507
+      section: "丢球、超时和保护状态"
+      section_slug: "丢球超时和保护状态"
+    - id: TS-0004-k230-vision-timeout
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: mspm0-stepper-deadband-and-spacing
+  project_id: mspm0g3507
+  path: application/app_stepper_track.c
+  symbol: StepperTrack_Update
+  start_line: 199
+  end_line: 264
+  highlight_lines: [203, 206, 215, 232, 236, 240, 244, 246, 252, 255]
+  title: "步进跟踪先处理故障，再按脉冲误差节流"
+  category: 控制算法
+  summary: "从目标毫度换算绝对脉冲后钳位，再用与上次下发目标的差值决定是否需要发新命令。"
+  engineering_details:
+    - "收到驱动故障后锁存错误、退出运动状态并发停止，后续更新在故障未重置时直接返回。"
+    - "目标脉冲限在 `±TRACK_MAX_PULSES`。运动中偏差不超过中档阈值且距上次下发不足 10 ms 时延后。"
+    - "差值落入 `TRACK_DEAD_ZONE_STEPS` 时跳过位置更新，运动超过空闲计时门限可转回 `TRACK_IDLE`。"
+  related_docs:
+    - id: mspm0g3507
+      section: "从坐标到 Emm_V5"
+      section_slug: "从坐标到-emm_v5"
+    - id: TS-0004-k230-vision-timeout
+      section: "关键源码测点"
+      section_slug: "关键源码测点"
+
+- id: mspm0-emmv5-position-frame
+  project_id: mspm0g3507
+  path: interface/emmv5.c
+  symbol: EMMV5_PositionSigned
+  start_line: 111
+  end_line: 134
+  highlight_lines: [114, 115, 116, 118, 120, 128, 130, 133]
+  title: "将有符号脉冲目标组装为 Emm_V5 位置帧"
+  category: 状态机与协议
+  summary: "位置指令把脉冲符号拆为方向和幅值，再按驱动定义排列 13 个字节。"
+  engineering_details:
+    - "帧头为设备地址和 `0xFD`，速度占 2 B，脉冲幅值占 4 B，均以高字节先发送。"
+    - "方向字段由目标正负决定。负数先提升到 `int64_t` 再取反，避免在原有符号宽度内取负溢出。"
+    - "跟踪调用传模式值 1 作为绝对定位。同步位为零，`0x6B` 是固定帧尾。"
+  related_docs:
+    - id: mspm0g3507
+      section: "从坐标到 Emm_V5"
+      section_slug: "从坐标到-emm_v5"
+    - id: embedded-stream-framing
+      section: "跨项目实现对比"
+      section_slug: "跨项目实现对比"
+
+- id: mspm0-emmv5-reply-validation
+  project_id: mspm0g3507
+  path: interface/emmv5.c
+  symbol: EMMV5_POS_MAX_MDEG
+  start_line: 239
+  end_line: 315
+  highlight_lines: [241, 252, 255, 273, 280, 283, 288, 297, 307, 308, 310]
+  title: "按功能码验证 Emm_V5 回执长度、位置和驱动状态"
+  category: 状态机与协议
+  summary: "已知回复按预期长度和末字节收尾，再解码位置量或独立的接受、到位、故障事件。"
+  engineering_details:
+    - "`0x36` 位置帧固定 8 B，到正确长度且末字节为 `0x6B` 才完整，避免把有效载荷里的同值提前当帧尾。"
+    - "位置按固件型号换算。Emm 用 `raw * 360000 / 65536`，X 用 `raw * 100`，加符号后通过量程校验才发布。"
+    - "已知功能码的短回执分别将 `0x02`、`0x9F`、`0xE2/0xEE` 记为接受、到位和故障。"
+  related_docs:
+    - id: mspm0g3507
+      section: "从坐标到 Emm_V5"
+      section_slug: "从坐标到-emm_v5"
+    - id: TS-0004-k230-vision-timeout
+      section: "关键源码测点"
+      section_slug: "关键源码测点"

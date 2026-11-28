@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-28T03:52:50.831320Z",
+  "generated_at": "2026-11-28T10:54:57.288908Z",
   "counts": {
     "projects": 6,
     "topics": 4,
@@ -10,8 +10,10 @@
     "total_words": 30568,
     "total_mermaids": 22,
     "total_tables": 75,
-    "total_evidence_links": 187,
-    "unique_evidence_files": 125
+    "total_evidence_links": 136,
+    "unique_evidence_files": 82,
+    "total_source_anchors": 38,
+    "total_source_lines": 1755
   },
   "by_tier": {
     "core": 5,
@@ -54,38 +56,47 @@
   "by_evidence_repo": {
     "Mangta517/Iwip": {
       "project_id": "iwip",
-      "count": 38,
-      "unique_files": 21
+      "count": 34,
+      "unique_files": 18
     },
     "Mangta517/MSPM0G3507": {
       "project_id": "mspm0g3507",
-      "count": 26,
-      "unique_files": 18
+      "count": 21,
+      "unique_files": 14
     },
     "Mangta517/bootloader": {
       "project_id": "bootloader",
-      "count": 36,
-      "unique_files": 24
+      "count": 17,
+      "unique_files": 7
     },
     "Mangta517/flight": {
       "project_id": "flight",
-      "count": 28,
-      "unique_files": 23
+      "count": 23,
+      "unique_files": 18
     },
     "Mangta517/freertos-beginer": {
       "project_id": "freertos-beginer",
-      "count": 5,
-      "unique_files": 4
+      "count": 1,
+      "unique_files": 1
     },
     "Mangta517/watch": {
       "project_id": "watch",
-      "count": 54,
-      "unique_files": 35
+      "count": 40,
+      "unique_files": 24
     }
   },
   "by_diagram_type": {
     "flowchart": 18,
     "sequenceDiagram": 4
+  },
+  "by_anchor_category": {
+    "任务与总线": 8,
+    "启动与跳转": 2,
+    "外设驱动": 6,
+    "控制算法": 5,
+    "状态机与协议": 9,
+    "网络协议栈": 4,
+    "诊断与容错": 4
   },
   "by_backdrop_motif": {
     "atlas": 1,
