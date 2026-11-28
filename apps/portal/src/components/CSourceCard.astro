@@ -25,9 +25,8 @@ const highlighted = hasCode
     })
   : null;
 const highlightedLinesHtml = highlighted ? renderHighlightedCLinesHtml(highlighted) : '';
-
-const FOLD_THRESHOLD = compact ? 16 : 22;
-const isFoldable = Boolean(highlighted && highlighted.totalLines > FOLD_THRESHOLD);
+const showBottomClose = Boolean(highlighted && highlighted.totalLines > 24);
+const codePanelId = `c-code-${compact ? 'doc-' : ''}${anchor.id}`;
 const lineRangeLabel =
   anchor.start_line && anchor.end_line
     ? anchor.start_line === anchor.end_line
@@ -132,12 +131,17 @@ const highlightCount = highlighted
   )}
 
   {highlighted ? (
-    <div
-      class={`kb-cs-code-box ${isFoldable ? 'is-foldable is-collapsed' : ''}`}
-      data-c-code-box
-    >
+    <div class="kb-cs-code-box is-collapsed" data-c-code-box>
       <div class="kb-cs-code-bar">
-        <div class="kb-cs-code-meta">
+        <button
+          type="button"
+          class="kb-cs-code-trigger"
+          data-c-toggle
+          aria-expanded="false"
+          aria-controls={codePanelId}
+          title={`点击展开或收起 ${filename}（${highlighted.totalLines} 行）`}
+        >
+          <span class="kb-cs-chevron" aria-hidden="true">▸</span>
           <span class="kb-cs-code-lang">C</span>
           <span class="kb-cs-code-file" title={anchor.path}>{filename}</span>
           <span class="kb-cs-code-lines">
@@ -148,9 +152,18 @@ const highlightCount = highlighted
               重点 {highlightCount} 行
             </span>
           )}
-        </div>
+        </button>
 
         <div class="kb-cs-code-actions">
+          <button
+            type="button"
+            class="kb-cs-toggle-btn"
+            data-c-toggle
+            aria-expanded="false"
+            aria-controls={codePanelId}
+          >
+            展开源码
+          </button>
           <button
             type="button"
             class="kb-cs-action-btn"
@@ -172,23 +185,25 @@ const highlightCount = highlighted
         </div>
       </div>
 
-      <div class="kb-cs-code-viewport" tabindex="0" aria-label={`${filename} C 语言源码截取片段`}>
-        <pre class="kb-cs-pre"><code class="kb-cs-code" set:html={highlightedLinesHtml} /></pre>
-      </div>
-
-      {isFoldable && (
-        <div class="kb-cs-fold-bar">
-          <button
-            type="button"
-            class="kb-cs-fold-btn"
-            data-c-fold-toggle
-            data-total-lines={String(highlighted.totalLines)}
-            aria-expanded="false"
-          >
-            展开完整 {highlighted.totalLines} 行 C 源码 ↓
-          </button>
+      <div id={codePanelId} class="kb-cs-code-body" data-c-code-body hidden>
+        <div class="kb-cs-code-viewport" tabindex="0" aria-label={`${filename} C 语言源码截取片段`}>
+          <pre class="kb-cs-pre"><code class="kb-cs-code" set:html={highlightedLinesHtml} /></pre>
         </div>
-      )}
+
+        {showBottomClose && (
+          <div class="kb-cs-fold-bar">
+            <button
+              type="button"
+              class="kb-cs-fold-btn"
+              data-c-toggle
+              aria-expanded="false"
+              aria-controls={codePanelId}
+            >
+              收起源码 ↑
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   ) : (
     <div class="kb-cs-code-pending">
@@ -480,12 +495,71 @@ const highlightCount = highlighted
     background: var(--kb-c-bar);
   }
 
-  .kb-cs-code-meta,
+  .kb-cs-code-box.is-collapsed .kb-cs-code-bar {
+    border-bottom-color: transparent;
+  }
+
+  .kb-cs-code-trigger {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.38rem;
+    flex: 1 1 14rem;
+    min-width: 0;
+    padding: 0.08rem 0.22rem 0.08rem 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .kb-cs-code-trigger:hover .kb-cs-code-file,
+  .kb-cs-code-trigger:hover .kb-cs-chevron {
+    color: var(--kb-accent);
+  }
+
+  .kb-cs-chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 0.9rem;
+    color: var(--sl-color-gray-3);
+    font-size: 0.78rem;
+    transition: transform 0.16s ease, color 0.15s ease;
+    transform: rotate(90deg);
+  }
+
+  .kb-cs-code-box.is-collapsed .kb-cs-chevron {
+    transform: rotate(0deg);
+  }
+
   .kb-cs-code-actions {
     display: inline-flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.38rem;
+  }
+
+  .kb-cs-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.16rem 0.56rem;
+    border-radius: 0.34rem;
+    border: 1px solid color-mix(in srgb, var(--kb-accent) 45%, var(--kb-border));
+    background: var(--kb-project-soft);
+    color: var(--kb-project-ink);
+    font-family: var(--kb-font-sans);
+    font-size: 0.7rem;
+    font-weight: 650;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .kb-cs-toggle-btn:hover {
+    border-color: var(--kb-accent);
+    background: color-mix(in srgb, var(--kb-project-soft) 75%, var(--kb-accent));
   }
 
   .kb-cs-code-lang {
@@ -549,28 +623,14 @@ const highlightCount = highlighted
     color: var(--kb-topic);
   }
 
+  .kb-cs-code-body[hidden] {
+    display: none;
+  }
+
   .kb-cs-code-viewport {
     position: relative;
     overflow-x: auto;
     padding: 0.52rem 0;
-  }
-
-  .kb-cs-code-box.is-foldable.is-collapsed .kb-cs-code-viewport {
-    max-height: 24.5rem;
-    overflow-y: hidden;
-  }
-
-  .kb-cs-code-box.is-foldable.is-collapsed .kb-cs-code-viewport::after {
-    content: '';
-    position: sticky;
-    display: block;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 3.4rem;
-    margin-top: -3.4rem;
-    pointer-events: none;
-    background: linear-gradient(to bottom, transparent, var(--kb-c-bg) 88%);
   }
 
   .kb-cs-pre {

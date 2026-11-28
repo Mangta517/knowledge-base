@@ -2588,17 +2588,14 @@ h6,
   .kb-mermaid-toolbar,
   .kb-copy-btn,
   .kb-cs-code-actions,
-  .kb-cs-fold-bar {
+  .kb-cs-fold-bar,
+  .kb-ev-bulk-btn,
+  .kb-doc-c-bulk {
     display: none !important;
   }
 
-  .kb-cs-code-box.is-foldable.is-collapsed .kb-cs-code-viewport {
-    max-height: none !important;
-    overflow: visible !important;
-  }
-
-  .kb-cs-code-box.is-foldable.is-collapsed .kb-cs-code-viewport::after {
-    display: none !important;
+  .kb-cs-code-body[hidden] {
+    display: block !important;
   }
 
   .kb-table-scroll[hidden] {
