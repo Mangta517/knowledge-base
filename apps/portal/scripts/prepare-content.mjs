@@ -535,8 +535,8 @@ import KnowledgeGraphPage from '../../components/KnowledgeGraphPage.astro';
   fs.writeFileSync(path.join(OUT_DOCS_DIR, 'graph.mdx'), graphMdx, 'utf-8');
 
   const evidenceMdx = `---
-title: ${yamlStr('源码锚点索引')}
-description: ${yamlStr('集中检索全库固定 40 位 Git SHA 的公开源码引用与对应知识文档章节。')}
+title: ${yamlStr('C 源码精讲与锚点索引')}
+description: ${yamlStr('仅收录公开仓库固定 40 位 Git SHA 的 C 语言（.c / .h）核心源码截取与工程细节精讲，无需跳转工程即可直接对照阅读。')}
 template: splash
 editUrl: false
 pagefind: false

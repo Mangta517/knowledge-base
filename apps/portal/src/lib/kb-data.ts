@@ -1,6 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { extractDiagrams, extractEvidenceLinks } from './kb-extract.mjs';
+import {
+  extractDiagrams,
+  extractEvidenceContextMap,
+  extractEvidenceLinks,
+  getCFileKind,
+  isCSourcePath,
+  parseGithubLineHash,
+} from './kb-extract.mjs';
 
 function findRepoRoot(): string {
   let dir = process.cwd();
@@ -27,6 +34,48 @@ export interface EvidenceLinkEntry {
   label: string;
   section: string;
   section_slug?: string;
+  /** Optional C-only enrichment fields emitted by backend index pipeline. */
+  language?: 'c';
+  file_kind?: 'source' | 'header';
+  symbol?: string;
+  symbols?: string[];
+  start_line?: number;
+  end_line?: number;
+  highlight_lines?: number[];
+  title?: string;
+  category?: string;
+  summary?: string;
+  engineering_details?: string[];
+  code?: string;
+  anchor_id?: string;
+}
+
+export interface SourceAnchorDocRef {
+  id: string;
+  section?: string;
+  section_slug?: string;
+}
+
+export interface SourceAnchorEntry {
+  id: string;
+  repo: string;
+  project_id?: string;
+  commit: string;
+  path: string;
+  language?: 'c';
+  file_kind?: 'source' | 'header';
+  symbol?: string;
+  symbols?: string[];
+  start_line?: number;
+  end_line?: number;
+  highlight_lines?: number[];
+  title: string;
+  category?: string;
+  summary?: string;
+  engineering_details?: string[];
+  code?: string;
+  url: string;
+  related_docs?: SourceAnchorDocRef[];
 }
 
 export interface DiagramEntry {
@@ -212,6 +261,8 @@ export interface CatalogData {
   reading_tracks?: ReadingTrackData[];
   /** Optional site-level light backdrop presets emitted by backend index pipeline. */
   backdrop_presets?: BackdropPresetEntry[];
+  /** Optional curated C-source engineering walkthrough anchors with inline verbatim code. */
+  source_anchors?: SourceAnchorEntry[];
 }
 
 export interface GraphNode {
@@ -255,12 +306,15 @@ export interface StatsData {
     total_tables?: number;
     total_evidence_links?: number;
     unique_evidence_files?: number;
+    total_source_anchors?: number;
+    total_source_lines?: number;
   };
   by_tier: Record<string, number>;
   by_domain: Record<string, number>;
   by_tech_stack: Record<string, number>;
   by_language: Record<string, number>;
   by_evidence_repo?: Record<string, EvidenceRepoSummary>;
+  by_anchor_category?: Record<string, number>;
   by_diagram_type?: Record<string, number>;
   recent_updates: Array<{
     id: string;
@@ -279,6 +333,67 @@ export interface ResolvedEvidenceItem extends EvidenceLinkEntry {
   doc_route: string;
   doc_href: string;
   project_id?: string;
+}
+
+export interface ResolvedAnchorDocRef {
+  doc_id: string;
+  doc_title: string;
+  doc_type: KbDocItem['type'];
+  doc_route: string;
+  doc_href: string;
+  section: string;
+  label?: string;
+}
+
+export interface ResolvedSourceAnchor {
+  id: string;
+  repo: string;
+  project_id?: string;
+  commit: string;
+  path: string;
+  file_kind: 'source' | 'header';
+  symbol?: string;
+  symbols: string[];
+  start_line?: number;
+  end_line?: number;
+  highlight_lines: number[];
+  title: string;
+  category?: string;
+  summary: string;
+  engineering_details: string[];
+  code?: string;
+  line_count: number;
+  url: string;
+  related_docs: ResolvedAnchorDocRef[];
+  doc_types: Array<KbDocItem['type']>;
+  primary_doc_type: KbDocItem['type'];
+  search_key: string;
+}
+
+export interface CSourceFileGroup {
+  baseUrl: string;
+  repo: string;
+  projectId: string | null;
+  commit: string;
+  path: string;
+  fileKind: 'source' | 'header';
+  anchors: ResolvedSourceAnchor[];
+  docRefs: ResolvedAnchorDocRef[];
+  docTypes: Array<KbDocItem['type']>;
+  categories: string[];
+  inlineCodeCount: number;
+  searchKey: string;
+}
+
+export interface SourceAnchorCatalog {
+  /** 'curated' when backed by catalog.source_anchors, 'derived' when projected from C-only evidence_links. */
+  mode: 'curated' | 'derived';
+  items: ResolvedSourceAnchor[];
+  files: CSourceFileGroup[];
+  byDocId: Map<string, ResolvedSourceAnchor[]>;
+  inlineCodeCount: number;
+  totalCodeLines: number;
+  categories: Array<{ name: string; count: number }>;
 }
 
 export interface ResolvedDiagramItem extends DiagramEntry {
@@ -732,9 +847,8 @@ function readSourceMarkdown(sourcePath: string): string {
 }
 
 /**
- * Resolve all fixed-SHA source evidence links across published docs.
- * Prefers structured `item.evidence_links` emitted by the backend index pipeline,
- * falling back to read-only Markdown extraction until the backend upgrade lands.
+ * Resolve all fixed-SHA C-language (.c / .h) evidence links across published docs.
+ * Strictly filters out non-C files (e.g. .md, .uvprojx, .ioc, .py, .s, .syscfg) and directories.
  */
 export function getEvidenceCatalog(bundle = loadKbData()) {
   const repoToProjectId = new Map<string, string>(
@@ -751,19 +865,23 @@ export function getEvidenceCatalog(bundle = loadKbData()) {
       rawLinks = doc.evidence_links;
     } else {
       const md = readSourceMarkdown(doc.source_path);
-      rawLinks = md ? extractEvidenceLinks(md, repoToProjectId) : [];
+      rawLinks = md ? extractEvidenceLinks(md, repoToProjectId, { cOnly: true }) : [];
     }
 
     for (const entry of rawLinks) {
+      if (entry.kind !== 'blob' || !isCSourcePath(entry.path)) continue;
       const safeUrl = safeExternalUrl(entry.url);
       if (!safeUrl || !isCommitSha(entry.commit)) continue;
       const projectId =
         entry.project_id || repoToProjectId.get(entry.repo.toLowerCase()) || undefined;
+      const fileKind = entry.file_kind || getCFileKind(entry.path) || 'source';
       const baseHref = withDocRoute(doc.route);
       const docHref = entry.section_slug ? `${baseHref}#${entry.section_slug}` : baseHref;
       items.push({
         ...entry,
         url: safeUrl,
+        language: 'c',
+        file_kind: fileKind,
         ...(projectId ? { project_id: projectId } : {}),
         doc_id: doc.id,
         doc_title: doc.title,
@@ -775,6 +893,385 @@ export function getEvidenceCatalog(bundle = loadKbData()) {
   }
 
   return { items, fromBackend };
+}
+
+type KbBundle = ReturnType<typeof loadKbData>;
+const sourceAnchorCatalogCache = new WeakMap<KbBundle, SourceAnchorCatalog>();
+
+function countCodeLines(code?: string): number {
+  if (!code || !code.trim()) return 0;
+  return code.replace(/\r\n/g, '\n').replace(/\n+$/, '').split('\n').length;
+}
+
+function buildAnchorSearchKey(anchor: {
+  repo: string;
+  project_id?: string;
+  path: string;
+  commit: string;
+  title: string;
+  category?: string;
+  symbol?: string;
+  symbols: string[];
+  summary: string;
+  engineering_details: string[];
+  code?: string;
+  related_docs: ResolvedAnchorDocRef[];
+}): string {
+  return [
+    anchor.repo,
+    anchor.project_id || '',
+    anchor.path,
+    anchor.commit,
+    anchor.title,
+    anchor.category || '',
+    anchor.symbol || '',
+    ...anchor.symbols,
+    anchor.summary,
+    ...anchor.engineering_details,
+    ...anchor.related_docs.map((r) => `${r.doc_title} ${r.section} ${r.label || ''}`),
+    anchor.code ? anchor.code.slice(0, 1200) : '',
+  ]
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
+function finalizeSourceAnchorCatalog(
+  mode: 'curated' | 'derived',
+  items: ResolvedSourceAnchor[],
+): SourceAnchorCatalog {
+  const byDocId = new Map<string, ResolvedSourceAnchor[]>();
+  const categoryCounts = new Map<string, number>();
+  const fileMap = new Map<string, CSourceFileGroup>();
+
+  let inlineCodeCount = 0;
+  let totalCodeLines = 0;
+
+  for (const item of items) {
+    if (item.code && item.code.trim()) {
+      inlineCodeCount++;
+      totalCodeLines += item.line_count;
+    }
+    if (item.category) {
+      categoryCounts.set(item.category, (categoryCounts.get(item.category) || 0) + 1);
+    }
+
+    const seenDocsForAnchor = new Set<string>();
+    for (const ref of item.related_docs) {
+      if (seenDocsForAnchor.has(ref.doc_id)) continue;
+      seenDocsForAnchor.add(ref.doc_id);
+      const bucket = byDocId.get(ref.doc_id) || [];
+      bucket.push(item);
+      byDocId.set(ref.doc_id, bucket);
+    }
+
+    const baseUrl = item.url.split('#')[0];
+    let grp = fileMap.get(baseUrl);
+    if (!grp) {
+      grp = {
+        baseUrl,
+        repo: item.repo,
+        projectId: item.project_id || null,
+        commit: item.commit,
+        path: item.path,
+        fileKind: item.file_kind,
+        anchors: [],
+        docRefs: [],
+        docTypes: [],
+        categories: [],
+        inlineCodeCount: 0,
+        searchKey: '',
+      };
+      fileMap.set(baseUrl, grp);
+    }
+    grp.anchors.push(item);
+    if (item.code && item.code.trim()) {
+      grp.inlineCodeCount++;
+    }
+    for (const ref of item.related_docs) {
+      if (!grp.docRefs.some((r) => r.doc_id === ref.doc_id && r.section === ref.section)) {
+        grp.docRefs.push(ref);
+      }
+    }
+  }
+
+  const files: CSourceFileGroup[] = Array.from(fileMap.values())
+    .map((grp) => {
+      const docTypes = Array.from(
+        new Set(grp.anchors.flatMap((a) => a.doc_types)),
+      ) as Array<KbDocItem['type']>;
+      const categories = Array.from(
+        new Set(grp.anchors.map((a) => a.category).filter((c): c is string => Boolean(c))),
+      );
+      const searchKey = [
+        grp.repo,
+        grp.projectId || '',
+        grp.path,
+        grp.commit,
+        ...grp.anchors.map((a) => a.search_key),
+      ]
+        .join(' ')
+        .toLowerCase();
+      return {
+        ...grp,
+        docTypes,
+        categories,
+        searchKey,
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.inlineCodeCount - a.inlineCodeCount ||
+        b.anchors.length - a.anchors.length ||
+        a.repo.localeCompare(b.repo) ||
+        a.path.localeCompare(b.path),
+    );
+
+  const categories = Array.from(categoryCounts.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'zh-CN'));
+
+  return {
+    mode,
+    items,
+    files,
+    byDocId,
+    inlineCodeCount,
+    totalCodeLines,
+    categories,
+  };
+}
+
+/**
+ * Resolve the unified C-language-only source walkthrough catalog.
+ * - Strictly allows only `.c` and `.h` blobs; excludes `.md`, `.uvprojx`, `.ioc`, `.py`, `.s`, `.syscfg`, etc.
+ * - Prefers backend-curated `catalog.source_anchors` with verbatim inline C excerpts & engineering details.
+ * - Gracefully derives C-only engineering cards from `evidence_links` + citing wiki context until backend ships.
+ */
+export function getSourceAnchorCatalog(bundle = loadKbData()): SourceAnchorCatalog {
+  const cached = sourceAnchorCatalogCache.get(bundle);
+  if (cached) return cached;
+
+  const repoToProjectId = new Map<string, string>(
+    bundle.catalog.projects.map((p) => [p.repo.toLowerCase(), p.id]),
+  );
+
+  const curatedRaw = bundle.catalog.source_anchors;
+  if (Array.isArray(curatedRaw) && curatedRaw.length > 0) {
+    const items: ResolvedSourceAnchor[] = [];
+    for (const raw of curatedRaw) {
+      if (!isCSourcePath(raw.path)) continue;
+      if (!isCommitSha(raw.commit)) continue;
+      const safeUrl = safeExternalUrl(raw.url);
+      if (!safeUrl) continue;
+
+      const projectId =
+        raw.project_id || repoToProjectId.get(raw.repo.toLowerCase()) || undefined;
+      const fileKind = raw.file_kind || getCFileKind(raw.path) || 'source';
+      const resolvedDocs: ResolvedAnchorDocRef[] = [];
+
+      for (const ref of raw.related_docs || []) {
+        const doc = bundle.byId.get(ref.id);
+        if (!doc) continue;
+        const baseHref = withDocRoute(doc.route);
+        const docHref = ref.section_slug ? `${baseHref}#${ref.section_slug}` : baseHref;
+        resolvedDocs.push({
+          doc_id: doc.id,
+          doc_title: doc.title,
+          doc_type: doc.type,
+          doc_route: doc.route,
+          doc_href: docHref,
+          section: ref.section || '',
+        });
+      }
+      if (resolvedDocs.length === 0 && projectId) {
+        const projDoc = bundle.byId.get(projectId);
+        if (projDoc) {
+          resolvedDocs.push({
+            doc_id: projDoc.id,
+            doc_title: projDoc.title,
+            doc_type: projDoc.type,
+            doc_route: projDoc.route,
+            doc_href: withDocRoute(projDoc.route),
+            section: '',
+          });
+        }
+      }
+
+      const code = typeof raw.code === 'string' && raw.code.trim() ? raw.code : undefined;
+      const lineCount = countCodeLines(code);
+      const hashRange = parseGithubLineHash(safeUrl.includes('#') ? `#${safeUrl.split('#')[1]}` : '');
+      const startLine = raw.start_line ?? hashRange.start_line;
+      const endLine =
+        raw.end_line ??
+        hashRange.end_line ??
+        (startLine && lineCount > 0 ? startLine + lineCount - 1 : undefined);
+      const highlightLines = Array.isArray(raw.highlight_lines)
+        ? raw.highlight_lines.filter((n) => Number.isInteger(n) && n > 0)
+        : [];
+      const symbols = Array.from(
+        new Set([
+          ...(raw.symbol ? [raw.symbol] : []),
+          ...(Array.isArray(raw.symbols) ? raw.symbols : []),
+        ]),
+      );
+      const engineeringDetails = Array.isArray(raw.engineering_details)
+        ? raw.engineering_details.map((s) => String(s).trim()).filter(Boolean)
+        : [];
+      const docTypes = Array.from(
+        new Set(resolvedDocs.map((r) => r.doc_type)),
+      ) as Array<KbDocItem['type']>;
+      const primaryDocType = docTypes[0] || 'project';
+      const title = raw.title?.trim() || raw.symbol || path.posix.basename(raw.path);
+      const summary = raw.summary?.trim() || '';
+
+      const anchor: ResolvedSourceAnchor = {
+        id: raw.id,
+        repo: raw.repo,
+        ...(projectId ? { project_id: projectId } : {}),
+        commit: raw.commit,
+        path: raw.path,
+        file_kind: fileKind,
+        ...(raw.symbol ? { symbol: raw.symbol } : {}),
+        symbols,
+        ...(startLine ? { start_line: startLine } : {}),
+        ...(endLine ? { end_line: endLine } : {}),
+        highlight_lines: highlightLines,
+        title,
+        ...(raw.category?.trim() ? { category: raw.category.trim() } : {}),
+        summary,
+        engineering_details: engineeringDetails,
+        ...(code ? { code } : {}),
+        line_count: lineCount,
+        url: safeUrl,
+        related_docs: resolvedDocs,
+        doc_types: docTypes.length > 0 ? docTypes : ['project'],
+        primary_doc_type: primaryDocType,
+        search_key: '',
+      };
+      anchor.search_key = buildAnchorSearchKey(anchor);
+      items.push(anchor);
+    }
+
+    const result = finalizeSourceAnchorCatalog('curated', items);
+    sourceAnchorCatalogCache.set(bundle, result);
+    return result;
+  }
+
+  // Derived C-only transition mode from doc.evidence_links + citing wiki context
+  const items: ResolvedSourceAnchor[] = [];
+  let seq = 0;
+
+  for (const doc of bundle.allItems) {
+    const md = readSourceMarkdown(doc.source_path);
+    const contextMap = md ? extractEvidenceContextMap(md) : new Map();
+    const contextCursor = new Map<string, number>();
+
+    let rawLinks: EvidenceLinkEntry[];
+    if (Array.isArray(doc.evidence_links)) {
+      rawLinks = doc.evidence_links;
+    } else {
+      rawLinks = md ? extractEvidenceLinks(md, repoToProjectId, { cOnly: true }) : [];
+    }
+
+    for (const entry of rawLinks) {
+      if (entry.kind !== 'blob' || !isCSourcePath(entry.path)) continue;
+      const safeUrl = safeExternalUrl(entry.url);
+      if (!safeUrl || !isCommitSha(entry.commit)) continue;
+
+      seq++;
+      const projectId =
+        entry.project_id || repoToProjectId.get(entry.repo.toLowerCase()) || undefined;
+      const fileKind = entry.file_kind || getCFileKind(entry.path) || 'source';
+      const baseHref = withDocRoute(doc.route);
+      const docHref = entry.section_slug ? `${baseHref}#${entry.section_slug}` : baseHref;
+
+      const ctxList = contextMap.get(safeUrl) || contextMap.get(entry.url) || [];
+      const ctxIdx = contextCursor.get(safeUrl) || 0;
+      const ctx = ctxList[ctxIdx] || ctxList[0];
+      contextCursor.set(safeUrl, ctxIdx + 1);
+
+      const code = typeof entry.code === 'string' && entry.code.trim() ? entry.code : undefined;
+      const lineCount = countCodeLines(code);
+      const hashRange = parseGithubLineHash(
+        safeUrl.includes('#') ? `#${safeUrl.split('#')[1]}` : '',
+      );
+      const startLine = entry.start_line ?? hashRange.start_line;
+      const endLine =
+        entry.end_line ??
+        hashRange.end_line ??
+        (startLine && lineCount > 0 ? startLine + lineCount - 1 : undefined);
+      const highlightLines = Array.isArray(entry.highlight_lines)
+        ? entry.highlight_lines.filter((n) => Number.isInteger(n) && n > 0)
+        : [];
+      const symbols = Array.from(
+        new Set([
+          ...(entry.symbol ? [entry.symbol] : []),
+          ...(Array.isArray(entry.symbols) ? entry.symbols : []),
+          ...(ctx?.symbols || []),
+        ]),
+      );
+      const summary = entry.summary?.trim() || ctx?.summary || '';
+      const engineeringDetails = Array.isArray(entry.engineering_details)
+        ? entry.engineering_details.map((s) => String(s).trim()).filter(Boolean)
+        : [];
+      const filename = path.posix.basename(entry.path);
+      const title =
+        entry.title?.trim() ||
+        (entry.label && entry.label !== filename ? `${entry.label} · ${filename}` : filename);
+
+      const relatedDocs: ResolvedAnchorDocRef[] = [
+        {
+          doc_id: doc.id,
+          doc_title: doc.title,
+          doc_type: doc.type,
+          doc_route: doc.route,
+          doc_href: docHref,
+          section: entry.section || '',
+          label: entry.label,
+        },
+      ];
+
+      const anchor: ResolvedSourceAnchor = {
+        id: entry.anchor_id || `${doc.id}-c-${seq}`,
+        repo: entry.repo,
+        ...(projectId ? { project_id: projectId } : {}),
+        commit: entry.commit,
+        path: entry.path,
+        file_kind: fileKind,
+        ...(entry.symbol ? { symbol: entry.symbol } : {}),
+        symbols,
+        ...(startLine ? { start_line: startLine } : {}),
+        ...(endLine ? { end_line: endLine } : {}),
+        highlight_lines: highlightLines,
+        title,
+        ...(entry.category?.trim() ? { category: entry.category.trim() } : {}),
+        summary,
+        engineering_details: engineeringDetails,
+        ...(code ? { code } : {}),
+        line_count: lineCount,
+        url: safeUrl,
+        related_docs: relatedDocs,
+        doc_types: [doc.type],
+        primary_doc_type: doc.type,
+        search_key: '',
+      };
+      anchor.search_key = buildAnchorSearchKey(anchor);
+      items.push(anchor);
+    }
+  }
+
+  const result = finalizeSourceAnchorCatalog('derived', items);
+  sourceAnchorCatalogCache.set(bundle, result);
+  return result;
+}
+
+export function getDocCAnchors(docId: string, bundle = loadKbData()): ResolvedSourceAnchor[] {
+  return getSourceAnchorCatalog(bundle).byDocId.get(docId) || [];
+}
+
+export function getDocCAnchorCount(docId: string, bundle = loadKbData()): number {
+  return getDocCAnchors(docId, bundle).length;
 }
 
 /**

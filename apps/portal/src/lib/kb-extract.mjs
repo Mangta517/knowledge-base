@@ -9,6 +9,32 @@ const SOURCE_LINK_RE =
 const MERMAID_HEADER_RE =
   /^(?<type>flowchart|graph|sequenceDiagram|stateDiagram(?:-v2)?|classDiagram|erDiagram|xychart-beta)(?:\s+(?<dir>[A-Za-z0-9_-]+))?/;
 
+const C_SOURCE_PATH_RE = /\.[ch]$/i;
+const GITHUB_LINE_HASH_RE = /^#L(\d+)(?:-L?(\d+))?$/i;
+
+export function isCSourcePath(filePath = '') {
+  return typeof filePath === 'string' && C_SOURCE_PATH_RE.test(filePath.trim());
+}
+
+export function getCFileKind(filePath = '') {
+  const clean = String(filePath || '').trim().toLowerCase();
+  if (clean.endsWith('.c')) return 'source';
+  if (clean.endsWith('.h')) return 'header';
+  return null;
+}
+
+export function parseGithubLineHash(hash = '') {
+  const match = String(hash || '').trim().match(GITHUB_LINE_HASH_RE);
+  if (!match) return {};
+  const startLine = Number.parseInt(match[1], 10);
+  const endLine = match[2] ? Number.parseInt(match[2], 10) : startLine;
+  if (!Number.isInteger(startLine) || startLine < 1) return {};
+  if (!Number.isInteger(endLine) || endLine < startLine) {
+    return { start_line: startLine, end_line: startLine };
+  }
+  return { start_line: startLine, end_line: endLine };
+}
+
 export function splitFrontmatterBody(raw = '') {
   const normalized = String(raw).replace(/\r\n/g, '\n');
   if (!normalized.startsWith('---\n')) {
@@ -191,7 +217,108 @@ function decodeGithubPath(rawPath = '') {
   }
 }
 
-export function extractEvidenceLinks(rawMarkdown, repoToProjectId = new Map()) {
+function cleanMarkdownContextLine(rawLine = '', linkLabel = '') {
+  let line = String(rawLine || '').trim();
+  if (!line) return '';
+
+  // Strip Markdown table pipes into a readable engineering summary
+  if (line.startsWith('|') && line.endsWith('|')) {
+    const cells = line
+      .slice(1, -1)
+      .split('|')
+      .map((cell) =>
+        cell
+          .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+          .replace(/\[\[[^\]|]+\|([^\]]+)\]\]/g, '$1')
+          .replace(/\[\[([^\]]+)\]\]/g, '$1')
+          .replace(/\*\*([^*]+)\*\*/g, '$1')
+          .trim(),
+      )
+      .filter(Boolean);
+    const filtered =
+      cells.length > 1 && linkLabel && cells[0] === linkLabel ? cells.slice(1) : cells;
+    return filtered.join(' · ').replace(/\s+/g, ' ').trim();
+  }
+
+  // Strip list / blockquote / callout prefixes
+  line = line
+    .replace(/^(?:>\s*)+/, '')
+    .replace(/^(?:[-*+]|\d+\.)\s+/, '')
+    .replace(/^\[![\w-]+\][+-]?\s*/, '');
+
+  // Keep link labels and wikilink display names, drop raw URLs
+  line = line
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/\[\[[^\]|]+\|([^\]]+)\]\]/g, '$1')
+    .replace(/\[\[([^\]]+)\]\]/g, '$1')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return line;
+}
+
+function extractContextSymbols(cleanLine = '') {
+  const found = [];
+  const seen = new Set();
+  for (const match of cleanLine.matchAll(/`([^`\n]{2,56})`/g)) {
+    const token = match[1].trim();
+    // Pick C-like symbols, macros, registers, hex constants, structs, functions
+    if (
+      /^(?:[A-Za-z_][A-Za-z0-9_]*(?:->[A-Za-z_][A-Za-z0-9_]*|\(\))?|0x[0-9a-fA-F]+)$/.test(token) &&
+      !seen.has(token)
+    ) {
+      seen.add(token);
+      found.push(token);
+      if (found.length >= 6) break;
+    }
+  }
+  return found;
+}
+
+function extractLineContext(body, offset, linkLabel) {
+  const lineStart = body.lastIndexOf('\n', Math.max(0, offset - 1)) + 1;
+  const lineEndIdx = body.indexOf('\n', offset);
+  const rawLine = body.slice(lineStart, lineEndIdx === -1 ? body.length : lineEndIdx);
+  const summary = cleanMarkdownContextLine(rawLine, linkLabel);
+  const symbols = extractContextSymbols(summary);
+  return { summary, symbols };
+}
+
+/**
+ * Build a lookup map of engineering context sentences & C symbols for each fixed-SHA C link
+ * inside a Markdown document (used to enrich evidence_links when backend summaries are absent).
+ */
+export function extractEvidenceContextMap(rawMarkdown) {
+  const body = splitFrontmatterBody(rawMarkdown);
+  const { visible } = analyzeMarkdown(body);
+  const byUrl = new Map();
+
+  for (const match of visible.matchAll(SOURCE_LINK_RE)) {
+    const groups = match.groups || {};
+    const kind = (groups.kind || 'blob').toLowerCase() === 'tree' ? 'tree' : 'blob';
+    const rawPath = groups.path || '';
+    const decodedPath = decodeGithubPath(rawPath);
+    if (kind !== 'blob' || !isCSourcePath(decodedPath)) continue;
+
+    const repo = groups.repo || '';
+    const commit = groups.ref || '';
+    const hash = groups.hash || '';
+    const offset = match.index ?? 0;
+    const url = `https://github.com/${repo}/${kind}/${commit}${rawPath ? `/${rawPath}` : ''}${hash}`;
+    const label = extractMarkdownLinkLabel(body, offset);
+    const ctx = extractLineContext(body, offset, label);
+    const list = byUrl.get(url) || [];
+    list.push(ctx);
+    byUrl.set(url, list);
+  }
+
+  return byUrl;
+}
+
+export function extractEvidenceLinks(rawMarkdown, repoToProjectId = new Map(), options = {}) {
+  const cOnly = options.cOnly !== false;
   const body = splitFrontmatterBody(rawMarkdown);
   const { visible, headings } = analyzeMarkdown(body);
   const entries = [];
@@ -206,13 +333,22 @@ export function extractEvidenceLinks(rawMarkdown, repoToProjectId = new Map()) {
     const offset = match.index ?? 0;
 
     const decodedPath = decodeGithubPath(rawPath);
+    const isC = kind === 'blob' && isCSourcePath(decodedPath);
+    if (cOnly && !isC) {
+      continue;
+    }
+
     const baseUrl = `https://github.com/${repo}/${kind}/${commit}${rawPath ? `/${rawPath}` : ''}${hash}`;
     const heading = findNearestHeading(headings, offset);
     const mdLabel = extractMarkdownLinkLabel(body, offset);
     const fallbackLabel = decodedPath
       ? decodedPath.replace(/\/+$/, '').split('/').pop() || decodedPath
       : repo;
+    const label = mdLabel || fallbackLabel;
     const projectId = repoToProjectId.get(repo.toLowerCase());
+    const fileKind = getCFileKind(decodedPath);
+    const lineRange = parseGithubLineHash(hash);
+    const { summary, symbols } = extractLineContext(body, offset, label);
 
     entries.push({
       url: baseUrl,
@@ -221,9 +357,14 @@ export function extractEvidenceLinks(rawMarkdown, repoToProjectId = new Map()) {
       kind,
       commit,
       path: decodedPath,
-      label: mdLabel || fallbackLabel,
+      label,
       section: heading?.title || '',
       ...(heading?.slug ? { section_slug: heading.slug } : {}),
+      ...(isC ? { language: 'c' } : {}),
+      ...(fileKind ? { file_kind: fileKind } : {}),
+      ...lineRange,
+      ...(summary ? { summary } : {}),
+      ...(symbols.length > 0 ? { symbols } : {}),
     });
   }
 

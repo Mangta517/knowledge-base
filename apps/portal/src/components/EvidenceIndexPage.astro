@@ -1,20 +1,30 @@
 ---
+import CSourceCard from './CSourceCard.astro';
+import { renderInlineCodeHtml } from '../lib/c-highlight.mjs';
 import {
   TYPE_LABELS,
   TYPE_SHORT_LABELS,
-  getEvidenceCatalog,
+  getSourceAnchorCatalog,
   loadKbData,
   withBase,
   withDocRoute,
 } from '../lib/kb-data';
 
 const bundle = loadKbData();
-const { catalog, stats } = bundle;
-const { items: evidenceItems } = getEvidenceCatalog(bundle);
+const { catalog } = bundle;
+const anchorCatalog = getSourceAnchorCatalog(bundle);
+const {
+  mode: dataMode,
+  items: anchors,
+  files: uniqueCFiles,
+  inlineCodeCount,
+  totalCodeLines,
+  categories,
+} = anchorCatalog;
 
 const projectById = new Map(catalog.projects.map((p) => [p.id, p]));
 
-// Aggregate repository distribution
+// Aggregate strictly C-language (.c / .h) distribution per repository
 const repoMap = new Map<
   string,
   {
@@ -24,103 +34,39 @@ const repoMap = new Map<
     projectHref: string | null;
     commit: string;
     count: number;
-    uniqueUrls: Set<string>;
+    inlineCount: number;
+    uniqueFiles: Set<string>;
   }
 >();
 
-for (const ev of evidenceItems) {
-  const key = ev.repo.toLowerCase();
+for (const anchor of anchors) {
+  const key = anchor.repo.toLowerCase();
   let bucket = repoMap.get(key);
   if (!bucket) {
-    const proj = ev.project_id ? projectById.get(ev.project_id) : undefined;
+    const proj = anchor.project_id ? projectById.get(anchor.project_id) : undefined;
     bucket = {
-      repo: ev.repo,
-      projectId: proj?.id || ev.project_id || null,
-      projectTitle: proj?.title || ev.repo,
+      repo: anchor.repo,
+      projectId: proj?.id || anchor.project_id || null,
+      projectTitle: proj?.title || anchor.repo,
       projectHref: proj ? withDocRoute(proj.route) : null,
-      commit: proj?.synced_commit || ev.commit,
+      commit: proj?.synced_commit || anchor.commit,
       count: 0,
-      uniqueUrls: new Set(),
+      inlineCount: 0,
+      uniqueFiles: new Set(),
     };
     repoMap.set(key, bucket);
   }
   bucket.count++;
-  bucket.uniqueUrls.add(ev.url.split('#')[0]);
+  if (anchor.code && anchor.code.trim()) {
+    bucket.inlineCount++;
+  }
+  bucket.uniqueFiles.add(anchor.url.split('#')[0]);
 }
 
 const repoSummaries = Array.from(repoMap.values()).sort(
   (a, b) => b.count - a.count || a.repo.localeCompare(b.repo),
 );
 const maxRepoCount = Math.max(1, ...repoSummaries.map((r) => r.count));
-
-// Deduplicated unique file/directory view
-interface UniqueFileGroup {
-  baseUrl: string;
-  repo: string;
-  projectId: string | null;
-  kind: 'blob' | 'tree';
-  commit: string;
-  path: string;
-  refs: Array<{
-    doc_id: string;
-    doc_title: string;
-    doc_type: keyof typeof TYPE_LABELS;
-    doc_href: string;
-    section: string;
-    label: string;
-  }>;
-  docTypes: string[];
-  searchKey: string;
-}
-
-const fileGroupMap = new Map<string, UniqueFileGroup>();
-for (const ev of evidenceItems) {
-  const baseUrl = ev.url.split('#')[0];
-  let grp = fileGroupMap.get(baseUrl);
-  if (!grp) {
-    grp = {
-      baseUrl,
-      repo: ev.repo,
-      projectId: ev.project_id || null,
-      kind: ev.kind,
-      commit: ev.commit,
-      path: ev.path || '/',
-      refs: [],
-      docTypes: [],
-      searchKey: '',
-    };
-    fileGroupMap.set(baseUrl, grp);
-  }
-  grp.refs.push({
-    doc_id: ev.doc_id,
-    doc_title: ev.doc_title,
-    doc_type: ev.doc_type,
-    doc_href: ev.doc_href,
-    section: ev.section,
-    label: ev.label,
-  });
-}
-
-const uniqueFiles = Array.from(fileGroupMap.values())
-  .map((grp) => {
-    const types = Array.from(new Set(grp.refs.map((r) => r.doc_type)));
-    const searchKey = [
-      grp.repo,
-      grp.projectId || '',
-      grp.path,
-      grp.commit,
-      ...grp.refs.map((r) => `${r.doc_title} ${r.section} ${r.label}`),
-    ]
-      .join(' ')
-      .toLowerCase();
-    return { ...grp, docTypes: types, searchKey };
-  })
-  .sort(
-    (a, b) =>
-      b.refs.length - a.refs.length ||
-      a.repo.localeCompare(b.repo) ||
-      a.path.localeCompare(b.path),
-  );
 
 const docTypesOrder: Array<keyof typeof TYPE_LABELS> = [
   'project',
@@ -131,16 +77,34 @@ const docTypesOrder: Array<keyof typeof TYPE_LABELS> = [
 ];
 const typeCounts: Record<string, number> = {};
 const coveredDocs = new Set<string>();
-for (const ev of evidenceItems) {
-  typeCounts[ev.doc_type] = (typeCounts[ev.doc_type] || 0) + 1;
-  coveredDocs.add(ev.doc_id);
+let cSourceCount = 0;
+let cHeaderCount = 0;
+
+for (const anchor of anchors) {
+  if (anchor.file_kind === 'header') cHeaderCount++;
+  else cSourceCount++;
+  for (const t of anchor.doc_types) {
+    typeCounts[t] = (typeCounts[t] || 0) + 1;
+  }
+  for (const ref of anchor.related_docs) {
+    coveredDocs.add(ref.doc_id);
+  }
 }
 
-const totalRefs = stats.counts.total_evidence_links ?? evidenceItems.length;
-const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.length;
+const totalAnchors = anchors.length;
+const totalUniqueCFiles = uniqueCFiles.length;
+const hasAnyInlineCode = inlineCodeCount > 0;
+const thirdStatNum =
+  inlineCodeCount === totalAnchors && totalCodeLines > 0
+    ? totalCodeLines
+    : inlineCodeCount;
+const thirdStatLabel =
+  inlineCodeCount === totalAnchors && totalCodeLines > 0
+    ? '直出 C 源码行数'
+    : '已截取直出片段';
 ---
 
-<div class="kb-evidence not-content" data-evidence-page>
+<div class="kb-evidence not-content" data-evidence-page data-c-code-scope>
   <div class="kb-subpage-top">
     <a class="kb-back-link" href={withBase('/')}>← 返回知识库总览</a>
     <div class="kb-subpage-nav">
@@ -149,28 +113,48 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
     </div>
   </div>
 
-  <!-- Summary Telemetry Strip -->
-  <section class="kb-ev-summary" aria-label="源码锚点总览指标">
+  <!-- C-Only Policy & Inline Excerpt Status Banner -->
+  <div class={`kb-ev-scope-banner ${hasAnyInlineCode ? 'is-ready' : 'is-transition'}`}>
+    <div class="kb-ev-scope-lead">
+      <span class="kb-ev-c-badge">ONLY C · .c / .h</span>
+      <p>
+        本页严格仅收录公开固件仓固定 40 位 Git SHA 下的 <strong>C 语言源码（<code>.c</code> / <code>.h</code>）</strong>，已自动剔除工程配置、文档与脚本等非 C 文件，围绕源码直接拆解寄存器配置、状态机与并发控制细节。
+      </p>
+    </div>
+    {!hasAnyInlineCode && (
+      <p class="kb-ev-scope-note">
+        当前处于前端 C 语境直出模式（已展示正文提取的工程说明与核心符号）；待后端按计划从固定提交切片写入 <code>catalog.json</code> 的 <code>source_anchors</code> 后，每张卡片将自动在此渲染带真实行号的 C 源码，无需跳出工程查看。
+      </p>
+    )}
+    {hasAnyInlineCode && dataMode === 'curated' && (
+      <p class="kb-ev-scope-note is-ready">
+        已由后端固定快照直出 <strong>{inlineCodeCount}</strong> 段真实 C 源码（共 <strong>{totalCodeLines}</strong> 行），支持按文件、符号、代码关键字与工程分类即时检索。
+      </p>
+    )}
+  </div>
+
+  <!-- Summary Telemetry Strip (C-Only) -->
+  <section class="kb-ev-summary" aria-label="C 语言源码精讲总览指标">
     <div class="kb-ev-stat-grid">
       <div class="kb-ev-stat kb-type-topic">
-        <span class="kb-ev-stat-num">{totalRefs}</span>
-        <span class="kb-ev-stat-label">固定 SHA 引用</span>
+        <span class="kb-ev-stat-num">{totalAnchors}</span>
+        <span class="kb-ev-stat-label">C 源码锚点</span>
       </div>
       <div class="kb-ev-stat kb-type-project">
-        <span class="kb-ev-stat-num">{totalUniqueFiles}</span>
-        <span class="kb-ev-stat-label">覆盖源码路径</span>
+        <span class="kb-ev-stat-num">{totalUniqueCFiles}</span>
+        <span class="kb-ev-stat-label">覆盖 .c / .h 文件</span>
       </div>
       <div class="kb-ev-stat kb-type-adr">
-        <span class="kb-ev-stat-num">{repoSummaries.length}</span>
-        <span class="kb-ev-stat-label">关联公开仓库</span>
+        <span class="kb-ev-stat-num">{thirdStatNum}</span>
+        <span class="kb-ev-stat-label">{thirdStatLabel}</span>
       </div>
       <div class="kb-ev-stat kb-type-synthesis">
         <span class="kb-ev-stat-num">{coveredDocs.size}</span>
-        <span class="kb-ev-stat-label">归档知识文档</span>
+        <span class="kb-ev-stat-label">关联知识文档</span>
       </div>
     </div>
 
-    <div class="kb-ev-repo-bars" aria-label="各公开仓库源码锚点分布">
+    <div class="kb-ev-repo-bars" aria-label="各公开仓库 C 源码锚点分布">
       {repoSummaries.map((r) => {
         const pct = Math.max(8, Math.round((r.count / maxRepoCount) * 100));
         return (
@@ -179,7 +163,7 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
             class="kb-ev-repo-row"
             data-ev-repo-btn={r.repo.toLowerCase()}
             aria-pressed="false"
-            title={`点击筛选 ${r.repo}（${r.count} 处引用 / ${r.uniqueUrls.size} 个路径）`}
+            title={`点击筛选 ${r.repo}（${r.count} 处 C 源码锚点 / ${r.uniqueFiles.size} 个 .c/.h 文件）`}
           >
             <span class="kb-ev-repo-name">{r.projectId || r.repo}</span>
             <span class="kb-ev-repo-sha">@{r.commit.slice(0, 7)}</span>
@@ -187,7 +171,7 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
               <span class="kb-ev-repo-fill" style={`width: ${pct}%;`}></span>
             </span>
             <span class="kb-ev-repo-count">
-              {r.count} 处 · {r.uniqueUrls.size} 路径
+              {r.count} 处 · {r.uniqueFiles.size} 文件
             </span>
           </button>
         );
@@ -196,14 +180,31 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
   </section>
 
   <!-- Interactive Filter & View Toolbar -->
-  <section class="kb-ev-toolbar" aria-label="源码锚点筛选控制">
+  <section class="kb-ev-toolbar" aria-label="C 源码筛选控制">
     <div class="kb-ev-toolbar-row">
       <div class="kb-ev-mode-switch" role="group" aria-label="列表聚合视图">
-        <button type="button" class="kb-ev-mode-btn is-active" data-ev-mode="refs" aria-pressed="true">
-          引用明细 ({evidenceItems.length})
+        <button
+          type="button"
+          class="kb-ev-mode-btn is-active"
+          data-ev-mode="walkthrough"
+          aria-pressed="true"
+        >
+          源码精讲 ({totalAnchors})
         </button>
         <button type="button" class="kb-ev-mode-btn" data-ev-mode="files" aria-pressed="false">
-          按路径去重 ({uniqueFiles.length})
+          按 C 文件聚合 ({totalUniqueCFiles})
+        </button>
+      </div>
+
+      <div class="kb-ev-ext-switch" role="group" aria-label="按 C 文件后缀筛选">
+        <button type="button" class="kb-ev-mode-btn is-active" data-ev-ext="all" aria-pressed="true">
+          全部 C ({totalAnchors})
+        </button>
+        <button type="button" class="kb-ev-mode-btn" data-ev-ext="source" aria-pressed="false">
+          .c 实现 ({cSourceCount})
+        </button>
+        <button type="button" class="kb-ev-mode-btn" data-ev-ext="header" aria-pressed="false">
+          .h 头文件 ({cHeaderCount})
         </button>
       </div>
 
@@ -211,12 +212,12 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
         <input
           type="search"
           class="kb-ev-search"
-          placeholder="检索文件路径、章节、文档名或 SHA…"
-          aria-label="筛选源码锚点"
+          placeholder="检索函数名、C 代码、文件路径或工程细节…"
+          aria-label="筛选 C 源码精讲"
           data-ev-search
         />
         <span class="kb-ev-match-count" data-ev-count>
-          显示 {evidenceItems.length} / {evidenceItems.length}
+          显示 {totalAnchors} / {totalAnchors}
         </span>
         <button type="button" class="kb-ev-reset" data-ev-reset hidden>
           重置 ✕
@@ -224,9 +225,30 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
       </div>
     </div>
 
-    <div class="kb-ev-filter-row" role="group" aria-label="按文档类型筛选">
+    {categories.length > 0 && (
+      <div class="kb-ev-filter-row" role="group" aria-label="按工程机制分类筛选">
+        <span class="kb-ev-filter-label">机制主题</span>
+        <button type="button" class="kb-ev-chip is-active" data-ev-cat="all" aria-pressed="true">
+          全部主题 ({totalAnchors})
+        </button>
+        {categories.map((cat) => (
+          <button
+            type="button"
+            class="kb-ev-chip kb-type-adr"
+            data-ev-cat={cat.name}
+            aria-pressed="false"
+          >
+            <span class="kb-ev-dot" aria-hidden="true"></span>
+            {cat.name} ({cat.count})
+          </button>
+        ))}
+      </div>
+    )}
+
+    <div class="kb-ev-filter-row" role="group" aria-label="按关联文档类型筛选">
+      <span class="kb-ev-filter-label">关联文档</span>
       <button type="button" class="kb-ev-chip is-active" data-ev-type="all" aria-pressed="true">
-        全部类型 ({evidenceItems.length})
+        全部类型 ({totalAnchors})
       </button>
       {docTypesOrder.map((t) => (
         <button
@@ -242,87 +264,39 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
     </div>
   </section>
 
-  <!-- Mode 1: All 187 Reference Citations -->
-  <div class="kb-ev-list" data-ev-panel="refs">
-    {evidenceItems.map((ev, idx) => {
-      const searchKey = [
-        ev.repo,
-        ev.project_id || '',
-        ev.path,
-        ev.commit,
-        ev.label,
-        ev.section,
-        ev.doc_title,
-      ]
-        .join(' ')
-        .toLowerCase();
-      return (
-        <article
-          class={`kb-ev-card kb-type-${ev.doc_type}`}
-          data-ev-item="refs"
-          data-repo={ev.repo.toLowerCase()}
-          data-types={ev.doc_type}
-          data-search={searchKey}
-        >
-          <div class="kb-ev-card-head">
-            <div class="kb-ev-card-meta">
-              <span class="kb-ev-seq">#{String(idx + 1).padStart(3, '0')}</span>
-              <span class={`kb-ev-badge kb-type-${ev.doc_type}`}>
-                {TYPE_SHORT_LABELS[ev.doc_type]}
-              </span>
-              <a class="kb-ev-doc-link" href={ev.doc_href}>
-                {ev.doc_title}
-              </a>
-              {ev.section && <span class="kb-ev-section">§ {ev.section}</span>}
-            </div>
-            <span class="kb-ev-repo-pill" title={`固定提交 ${ev.commit}`}>
-              {ev.project_id || ev.repo} · @{ev.commit.slice(0, 7)}
-            </span>
-          </div>
-
-          <div class="kb-ev-card-body">
-            <span class={`kb-ev-kind ${ev.kind === 'tree' ? 'is-tree' : ''}`}>
-              {ev.kind === 'tree' ? 'DIR' : 'FILE'}
-            </span>
-            <code class="kb-ev-path" title={ev.path || '/'}>
-              {ev.path || '/'}
-            </code>
-            <a
-              class="kb-ev-ext-link"
-              href={ev.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={`在 GitHub 固定提交 @${ev.commit.slice(0, 8)} 中查看源码`}
-            >
-              查看源码 ↗
-            </a>
-          </div>
-        </article>
-      );
-    })}
+  <!-- Mode 1: Inline C-Source Engineering Walkthrough Cards -->
+  <div class="kb-ev-list" data-ev-panel="walkthrough">
+    {anchors.map((anchor, idx) => (
+      <CSourceCard anchor={anchor} index={idx} />
+    ))}
   </div>
 
-  <!-- Mode 2: Deduplicated Unique File Paths (125) -->
+  <!-- Mode 2: Deduplicated Unique C Files (.c / .h) -->
   <div class="kb-ev-list" data-ev-panel="files" hidden>
-    {uniqueFiles.map((file) => (
+    {uniqueCFiles.map((file) => (
       <article
         class="kb-ev-card kb-ev-file-card kb-type-project"
         data-ev-item="files"
         data-repo={file.repo.toLowerCase()}
+        data-ext={file.fileKind}
+        data-categories={file.categories.join(',')}
         data-types={file.docTypes.join(',')}
         data-search={file.searchKey}
       >
         <div class="kb-ev-card-head">
           <div class="kb-ev-card-meta">
-            <span class={`kb-ev-kind ${file.kind === 'tree' ? 'is-tree' : ''}`}>
-              {file.kind === 'tree' ? 'DIR' : 'FILE'}
+            <span class={`kb-ev-kind ${file.fileKind === 'header' ? 'is-header' : 'is-source'}`}>
+              {file.fileKind === 'header' ? '.H' : '.C'}
             </span>
             <code class="kb-ev-path" title={file.path}>
               {file.path}
             </code>
           </div>
           <div class="kb-ev-file-actions">
-            <span class="kb-ev-ref-badge">被引用 {file.refs.length} 次</span>
+            <span class="kb-ev-ref-badge">{file.anchors.length} 处锚点</span>
+            {file.inlineCodeCount > 0 && (
+              <span class="kb-ev-code-badge">{file.inlineCodeCount} 段直出代码</span>
+            )}
             <span class="kb-ev-repo-pill" title={`固定提交 ${file.commit}`}>
               {file.projectId || file.repo} · @{file.commit.slice(0, 7)}
             </span>
@@ -337,14 +311,55 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
           </div>
         </div>
 
-        <div class="kb-ev-ref-pills" aria-label="引用该源码的知识文档">
-          {file.refs.map((ref) => (
+        <ul class="kb-ev-file-notes">
+          {file.anchors.map((anchor) => {
+            const lineLabel =
+              anchor.start_line && anchor.end_line
+                ? `L${anchor.start_line}–L${anchor.end_line}`
+                : '';
+            return (
+              <li class="kb-ev-file-note">
+                <div class="kb-ev-file-note-head">
+                  <strong>{anchor.title}</strong>
+                  {anchor.symbol && <code class="kb-ev-file-sym">{anchor.symbol}</code>}
+                  {lineLabel && <span class="kb-ev-file-lines">{lineLabel}</span>}
+                  {anchor.category && <span class="kb-ev-file-cat">{anchor.category}</span>}
+                </div>
+                {anchor.summary && (
+                  <p
+                    class="kb-ev-file-summary"
+                    set:html={renderInlineCodeHtml(anchor.summary)}
+                  />
+                )}
+              </li>
+            );
+          })}
+        </ul>
+
+        {file.inlineCodeCount > 0 && (
+          <details class="kb-ev-file-code-drawer">
+            <summary>
+              直接展开该文件已截取的 {file.inlineCodeCount} 段 C 源码（免跳 GitHub）
+            </summary>
+            <div class="kb-ev-file-code-stack">
+              {file.anchors
+                .filter((a) => Boolean(a.code && a.code.trim()))
+                .map((anchor) => (
+                  <CSourceCard anchor={anchor} compact={true} />
+                ))}
+            </div>
+          </details>
+        )}
+
+        <div class="kb-ev-ref-pills" aria-label="引用该 C 源码的知识文档">
+          {file.docRefs.map((ref) => (
             <a
               class={`kb-ev-ref-pill kb-type-${ref.doc_type}`}
               href={ref.doc_href}
               title={ref.section ? `${ref.doc_title} · ${ref.section}` : ref.doc_title}
             >
               <span class="kb-ev-dot" aria-hidden="true"></span>
+              <span class="kb-ev-ref-type">{TYPE_SHORT_LABELS[ref.doc_type]}</span>
               <span>{ref.doc_title}</span>
               {ref.section && <span class="kb-ev-ref-sec">§ {ref.section}</span>}
             </a>
@@ -355,7 +370,7 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
   </div>
 
   <p class="kb-ev-empty" data-ev-empty hidden>
-    没有匹配的源码锚点，请放宽筛选条件或点击“重置”。
+    没有匹配的 C 语言源码锚点，请放宽筛选条件或点击“重置”。
   </p>
 </div>
 
@@ -363,28 +378,40 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
   const page = document.querySelector<HTMLElement>('[data-evidence-page]');
   if (page) {
     const modeBtns = Array.from(page.querySelectorAll<HTMLButtonElement>('[data-ev-mode]'));
+    const extBtns = Array.from(page.querySelectorAll<HTMLButtonElement>('[data-ev-ext]'));
     const repoBtns = Array.from(page.querySelectorAll<HTMLButtonElement>('[data-ev-repo-btn]'));
+    const catBtns = Array.from(page.querySelectorAll<HTMLButtonElement>('[data-ev-cat]'));
     const typeBtns = Array.from(page.querySelectorAll<HTMLButtonElement>('[data-ev-type]'));
     const searchInput = page.querySelector<HTMLInputElement>('[data-ev-search]')!;
     const countEl = page.querySelector<HTMLElement>('[data-ev-count]')!;
     const resetBtn = page.querySelector<HTMLButtonElement>('[data-ev-reset]')!;
     const emptyEl = page.querySelector<HTMLElement>('[data-ev-empty]')!;
-    const refsPanel = page.querySelector<HTMLElement>('[data-ev-panel="refs"]')!;
+    const walkthroughPanel = page.querySelector<HTMLElement>('[data-ev-panel="walkthrough"]')!;
     const filesPanel = page.querySelector<HTMLElement>('[data-ev-panel="files"]')!;
-    const refItems = Array.from(page.querySelectorAll<HTMLElement>('[data-ev-item="refs"]'));
+    const walkthroughItems = Array.from(
+      page.querySelectorAll<HTMLElement>('[data-ev-item="walkthrough"]'),
+    );
     const fileItems = Array.from(page.querySelectorAll<HTMLElement>('[data-ev-item="files"]'));
 
-    let activeMode: 'refs' | 'files' = 'refs';
+    let activeMode: 'walkthrough' | 'files' = 'walkthrough';
+    let activeExt: 'all' | 'source' | 'header' = 'all';
     let activeRepo = '';
+    let activeCat = 'all';
     let activeType = 'all';
     let query = '';
 
     // Hydrate initial filters from URL query
     const initParams = new URLSearchParams(window.location.search);
     if (initParams.get('mode') === 'files') activeMode = 'files';
+    const initExt = initParams.get('ext') || 'all';
+    if (initExt === 'source' || initExt === 'header') activeExt = initExt;
     const initRepo = (initParams.get('repo') || '').toLowerCase();
     if (initRepo && repoBtns.some((b) => b.dataset.evRepoBtn === initRepo)) {
       activeRepo = initRepo;
+    }
+    const initCat = initParams.get('cat') || 'all';
+    if (catBtns.some((b) => b.dataset.evCat === initCat)) {
+      activeCat = initCat;
     }
     const initType = initParams.get('type') || 'all';
     if (typeBtns.some((b) => b.dataset.evType === initType)) {
@@ -399,18 +426,25 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
     function applyFilters(syncUrl = true) {
       const q = query.trim().toLowerCase();
       const isFiles = activeMode === 'files';
-      refsPanel.hidden = isFiles;
+      walkthroughPanel.hidden = isFiles;
       filesPanel.hidden = !isFiles;
 
-      const list = isFiles ? fileItems : refItems;
+      const list = isFiles ? fileItems : walkthroughItems;
       let visible = 0;
 
       for (const el of list) {
         const repoOk = !activeRepo || el.dataset.repo === activeRepo;
-        const itemTypes = (el.dataset.types || '').split(',');
+        const extOk = activeExt === 'all' || el.dataset.ext === activeExt;
+        const itemCats = isFiles
+          ? (el.dataset.categories || '').split(',').filter(Boolean)
+          : el.dataset.category
+            ? [el.dataset.category]
+            : [];
+        const catOk = activeCat === 'all' || itemCats.includes(activeCat);
+        const itemTypes = (el.dataset.types || '').split(',').filter(Boolean);
         const typeOk = activeType === 'all' || itemTypes.includes(activeType);
         const queryOk = !q || (el.dataset.search || '').includes(q);
-        const show = repoOk && typeOk && queryOk;
+        const show = repoOk && extOk && catOk && typeOk && queryOk;
         el.hidden = !show;
         if (show) visible++;
       }
@@ -420,8 +454,18 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
         btn.classList.toggle('is-active', on);
         btn.setAttribute('aria-pressed', String(on));
       });
+      extBtns.forEach((btn) => {
+        const on = btn.dataset.evExt === activeExt;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-pressed', String(on));
+      });
       repoBtns.forEach((btn) => {
         const on = Boolean(activeRepo) && btn.dataset.evRepoBtn === activeRepo;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-pressed', String(on));
+      });
+      catBtns.forEach((btn) => {
+        const on = btn.dataset.evCat === activeCat;
         btn.classList.toggle('is-active', on);
         btn.setAttribute('aria-pressed', String(on));
       });
@@ -431,7 +475,12 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
         btn.setAttribute('aria-pressed', String(on));
       });
 
-      const isFiltered = Boolean(activeRepo) || activeType !== 'all' || Boolean(q);
+      const isFiltered =
+        Boolean(activeRepo) ||
+        activeExt !== 'all' ||
+        activeCat !== 'all' ||
+        activeType !== 'all' ||
+        Boolean(q);
       countEl.textContent = `显示 ${visible} / ${list.length}`;
       resetBtn.hidden = !isFiltered;
       emptyEl.hidden = visible > 0;
@@ -440,8 +489,12 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
         const url = new URL(window.location.href);
         if (activeMode === 'files') url.searchParams.set('mode', 'files');
         else url.searchParams.delete('mode');
+        if (activeExt !== 'all') url.searchParams.set('ext', activeExt);
+        else url.searchParams.delete('ext');
         if (activeRepo) url.searchParams.set('repo', activeRepo);
         else url.searchParams.delete('repo');
+        if (activeCat !== 'all') url.searchParams.set('cat', activeCat);
+        else url.searchParams.delete('cat');
         if (activeType !== 'all') url.searchParams.set('type', activeType);
         else url.searchParams.delete('type');
         if (q) url.searchParams.set('q', query.trim());
@@ -452,7 +505,15 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
 
     modeBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
-        activeMode = btn.dataset.evMode === 'files' ? 'files' : 'refs';
+        activeMode = btn.dataset.evMode === 'files' ? 'files' : 'walkthrough';
+        applyFilters(true);
+      });
+    });
+
+    extBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const val = btn.dataset.evExt;
+        activeExt = val === 'source' || val === 'header' ? val : 'all';
         applyFilters(true);
       });
     });
@@ -461,6 +522,13 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
       btn.addEventListener('click', () => {
         const next = btn.dataset.evRepoBtn || '';
         activeRepo = activeRepo === next ? '' : next;
+        applyFilters(true);
+      });
+    });
+
+    catBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeCat = btn.dataset.evCat || 'all';
         applyFilters(true);
       });
     });
@@ -479,10 +547,55 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
 
     resetBtn.addEventListener('click', () => {
       activeRepo = '';
+      activeExt = 'all';
+      activeCat = 'all';
       activeType = 'all';
       query = '';
       searchInput.value = '';
       applyFilters(true);
+    });
+
+    // Delegated C code copy & fold toggles for inline C walkthrough cards
+    page.addEventListener('click', async (event) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      const copyBtn = target.closest<HTMLButtonElement>('[data-c-copy]');
+      if (copyBtn) {
+        const box = copyBtn.closest<HTMLElement>('[data-c-code-box]');
+        if (!box) return;
+        const rawCode = Array.from(box.querySelectorAll<HTMLElement>('.kb-c-line-code'))
+          .map((el) => (el.textContent || '').replace(/\u200B/g, ''))
+          .join('\n');
+        if (!rawCode) return;
+        const original = copyBtn.dataset.origLabel || copyBtn.textContent || '复制 C 代码';
+        copyBtn.dataset.origLabel = original;
+        try {
+          await navigator.clipboard.writeText(rawCode);
+          copyBtn.textContent = '已复制 ✓';
+          copyBtn.classList.add('is-copied');
+          window.setTimeout(() => {
+            copyBtn.textContent = original;
+            copyBtn.classList.remove('is-copied');
+          }, 1800);
+        } catch {
+          copyBtn.textContent = '复制失败';
+          window.setTimeout(() => {
+            copyBtn.textContent = original;
+          }, 1600);
+        }
+        return;
+      }
+
+      const foldBtn = target.closest<HTMLButtonElement>('[data-c-fold-toggle]');
+      if (foldBtn) {
+        const box = foldBtn.closest<HTMLElement>('[data-c-code-box]');
+        if (!box) return;
+        const collapsed = box.classList.toggle('is-collapsed');
+        const total = foldBtn.dataset.totalLines || '';
+        foldBtn.setAttribute('aria-expanded', String(!collapsed));
+        foldBtn.textContent = collapsed ? `展开完整 ${total} 行 C 源码 ↓` : '收起代码 ↑';
+      }
     });
 
     applyFilters(false);
@@ -493,7 +606,7 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
   .kb-evidence {
     display: flex;
     flex-direction: column;
-    gap: 1.05rem;
+    gap: 1rem;
   }
 
   .kb-subpage-top {
@@ -537,6 +650,67 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
     border-color: var(--kb-accent);
     background: color-mix(in srgb, var(--kb-surface) 92%, var(--kb-accent));
     color: var(--kb-accent);
+  }
+
+  .kb-ev-scope-banner {
+    display: flex;
+    flex-direction: column;
+    gap: 0.38rem;
+    padding: 0.72rem 0.92rem;
+    border-radius: 0.7rem;
+    border: 1px solid color-mix(in srgb, var(--kb-accent) 34%, var(--kb-border));
+    background: var(--kb-surface);
+    box-shadow: var(--kb-card-specular), var(--kb-shadow-sm);
+  }
+
+  .kb-ev-scope-lead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.45rem 0.65rem;
+  }
+
+  .kb-ev-scope-lead p {
+    margin: 0;
+    flex: 1 1 20rem;
+    color: var(--sl-color-gray-1);
+    font-size: 0.83rem;
+    line-height: 1.58;
+  }
+
+  .kb-ev-scope-lead code,
+  .kb-ev-scope-note code {
+    font-family: var(--sl-font-mono);
+    font-size: 0.76rem;
+    padding: 0.05rem 0.3rem;
+    border-radius: 0.26rem;
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-white);
+  }
+
+  .kb-ev-c-badge {
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: var(--kb-project-soft);
+    color: var(--kb-project-ink);
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+  }
+
+  .kb-ev-scope-note {
+    margin: 0;
+    padding-top: 0.32rem;
+    border-top: 1px dashed var(--kb-border);
+    color: var(--sl-color-gray-3);
+    font-size: 0.76rem;
+    line-height: 1.55;
+  }
+
+  .kb-ev-scope-note.is-ready {
+    color: var(--kb-topic-ink);
   }
 
   .kb-ev-summary {
@@ -667,7 +841,7 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
   .kb-ev-toolbar {
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
+    gap: 0.52rem;
     padding: 0.72rem 0.85rem;
     border-radius: 0.72rem;
     border: 1px solid var(--kb-border);
@@ -680,25 +854,28 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
     gap: 0.45rem;
   }
 
-  .kb-ev-filter-row {
-    justify-content: flex-start;
+  .kb-ev-filter-label {
+    color: var(--sl-color-gray-3);
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-right: 0.12rem;
   }
 
-  .kb-ev-mode-switch {
+  .kb-ev-mode-switch,
+  .kb-ev-ext-switch {
     display: inline-flex;
-    gap: 0.25rem;
-    padding: 0.18rem;
+    gap: 0.22rem;
+    padding: 0.16rem;
     border-radius: 0.5rem;
     border: 1px solid var(--kb-border);
     background: var(--kb-surface-elevated);
   }
 
   .kb-ev-mode-btn {
-    padding: 0.24rem 0.62rem;
+    padding: 0.22rem 0.58rem;
     border: 1px solid transparent;
     border-radius: 0.36rem;
     background: transparent;
@@ -729,7 +906,7 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
   }
 
   .kb-ev-search {
-    width: min(100%, 17.5rem);
+    width: min(100%, 19rem);
     padding: 0.28rem 0.65rem;
     border-radius: 0.44rem;
     border: 1px solid var(--kb-border);
@@ -771,7 +948,7 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
-    padding: 0.2rem 0.56rem;
+    padding: 0.18rem 0.54rem;
     border-radius: 999px;
     border: 1px solid var(--kb-border);
     background: var(--kb-surface-elevated);
@@ -802,10 +979,11 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
   .kb-ev-list {
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
+    gap: 0.72rem;
   }
 
   .kb-ev-list[hidden],
+  .kb-ev-list :global(.kb-ev-card[hidden]),
   .kb-ev-card[hidden],
   .kb-ev-empty[hidden],
   .kb-ev-reset[hidden] {
@@ -815,21 +993,20 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
   .kb-ev-card {
     display: flex;
     flex-direction: column;
-    gap: 0.42rem;
-    padding: 0.68rem 0.85rem;
-    border-radius: 0.66rem;
+    gap: 0.52rem;
+    padding: 0.78rem 0.94rem;
+    border-radius: 0.7rem;
     border: 1px solid var(--kb-border);
-    border-left: 3px solid var(--kb-type-color, var(--kb-accent));
+    border-left: 3.5px solid var(--kb-type-color, var(--kb-accent));
     background: var(--kb-surface);
-    box-shadow: var(--kb-shadow-sm);
+    box-shadow: var(--kb-card-specular), var(--kb-shadow-sm);
     transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
   }
 
   .kb-ev-card:hover {
     border-color: color-mix(in srgb, var(--kb-type-color, var(--kb-accent)) 62%, var(--kb-border));
     border-left-color: var(--kb-type-color, var(--kb-accent));
-    background: color-mix(in srgb, var(--kb-surface) 94%, var(--kb-type-color, var(--kb-accent)));
-    box-shadow: var(--kb-shadow-hover);
+    box-shadow: var(--kb-card-specular), var(--kb-shadow-hover);
   }
 
   .kb-ev-card-head {
@@ -844,75 +1021,28 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.36rem;
+    gap: 0.4rem;
     min-width: 0;
+    flex: 1 1 16rem;
   }
 
-  .kb-ev-seq {
-    color: var(--sl-color-gray-4);
+  .kb-ev-kind {
+    padding: 0.08rem 0.4rem;
+    border-radius: 0.28rem;
     font-family: var(--sl-font-mono);
-    font-size: 0.68rem;
-  }
-
-  .kb-ev-badge {
-    padding: 0.06rem 0.42rem;
-    border-radius: 999px;
-    background: var(--kb-type-soft);
-    color: var(--kb-type-ink, var(--kb-type-color));
     font-size: 0.66rem;
     font-weight: 700;
     flex-shrink: 0;
   }
 
-  .kb-ev-doc-link {
-    color: var(--sl-color-white);
-    font-size: 0.84rem;
-    font-weight: 700;
-    text-decoration: none;
-  }
-
-  .kb-ev-doc-link:hover {
-    color: var(--kb-accent);
-    text-decoration: underline;
-  }
-
-  .kb-ev-section {
-    color: var(--sl-color-gray-3);
-    font-size: 0.72rem;
-  }
-
-  .kb-ev-repo-pill {
-    padding: 0.08rem 0.44rem;
-    border-radius: 0.3rem;
-    border: 1px solid var(--kb-border);
-    background: var(--kb-surface-elevated);
-    color: var(--sl-color-gray-2);
-    font-family: var(--sl-font-mono);
-    font-size: 0.68rem;
-    white-space: nowrap;
-  }
-
-  .kb-ev-card-body {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.45rem;
-  }
-
-  .kb-ev-kind {
-    padding: 0.06rem 0.36rem;
-    border-radius: 0.25rem;
+  .kb-ev-kind.is-source {
     background: var(--kb-project-soft);
     color: var(--kb-project-ink);
-    font-family: var(--sl-font-mono);
-    font-size: 0.64rem;
-    font-weight: 700;
-    flex-shrink: 0;
   }
 
-  .kb-ev-kind.is-tree {
-    background: var(--kb-adr-soft);
-    color: var(--kb-adr-ink);
+  .kb-ev-kind.is-header {
+    background: var(--kb-topic-soft);
+    color: var(--kb-topic-ink);
   }
 
   .kb-ev-path {
@@ -928,31 +1058,11 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
     overflow-wrap: anywhere;
   }
 
-  .kb-ev-ext-link {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.16rem 0.56rem;
-    border-radius: 0.36rem;
-    border: 1px solid color-mix(in srgb, var(--kb-accent) 42%, var(--kb-border));
-    background: var(--kb-project-soft);
-    color: var(--kb-project-ink);
-    font-size: 0.72rem;
-    font-weight: 600;
-    text-decoration: none;
-    white-space: nowrap;
-    transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
-  }
-
-  .kb-ev-ext-link:hover {
-    border-color: var(--kb-accent);
-    background: color-mix(in srgb, var(--kb-project-soft) 75%, var(--kb-accent));
-  }
-
   .kb-ev-file-actions {
     display: inline-flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.38rem;
+    gap: 0.36rem;
   }
 
   .kb-ev-ref-badge {
@@ -963,6 +1073,128 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
     font-family: var(--sl-font-mono);
     font-size: 0.67rem;
     font-weight: 700;
+  }
+
+  .kb-ev-code-badge {
+    padding: 0.08rem 0.42rem;
+    border-radius: 999px;
+    background: var(--kb-adr-soft);
+    color: var(--kb-adr-ink);
+    font-family: var(--sl-font-mono);
+    font-size: 0.67rem;
+    font-weight: 700;
+  }
+
+  .kb-ev-repo-pill {
+    padding: 0.08rem 0.44rem;
+    border-radius: 0.3rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-2);
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
+    white-space: nowrap;
+  }
+
+  .kb-ev-ext-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.16rem 0.54rem;
+    border-radius: 0.36rem;
+    border: 1px solid color-mix(in srgb, var(--kb-accent) 42%, var(--kb-border));
+    background: var(--kb-project-soft);
+    color: var(--kb-project-ink);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: border-color 0.16s ease, background-color 0.16s ease;
+  }
+
+  .kb-ev-ext-link:hover {
+    border-color: var(--kb-accent);
+    background: color-mix(in srgb, var(--kb-project-soft) 75%, var(--kb-accent));
+  }
+
+  .kb-ev-file-notes {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .kb-ev-file-note {
+    padding: 0.48rem 0.66rem;
+    border-radius: 0.48rem;
+    border: 1px solid color-mix(in srgb, var(--kb-border) 80%, transparent);
+    background: var(--kb-surface-elevated);
+  }
+
+  .kb-ev-file-note-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.34rem;
+    font-size: 0.8rem;
+    color: var(--sl-color-white);
+  }
+
+  .kb-ev-file-sym {
+    padding: 0.04rem 0.36rem;
+    border-radius: 0.26rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface);
+    color: var(--kb-accent);
+    font-family: var(--sl-font-mono);
+    font-size: 0.69rem;
+  }
+
+  .kb-ev-file-lines {
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
+    color: var(--kb-synthesis-ink);
+    background: var(--kb-synthesis-soft);
+    padding: 0.04rem 0.34rem;
+    border-radius: 0.25rem;
+  }
+
+  .kb-ev-file-cat {
+    font-size: 0.66rem;
+    font-weight: 600;
+    color: var(--kb-adr-ink);
+    background: var(--kb-adr-soft);
+    padding: 0.04rem 0.38rem;
+    border-radius: 999px;
+  }
+
+  .kb-ev-file-summary {
+    margin: 0.24rem 0 0;
+    color: var(--sl-color-gray-2);
+    font-size: 0.78rem;
+    line-height: 1.56;
+  }
+
+  .kb-ev-file-code-drawer {
+    border-radius: 0.52rem;
+    border: 1px solid color-mix(in srgb, var(--kb-accent) 32%, var(--kb-border));
+    background: var(--kb-surface-elevated);
+    padding: 0.45rem 0.62rem;
+  }
+
+  .kb-ev-file-code-drawer summary {
+    cursor: pointer;
+    color: var(--kb-accent);
+    font-size: 0.76rem;
+    font-weight: 650;
+  }
+
+  .kb-ev-file-code-stack {
+    margin-top: 0.55rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
   }
 
   .kb-ev-ref-pills {
@@ -988,6 +1220,12 @@ const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.lengt
   .kb-ev-ref-pill:hover {
     border-color: var(--kb-type-color);
     background: color-mix(in srgb, var(--kb-surface-elevated) 88%, var(--kb-type-color));
+  }
+
+  .kb-ev-ref-type {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--kb-type-ink, var(--kb-type-color));
   }
 
   .kb-ev-ref-sec {

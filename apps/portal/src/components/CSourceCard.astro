@@ -1,0 +1,728 @@
+---
+import path from 'node:path';
+import { highlightCCode, renderInlineCodeHtml } from '../lib/c-highlight.mjs';
+import { TYPE_SHORT_LABELS, type ResolvedSourceAnchor } from '../lib/kb-data';
+
+interface Props {
+  anchor: ResolvedSourceAnchor;
+  index?: number;
+  compact?: boolean;
+  hideDocId?: string;
+}
+
+const { anchor, index, compact = false, hideDocId } = Astro.props;
+
+const filename = path.posix.basename(anchor.path);
+const hasCode = Boolean(anchor.code && anchor.code.trim());
+const highlighted = hasCode
+  ? highlightCCode(anchor.code, {
+      startLine: anchor.start_line ?? 1,
+      highlightLines: anchor.highlight_lines,
+    })
+  : null;
+
+const FOLD_THRESHOLD = compact ? 16 : 22;
+const isFoldable = Boolean(highlighted && highlighted.totalLines > FOLD_THRESHOLD);
+const lineRangeLabel =
+  anchor.start_line && anchor.end_line
+    ? anchor.start_line === anchor.end_line
+      ? `L${anchor.start_line}`
+      : `L${anchor.start_line}–L${anchor.end_line}`
+    : highlighted
+      ? `L${highlighted.startLine}–L${highlighted.endLine}`
+      : '';
+
+const summaryHtml = renderInlineCodeHtml(anchor.summary);
+const detailItemsHtml = anchor.engineering_details.map((item) => renderInlineCodeHtml(item));
+const visibleDocs = hideDocId
+  ? anchor.related_docs.filter((r) => r.doc_id !== hideDocId)
+  : anchor.related_docs;
+const fileExtLabel = anchor.file_kind === 'header' ? '.h 头文件' : '.c 实现';
+const highlightCount = highlighted
+  ? highlighted.lines.filter((l) => l.isHighlighted).length
+  : 0;
+---
+
+<article
+  id={compact ? undefined : `anchor-${anchor.id}`}
+  class={`kb-ev-card kb-cs-card kb-type-${anchor.primary_doc_type} ${hasCode ? 'has-inline-code' : 'is-pending-code'} ${compact ? 'is-compact' : ''}`}
+  data-ev-item={compact ? undefined : 'walkthrough'}
+  data-repo={anchor.repo.toLowerCase()}
+  data-ext={anchor.file_kind}
+  data-category={anchor.category || ''}
+  data-types={anchor.doc_types.join(',')}
+  data-has-code={hasCode ? '1' : '0'}
+  data-search={anchor.search_key}
+>
+  <header class="kb-cs-head">
+    <div class="kb-cs-badges">
+      {typeof index === 'number' && (
+        <span class="kb-cs-seq">#{String(index + 1).padStart(2, '0')}</span>
+      )}
+      <span class={`kb-cs-lang-pill ${anchor.file_kind === 'header' ? 'is-header' : 'is-source'}`}>
+        {fileExtLabel}
+      </span>
+      {anchor.category && <span class="kb-cs-cat-pill">{anchor.category}</span>}
+      {anchor.symbol && (
+        <code class="kb-cs-symbol-pill" title={`核心 C 符号：${anchor.symbol}`}>
+          {anchor.symbol}
+        </code>
+      )}
+    </div>
+
+    <div class="kb-cs-origin">
+      <span class="kb-ev-repo-pill" title={`固定提交 ${anchor.commit}`}>
+        {anchor.project_id || anchor.repo} · @{anchor.commit.slice(0, 7)}
+      </span>
+      {lineRangeLabel && <span class="kb-cs-line-pill">{lineRangeLabel}</span>}
+    </div>
+  </header>
+
+  <div class="kb-cs-title-row">
+    <h3 class="kb-cs-title">{anchor.title}</h3>
+    <div class="kb-cs-path-line">
+      <code class="kb-cs-path" title={anchor.path}>
+        {anchor.path}
+      </code>
+      {!hasCode && (
+        <a
+          class="kb-ev-ext-link"
+          href={anchor.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`在 GitHub 固定提交 @${anchor.commit.slice(0, 8)} 中查看完整 C 源码`}
+        >
+          GitHub 原文 ↗
+        </a>
+      )}
+    </div>
+  </div>
+
+  {(summaryHtml || detailItemsHtml.length > 0 || (anchor.symbols.length > 0 && !anchor.symbol)) && (
+    <div class="kb-cs-explain">
+      <div class="kb-cs-explain-head">
+        <span class="kb-cs-explain-tag">工程细节精讲</span>
+        {anchor.symbols.length > 0 && detailItemsHtml.length === 0 && (
+          <div class="kb-cs-symbol-list" aria-label="涉及的 C 符号与常量">
+            {anchor.symbols.slice(0, 5).map((sym) => (
+              <code class="kb-cs-mini-sym">{sym}</code>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {summaryHtml && <p class="kb-cs-summary" set:html={summaryHtml} />}
+
+      {detailItemsHtml.length > 0 && (
+        <ol class="kb-cs-details">
+          {detailItemsHtml.map((html, idx) => (
+            <li>
+              <span class="kb-cs-detail-num">{String(idx + 1).padStart(2, '0')}</span>
+              <span class="kb-cs-detail-text" set:html={html} />
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  )}
+
+  {highlighted ? (
+    <div
+      class={`kb-cs-code-box ${isFoldable ? 'is-foldable is-collapsed' : ''}`}
+      data-c-code-box
+    >
+      <div class="kb-cs-code-bar">
+        <div class="kb-cs-code-meta">
+          <span class="kb-cs-code-lang">C</span>
+          <span class="kb-cs-code-file" title={anchor.path}>{filename}</span>
+          <span class="kb-cs-code-lines">
+            {lineRangeLabel || `L${highlighted.startLine}–L${highlighted.endLine}`} · {highlighted.totalLines} 行
+          </span>
+          {highlightCount > 0 && (
+            <span class="kb-cs-hl-badge" title="卡片已标亮核心工程逻辑行">
+              重点 {highlightCount} 行
+            </span>
+          )}
+        </div>
+
+        <div class="kb-cs-code-actions">
+          <button
+            type="button"
+            class="kb-cs-action-btn"
+            data-c-copy
+            aria-label={`复制 ${filename} 的 C 源码片段`}
+            title="复制当前截取的 C 源码"
+          >
+            复制 C 代码
+          </button>
+          <a
+            class="kb-cs-ext-btn"
+            href={anchor.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`核对 GitHub 固定提交 @${anchor.commit.slice(0, 8)} 完整文件`}
+          >
+            GitHub ↗
+          </a>
+        </div>
+      </div>
+
+      <div class="kb-cs-code-viewport" tabindex="0" aria-label={`${filename} C 语言源码截取片段`}>
+        <pre class="kb-cs-pre"><code class="kb-cs-code">{highlighted.lines.map((line) => (<span class={`kb-c-line${line.isHighlighted ? ' is-hl' : ''}`}><span class="kb-c-ln" aria-hidden="true">{line.lineNo}</span><span class="kb-c-line-code" set:html={line.html} /></span>))}</code></pre>
+      </div>
+
+      {isFoldable && (
+        <div class="kb-cs-fold-bar">
+          <button
+            type="button"
+            class="kb-cs-fold-btn"
+            data-c-fold-toggle
+            data-total-lines={String(highlighted.totalLines)}
+            aria-expanded="false"
+          >
+            展开完整 {highlighted.totalLines} 行 C 源码 ↓
+          </button>
+        </div>
+      )}
+    </div>
+  ) : (
+    <div class="kb-cs-code-pending">
+      <span class="kb-cs-pending-dot" aria-hidden="true"></span>
+      <span class="kb-cs-pending-text">
+        内联 C 源码就绪位 · 待后端按 <code>@{anchor.commit.slice(0, 7)}</code> 截取真实行段后自动直出（无需跳转工程）
+      </span>
+    </div>
+  )}
+
+  {visibleDocs.length > 0 && (
+    <footer class="kb-cs-docs" aria-label="关联知识文档章节">
+      <span class="kb-cs-docs-label">关联文档</span>
+      <div class="kb-cs-doc-pills">
+        {visibleDocs.map((ref) => (
+          <a
+            class={`kb-ev-ref-pill kb-type-${ref.doc_type}`}
+            href={ref.doc_href}
+            title={ref.section ? `${ref.doc_title} · ${ref.section}` : ref.doc_title}
+          >
+            <span class="kb-cs-doc-tag">{TYPE_SHORT_LABELS[ref.doc_type]}</span>
+            <span>{ref.doc_title}</span>
+            {ref.section && <span class="kb-ev-ref-sec">§ {ref.section}</span>}
+          </a>
+        ))}
+      </div>
+    </footer>
+  )}
+</article>
+
+<style>
+  .kb-cs-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.62rem;
+    padding: 0.85rem 1rem;
+    border-radius: 0.74rem;
+    border: 1px solid var(--kb-border);
+    border-left: 3.5px solid var(--kb-type-color, var(--kb-accent));
+    background: var(--kb-surface);
+    box-shadow: var(--kb-card-specular), var(--kb-shadow-sm);
+    transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  .kb-cs-card:hover {
+    border-color: color-mix(in srgb, var(--kb-type-color, var(--kb-accent)) 60%, var(--kb-border));
+    border-left-color: var(--kb-type-color, var(--kb-accent));
+    box-shadow: var(--kb-card-specular), var(--kb-shadow-hover);
+  }
+
+  .kb-cs-card.is-compact {
+    padding: 0.75rem 0.9rem;
+    gap: 0.5rem;
+  }
+
+  .kb-cs-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem 0.65rem;
+  }
+
+  .kb-cs-badges,
+  .kb-cs-origin {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.34rem;
+    min-width: 0;
+  }
+
+  .kb-cs-seq {
+    color: var(--sl-color-gray-4);
+    font-family: var(--sl-font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kb-cs-lang-pill {
+    padding: 0.08rem 0.46rem;
+    border-radius: 0.3rem;
+    font-family: var(--sl-font-mono);
+    font-size: 0.67rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
+  .kb-cs-lang-pill.is-source {
+    background: var(--kb-project-soft);
+    color: var(--kb-project-ink);
+  }
+
+  .kb-cs-lang-pill.is-header {
+    background: var(--kb-topic-soft);
+    color: var(--kb-topic-ink);
+  }
+
+  .kb-cs-cat-pill {
+    padding: 0.08rem 0.48rem;
+    border-radius: 999px;
+    background: var(--kb-adr-soft);
+    color: var(--kb-adr-ink);
+    font-size: 0.68rem;
+    font-weight: 650;
+  }
+
+  .kb-cs-symbol-pill {
+    padding: 0.08rem 0.48rem;
+    border-radius: 0.32rem;
+    border: 1px solid color-mix(in srgb, var(--kb-accent) 32%, var(--kb-border));
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-white);
+    font-family: var(--sl-font-mono);
+    font-size: 0.71rem;
+    font-weight: 600;
+  }
+
+  .kb-ev-repo-pill {
+    padding: 0.08rem 0.44rem;
+    border-radius: 0.3rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-2);
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
+    white-space: nowrap;
+  }
+
+  .kb-cs-line-pill {
+    padding: 0.08rem 0.42rem;
+    border-radius: 0.3rem;
+    background: var(--kb-synthesis-soft);
+    color: var(--kb-synthesis-ink);
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kb-cs-title-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .kb-cs-title {
+    margin: 0;
+    color: var(--sl-color-white);
+    font-family: var(--kb-font-display);
+    font-size: 0.98rem;
+    font-weight: 700;
+    line-height: 1.38;
+  }
+
+  .kb-cs-path-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.42rem;
+  }
+
+  .kb-cs-path {
+    flex: 1 1 14rem;
+    min-width: 0;
+    padding: 0.16rem 0.5rem;
+    border-radius: 0.36rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-2);
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    overflow-wrap: anywhere;
+  }
+
+  .kb-ev-ext-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.16rem 0.54rem;
+    border-radius: 0.36rem;
+    border: 1px solid color-mix(in srgb, var(--kb-accent) 42%, var(--kb-border));
+    background: var(--kb-project-soft);
+    color: var(--kb-project-ink);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: border-color 0.16s ease, background-color 0.16s ease;
+  }
+
+  .kb-ev-ext-link:hover {
+    border-color: var(--kb-accent);
+    background: color-mix(in srgb, var(--kb-project-soft) 75%, var(--kb-accent));
+  }
+
+  .kb-cs-explain {
+    display: flex;
+    flex-direction: column;
+    gap: 0.42rem;
+    padding: 0.62rem 0.78rem;
+    border-radius: 0.54rem;
+    border: 1px solid color-mix(in srgb, var(--kb-border) 82%, transparent);
+    background: var(--kb-surface-elevated);
+  }
+
+  .kb-cs-explain-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem 0.5rem;
+  }
+
+  .kb-cs-explain-tag {
+    color: var(--kb-accent);
+    font-family: var(--kb-font-display);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+
+  .kb-cs-symbol-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.28rem;
+  }
+
+  .kb-cs-mini-sym {
+    padding: 0.05rem 0.36rem;
+    border-radius: 0.26rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface);
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
+  }
+
+  .kb-cs-summary {
+    margin: 0;
+    color: var(--sl-color-gray-1);
+    font-size: 0.855rem;
+    line-height: 1.66;
+  }
+
+  .kb-cs-details {
+    margin: 0.1rem 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.34rem;
+  }
+
+  .kb-cs-details li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: baseline;
+    gap: 0.48rem;
+    color: var(--sl-color-gray-2);
+    font-size: 0.82rem;
+    line-height: 1.6;
+  }
+
+  .kb-cs-detail-num {
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--kb-accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kb-cs-code-box {
+    position: relative;
+    border-radius: 0.58rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-c-bg);
+    overflow: hidden;
+  }
+
+  .kb-cs-code-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem 0.6rem;
+    padding: 0.42rem 0.68rem;
+    border-bottom: 1px solid var(--kb-border);
+    background: var(--kb-c-bar);
+  }
+
+  .kb-cs-code-meta,
+  .kb-cs-code-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.38rem;
+  }
+
+  .kb-cs-code-lang {
+    padding: 0.05rem 0.36rem;
+    border-radius: 0.24rem;
+    background: var(--kb-accent);
+    color: #ffffff;
+    font-family: var(--sl-font-mono);
+    font-size: 0.64rem;
+    font-weight: 700;
+  }
+
+  .kb-cs-code-file {
+    color: var(--sl-color-white);
+    font-family: var(--sl-font-mono);
+    font-size: 0.74rem;
+    font-weight: 600;
+  }
+
+  .kb-cs-code-lines {
+    color: var(--sl-color-gray-3);
+    font-family: var(--sl-font-mono);
+    font-size: 0.69rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kb-cs-hl-badge {
+    padding: 0.05rem 0.4rem;
+    border-radius: 999px;
+    background: var(--kb-adr-soft);
+    color: var(--kb-adr-ink);
+    font-size: 0.66rem;
+    font-weight: 650;
+  }
+
+  .kb-cs-action-btn,
+  .kb-cs-ext-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.16rem 0.5rem;
+    border-radius: 0.34rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface);
+    color: var(--sl-color-gray-2);
+    font-family: var(--kb-font-sans);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .kb-cs-action-btn:hover,
+  .kb-cs-ext-btn:hover {
+    border-color: var(--kb-accent);
+    color: var(--kb-accent);
+  }
+
+  .kb-cs-action-btn.is-copied {
+    border-color: var(--kb-topic);
+    color: var(--kb-topic);
+  }
+
+  .kb-cs-code-viewport {
+    position: relative;
+    overflow-x: auto;
+    padding: 0.52rem 0;
+  }
+
+  .kb-cs-code-box.is-foldable.is-collapsed .kb-cs-code-viewport {
+    max-height: 24.5rem;
+    overflow-y: hidden;
+  }
+
+  .kb-cs-code-box.is-foldable.is-collapsed .kb-cs-code-viewport::after {
+    content: '';
+    position: sticky;
+    display: block;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3.4rem;
+    margin-top: -3.4rem;
+    pointer-events: none;
+    background: linear-gradient(to bottom, transparent, var(--kb-c-bg) 88%);
+  }
+
+  .kb-cs-pre {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-family: var(--sl-font-mono);
+    font-size: 0.79rem;
+    line-height: 1.62;
+    tab-size: 4;
+    white-space: normal;
+  }
+
+  .kb-cs-code {
+    display: block;
+    min-width: max-content;
+    font-family: inherit;
+    background: transparent;
+    color: var(--sl-color-gray-1);
+    white-space: normal;
+  }
+
+  .kb-c-line {
+    display: grid;
+    grid-template-columns: 3.35rem minmax(0, 1fr);
+    padding-right: 0.9rem;
+    border-left: 3px solid transparent;
+    white-space: normal;
+  }
+
+  .kb-c-line.is-hl {
+    border-left-color: var(--kb-c-hl-bar);
+    background: var(--kb-c-hl-bg);
+  }
+
+  .kb-c-ln {
+    padding: 0 0.7rem 0 0.45rem;
+    text-align: right;
+    color: var(--kb-c-gutter);
+    font-size: 0.72rem;
+    user-select: none;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kb-c-line.is-hl .kb-c-ln {
+    color: var(--kb-c-hl-bar);
+    font-weight: 700;
+  }
+
+  .kb-c-line-code {
+    white-space: pre;
+  }
+
+  .kb-cs-fold-bar {
+    display: flex;
+    justify-content: center;
+    padding: 0.36rem 0.65rem;
+    border-top: 1px solid var(--kb-border);
+    background: var(--kb-c-bar);
+  }
+
+  .kb-cs-fold-btn {
+    padding: 0.2rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--kb-accent) 40%, var(--kb-border));
+    background: var(--kb-surface);
+    color: var(--kb-accent);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 650;
+    cursor: pointer;
+    transition: border-color 0.16s ease, background-color 0.16s ease;
+  }
+
+  .kb-cs-fold-btn:hover {
+    border-color: var(--kb-accent);
+    background: var(--kb-project-soft);
+  }
+
+  .kb-cs-code-pending {
+    display: flex;
+    align-items: center;
+    gap: 0.48rem;
+    padding: 0.42rem 0.68rem;
+    border-radius: 0.48rem;
+    border: 1px dashed color-mix(in srgb, var(--kb-accent) 36%, var(--kb-border));
+    background: color-mix(in srgb, var(--kb-surface-elevated) 75%, transparent);
+    color: var(--sl-color-gray-3);
+    font-size: 0.74rem;
+    line-height: 1.48;
+  }
+
+  .kb-cs-code-pending code {
+    font-family: var(--sl-font-mono);
+    font-size: 0.72rem;
+    color: var(--sl-color-gray-1);
+  }
+
+  .kb-cs-pending-dot {
+    width: 0.44rem;
+    height: 0.44rem;
+    border-radius: 50%;
+    background: var(--kb-adr);
+    flex-shrink: 0;
+  }
+
+  .kb-cs-docs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.36rem 0.5rem;
+    padding-top: 0.12rem;
+  }
+
+  .kb-cs-docs-label {
+    color: var(--sl-color-gray-3);
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  .kb-cs-doc-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.32rem;
+  }
+
+  .kb-ev-ref-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    padding: 0.14rem 0.48rem;
+    border-radius: 0.36rem;
+    border: 1px solid color-mix(in srgb, var(--kb-type-color) 32%, var(--kb-border));
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-1);
+    font-size: 0.71rem;
+    text-decoration: none;
+    transition: border-color 0.16s ease, background-color 0.16s ease;
+  }
+
+  .kb-ev-ref-pill:hover {
+    border-color: var(--kb-type-color);
+    background: color-mix(in srgb, var(--kb-surface-elevated) 88%, var(--kb-type-color));
+  }
+
+  .kb-cs-doc-tag {
+    padding: 0.03rem 0.3rem;
+    border-radius: 999px;
+    background: var(--kb-type-soft);
+    color: var(--kb-type-ink, var(--kb-type-color));
+    font-size: 0.63rem;
+    font-weight: 700;
+  }
+
+  .kb-ev-ref-sec {
+    color: var(--sl-color-gray-3);
+    font-size: 0.67rem;
+  }
+</style>

@@ -1,0 +1,157 @@
+---
+import CSourceCard from './CSourceCard.astro';
+import { getDocCAnchors, loadKbData, withBase } from '../lib/kb-data';
+
+interface Props {
+  docId: string;
+  projectRepo?: string;
+}
+
+const { docId, projectRepo } = Astro.props;
+const bundle = loadKbData();
+const allDocAnchors = getDocCAnchors(docId, bundle);
+const inlineAnchors = allDocAnchors.filter((a) => Boolean(a.code && a.code.trim()));
+const indexHref = projectRepo
+  ? `${withBase('/evidence/')}?repo=${encodeURIComponent(projectRepo.toLowerCase())}`
+  : withBase('/evidence/');
+---
+
+{inlineAnchors.length > 0 && (
+  <section
+    id="kb-doc-c-anchors"
+    class="kb-doc-c-section not-content"
+    data-pagefind-ignore
+    data-c-code-scope
+    aria-label="本页关联 C 源码精讲"
+  >
+    <div class="kb-doc-c-head">
+      <div class="kb-doc-c-title-group">
+        <h2>本页 C 源码精讲（{inlineAnchors.length}）</h2>
+        <p>直接截取自固定提交的 <code>.c</code> / <code>.h</code> 源码，无需跳转工程即可对照核验实现细节。</p>
+      </div>
+      <a class="kb-doc-c-all" href={indexHref}>
+        全部 C 源码索引 →
+      </a>
+    </div>
+
+    <div class="kb-doc-c-list">
+      {inlineAnchors.map((anchor, idx) => (
+        <CSourceCard anchor={anchor} index={idx} compact={true} hideDocId={docId} />
+      ))}
+    </div>
+  </section>
+)}
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-c-code-scope]').forEach((scope) => {
+    if (scope.dataset.cBound === '1') return;
+    scope.dataset.cBound = '1';
+
+    scope.addEventListener('click', async (event) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      const copyBtn = target.closest<HTMLButtonElement>('[data-c-copy]');
+      if (copyBtn) {
+        const box = copyBtn.closest<HTMLElement>('[data-c-code-box]');
+        if (!box) return;
+        const rawCode = Array.from(box.querySelectorAll<HTMLElement>('.kb-c-line-code'))
+          .map((el) => (el.textContent || '').replace(/\u200B/g, ''))
+          .join('\n');
+        if (!rawCode) return;
+        const original = copyBtn.dataset.origLabel || copyBtn.textContent || '复制 C 代码';
+        copyBtn.dataset.origLabel = original;
+        try {
+          await navigator.clipboard.writeText(rawCode);
+          copyBtn.textContent = '已复制 ✓';
+          copyBtn.classList.add('is-copied');
+          window.setTimeout(() => {
+            copyBtn.textContent = original;
+            copyBtn.classList.remove('is-copied');
+          }, 1800);
+        } catch {
+          copyBtn.textContent = '复制失败';
+          window.setTimeout(() => {
+            copyBtn.textContent = original;
+          }, 1600);
+        }
+        return;
+      }
+
+      const foldBtn = target.closest<HTMLButtonElement>('[data-c-fold-toggle]');
+      if (foldBtn) {
+        const box = foldBtn.closest<HTMLElement>('[data-c-code-box]');
+        if (!box) return;
+        const collapsed = box.classList.toggle('is-collapsed');
+        const total = foldBtn.dataset.totalLines || '';
+        foldBtn.setAttribute('aria-expanded', String(!collapsed));
+        foldBtn.textContent = collapsed
+          ? `展开完整 ${total} 行 C 源码 ↓`
+          : '收起代码 ↑';
+      }
+    });
+  });
+</script>
+
+<style>
+  .kb-doc-c-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.78rem;
+    margin-top: 2rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid var(--kb-border);
+  }
+
+  .kb-doc-c-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.5rem 0.9rem;
+  }
+
+  .kb-doc-c-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.18rem;
+  }
+
+  .kb-doc-c-title-group h2 {
+    margin: 0;
+    color: var(--sl-color-white);
+    font-family: var(--kb-font-display);
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  .kb-doc-c-title-group p {
+    margin: 0;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+  }
+
+  .kb-doc-c-title-group code {
+    font-family: var(--sl-font-mono);
+    font-size: 0.74rem;
+    color: var(--sl-color-gray-1);
+  }
+
+  .kb-doc-c-all {
+    color: var(--kb-accent);
+    font-size: var(--sl-text-xs);
+    font-weight: 650;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .kb-doc-c-all:hover {
+    text-decoration: underline;
+  }
+
+  .kb-doc-c-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.72rem;
+  }
+</style>

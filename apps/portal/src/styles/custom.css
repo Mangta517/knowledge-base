@@ -86,6 +86,22 @@
   --kb-art-via-fill: #131c2e;
   --kb-stamp-color: rgba(148, 163, 184, 0.36);
 
+  /* C Source Code Syntax Palette (Dark Slate) */
+  --kb-c-bg: #101828;
+  --kb-c-bar: #162238;
+  --kb-c-gutter: #647899;
+  --kb-c-hl-bg: rgba(56, 189, 248, 0.12);
+  --kb-c-hl-bar: #38bdf8;
+  --kb-c-kw: #c084fc;
+  --kb-c-type: #38bdf8;
+  --kb-c-pp: #fb923c;
+  --kb-c-fn: #60a5fa;
+  --kb-c-macro: #fbbf24;
+  --kb-c-num: #f472b6;
+  --kb-c-str: #34d399;
+  --kb-c-cmt: #7a8fa8;
+  --kb-c-op: #94a3b8;
+
   --kb-hero-glow: none;
 }
 
@@ -168,6 +184,22 @@
   --kb-art-via-fill: #edf4fb;
   --kb-stamp-color: rgba(30, 64, 104, 0.42);
 
+  /* C Source Code Syntax Palette (Sunlit Daylight Drafting Desk) */
+  --kb-c-bg: #f6f9fd;
+  --kb-c-bar: #eaf2fb;
+  --kb-c-gutter: #7c93ad;
+  --kb-c-hl-bg: rgba(2, 132, 199, 0.09);
+  --kb-c-hl-bar: #0284c7;
+  --kb-c-kw: #7c3aed;
+  --kb-c-type: #0369a1;
+  --kb-c-pp: #c2410c;
+  --kb-c-fn: #1d4ed8;
+  --kb-c-macro: #b45309;
+  --kb-c-num: #be185d;
+  --kb-c-str: #047857;
+  --kb-c-cmt: #64748b;
+  --kb-c-op: #475569;
+
   --kb-hero-glow: none;
 }
 
@@ -215,6 +247,12 @@
   --kb-art-pulse-color: rgba(217, 119, 6, 0.8);
   --kb-art-via-fill: #f6efe2;
   --kb-stamp-color: rgba(116, 84, 42, 0.46);
+
+  --kb-c-bg: #faf6ec;
+  --kb-c-bar: #f2ead9;
+  --kb-c-gutter: #9a8567;
+  --kb-c-hl-bg: rgba(217, 119, 6, 0.1);
+  --kb-c-hl-bar: #d97706;
 }
 
 /* Light Preset C: Daylight Aurora Mist (晴空微光 — Airy Watercolor Studio) */
@@ -901,6 +939,58 @@ h6,
   line-height: 1.66;
 }
 
+/* Global C Syntax Highlighting Token Classes (used inside set:html build-time C excerpts) */
+.kb-c-kw {
+  color: var(--kb-c-kw);
+  font-weight: 600;
+}
+
+.kb-c-type {
+  color: var(--kb-c-type);
+  font-weight: 550;
+}
+
+.kb-c-pp {
+  color: var(--kb-c-pp);
+  font-weight: 600;
+}
+
+.kb-c-fn {
+  color: var(--kb-c-fn);
+}
+
+.kb-c-macro {
+  color: var(--kb-c-macro);
+}
+
+.kb-c-num {
+  color: var(--kb-c-num);
+}
+
+.kb-c-str {
+  color: var(--kb-c-str);
+}
+
+.kb-c-cmt {
+  color: var(--kb-c-cmt);
+  font-style: italic;
+}
+
+.kb-c-op {
+  color: var(--kb-c-op);
+}
+
+.kb-ev-inline-code {
+  padding: 0.08em 0.34em;
+  border-radius: 0.28rem;
+  border: 1px solid color-mix(in srgb, var(--kb-border) 82%, transparent);
+  background: var(--kb-surface);
+  color: var(--sl-color-white);
+  font-family: var(--sl-font-mono);
+  font-size: 0.86em;
+  font-weight: 500;
+}
+
 .sl-markdown-content table,
 .kb-doc-metrics,
 .kb-metric-num,
@@ -1105,19 +1195,21 @@ h6,
   font-size: 0.72rem;
 }
 
-.kb-doc-metrics :is(span, time) + :is(span, time, a)::before {
+.kb-doc-metrics :is(span, time, a) + :is(span, time, a)::before {
   content: "·";
   margin-right: 0.6rem;
   color: var(--sl-color-gray-4);
 }
 
-.kb-doc-graph-jump {
+.kb-doc-graph-jump,
+.kb-doc-c-jump {
   color: var(--kb-accent);
   text-decoration: none;
   font-weight: 600;
 }
 
-.kb-doc-graph-jump:hover {
+.kb-doc-graph-jump:hover,
+.kb-doc-c-jump:hover {
   text-decoration: underline;
 }
 
@@ -2463,7 +2555,18 @@ h6,
   .kb-ds-cards,
   .kb-table-fold-bar,
   .kb-mermaid-toolbar,
-  .kb-copy-btn {
+  .kb-copy-btn,
+  .kb-cs-code-actions,
+  .kb-cs-fold-bar {
+    display: none !important;
+  }
+
+  .kb-cs-code-box.is-foldable.is-collapsed .kb-cs-code-viewport {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .kb-cs-code-box.is-foldable.is-collapsed .kb-cs-code-viewport::after {
     display: none !important;
   }
 
