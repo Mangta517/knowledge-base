@@ -516,3 +516,56 @@ test('card hit-area: stretched primary links and z-index layering stay intact ac
     /\.kb-backlink-row a::after\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;/s,
   );
 });
+
+test('card hover stability: cards use color-only feedback without layout-shifting expansion or transform', () => {
+  const portalSrc = path.resolve(import.meta.dirname, '../src');
+  const files = {
+    customCss: fs.readFileSync(path.join(portalSrc, 'styles/custom.css'), 'utf-8'),
+    homeAstro: fs.readFileSync(path.join(portalSrc, 'components/PortfolioHome.astro'), 'utf-8'),
+    stepperAstro: fs.readFileSync(
+      path.join(portalSrc, 'components/ReadingTrackStepper.astro'),
+      'utf-8',
+    ),
+    schematicAstro: fs.readFileSync(
+      path.join(portalSrc, 'components/ProjectMicroSchematic.astro'),
+      'utf-8',
+    ),
+  };
+
+  // No hover-triggered height drawer or line-clamp expansion that shifts grid layout
+  assert.doesNotMatch(files.homeAstro, /kb-project-desc-drawer/);
+  for (const [name, content] of Object.entries(files)) {
+    assert.doesNotMatch(
+      content,
+      /:hover[^}]*\{[^}]*-webkit-line-clamp\s*:/s,
+      `${name} should not change -webkit-line-clamp on hover`,
+    );
+  }
+
+  // Primary cards must not shift or scale via transform on hover
+  const noHoverTransformChecks = [
+    [files.homeAstro, /\.kb-project:hover\s*\{[^}]*\}/s, '.kb-project:hover'],
+    [files.homeAstro, /\.kb-bento-card:hover\s*\{[^}]*\}/s, '.kb-bento-card:hover'],
+    [files.homeAstro, /\.kb-metric-card:hover\s*\{[^}]*\}/s, '.kb-metric-card:hover'],
+    [files.stepperAstro, /\.kb-track-card:hover\s*\{[^}]*\}/s, '.kb-track-card:hover'],
+    [files.customCss, /\.kb-ds-card:hover\s*\{[^}]*\}/s, '.kb-ds-card:hover'],
+    [
+      files.customCss,
+      /\.sl-markdown-content\s+\.kb-backlinks\s+li:hover\s*\{[^}]*\}/s,
+      '.kb-backlinks li:hover',
+    ],
+  ];
+
+  for (const [source, pattern, label] of noHoverTransformChecks) {
+    const match = source.match(pattern);
+    assert.ok(match, `Expected hover rule for ${label}`);
+    assert.doesNotMatch(match[0], /\btransform\s*:/, `${label} should not use transform`);
+    assert.match(match[0], /\bborder-color\s*:/, `${label} should provide color feedback`);
+  }
+
+  // Schematic micro-chips & dots inside project cards stay in place on hover
+  assert.doesNotMatch(
+    files.schematicAstro,
+    /:global\(\.kb-project:is\(:hover,\s*:focus-within\)\)[^{]*\{[^}]*\btransform\s*:/s,
+  );
+});

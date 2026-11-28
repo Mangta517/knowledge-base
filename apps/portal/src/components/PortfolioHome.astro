@@ -408,12 +408,9 @@ const heroDomains = [
               </div>
             </div>
 
-            {/* Smooth Hover-Expand Summary Drawer (Zero prose clutter at rest) */}
-            <div class="kb-project-desc-drawer">
-              <div class="kb-project-desc-inner">
-                <p class="kb-project-description">{project.description}</p>
-              </div>
-            </div>
+            <p class="kb-project-description" title={project.description}>
+              {project.description}
+            </p>
 
             {extraSpecs.length > 0 && (
               <div class="kb-project-specs" aria-label="关键硬件规格">
@@ -966,12 +963,13 @@ const heroDomains = [
     background: var(--kb-surface);
     box-shadow: var(--kb-shadow-sm);
     border-top: 2.5px solid var(--kb-type-color);
-    transition: transform 0.2s ease, border-color 0.2s ease;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
   }
 
   .kb-metric-card:hover {
-    transform: translateY(-2px);
     border-color: var(--kb-type-color);
+    background: color-mix(in srgb, var(--kb-surface) 93%, var(--kb-type-color));
+    box-shadow: var(--kb-shadow-hover);
   }
 
   .kb-metric-row {
@@ -1235,7 +1233,7 @@ const heroDomains = [
     border-radius: 0.75rem;
     background: var(--kb-surface);
     box-shadow: var(--kb-shadow-sm);
-    transition: border-color 0.22s, box-shadow 0.22s, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.22s ease;
   }
 
   .kb-project.is-pop-in {
@@ -1244,9 +1242,9 @@ const heroDomains = [
   }
 
   .kb-project:hover {
-    border-color: var(--kb-border-strong);
+    border-color: color-mix(in srgb, var(--kb-accent) 65%, var(--kb-border));
+    background: color-mix(in srgb, var(--kb-surface) 93%, var(--kb-accent));
     box-shadow: var(--kb-shadow-hover);
-    transform: translateY(-3px);
   }
 
   .kb-project h3 {
@@ -1323,28 +1321,9 @@ const heroDomains = [
     font-family: var(--sl-font-mono);
   }
 
-  /* Progressive Hover-Expand Description Drawer */
-  .kb-project-desc-drawer {
-    display: grid;
-    grid-template-rows: 0fr;
-    opacity: 0;
-    transition:
-      grid-template-rows 0.26s cubic-bezier(0.22, 1, 0.36, 1),
-      opacity 0.22s ease;
-  }
-
-  .kb-project:is(:hover, :focus-within) .kb-project-desc-drawer {
-    grid-template-rows: 1fr;
-    opacity: 1;
-  }
-
-  .kb-project-desc-inner {
-    overflow: hidden;
-  }
-
+  /* Fixed 2-line project summary (stable height on hover, color-only feedback) */
   .kb-project-description {
     margin: 0;
-    padding-top: 0.06rem;
     color: var(--sl-color-gray-2);
     font-size: 0.78rem;
     line-height: 1.48;
@@ -1352,6 +1331,11 @@ const heroDomains = [
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    transition: color 0.18s ease;
+  }
+
+  .kb-project:is(:hover, :focus-within) .kb-project-description {
+    color: var(--sl-color-gray-1);
   }
 
   .kb-project-specs {
@@ -1396,7 +1380,7 @@ const heroDomains = [
     font: inherit;
     font-size: 0.68rem;
     cursor: pointer;
-    transition: border-color 0.15s, color 0.15s, background 0.15s, transform 0.15s;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
   }
 
   .kb-card-tech:hover,
@@ -1404,7 +1388,6 @@ const heroDomains = [
     border-color: var(--kb-accent);
     background: var(--kb-project-soft);
     color: var(--kb-accent);
-    transform: translateY(-1px);
   }
 
   .kb-tech-overflow {
@@ -1438,11 +1421,10 @@ const heroDomains = [
     font-size: 0.68rem;
     font-weight: 600;
     text-decoration: none;
-    transition: transform 0.15s, border-color 0.15s;
+    transition: border-color 0.15s, background-color 0.15s, color 0.15s;
   }
 
   .kb-rel-pill:hover {
-    transform: translateY(-1px);
     border-color: var(--kb-type-color);
   }
 
@@ -1628,14 +1610,14 @@ const heroDomains = [
     border-left: 3px solid var(--kb-type-color);
     background: var(--kb-surface);
     box-shadow: var(--kb-shadow-sm);
-    transition: border-color 0.2s, box-shadow 0.22s, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.22s ease;
   }
 
   .kb-bento-card:hover {
-    border-color: var(--kb-border-strong);
+    border-color: color-mix(in srgb, var(--kb-type-color) 62%, var(--kb-border));
     border-left-color: var(--kb-type-color);
+    background: color-mix(in srgb, var(--kb-surface) 93%, var(--kb-type-color));
     box-shadow: var(--kb-shadow-hover);
-    transform: translateY(-2.5px);
   }
 
   .kb-bento-top {
@@ -1730,13 +1712,14 @@ const heroDomains = [
     font-size: 0.78rem;
     line-height: 1.5;
     display: -webkit-box;
-    -webkit-line-clamp: 1;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    transition: color 0.18s ease;
   }
 
   .kb-bento-card:is(:hover, :focus-within) .kb-bento-desc {
-    -webkit-line-clamp: 2;
+    color: var(--sl-color-gray-1);
   }
 
   /* Animated Telemetry Evidence Bar */
@@ -1801,11 +1784,12 @@ const heroDomains = [
     font-size: 0.66rem;
     animation: kbStepBeacon 3.4s ease-in-out infinite;
     animation-delay: calc(var(--phase-idx) * 0.52s);
-    transition: transform 0.18s calc(var(--phase-idx) * 35ms);
+    transition: border-color 0.18s calc(var(--phase-idx) * 35ms), color 0.18s calc(var(--phase-idx) * 35ms);
   }
 
   .kb-bento-card:hover .kb-phase-pill {
-    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--kb-type-color) 45%, var(--kb-border));
+    color: var(--sl-color-gray-1);
   }
 
   .kb-phase-pill b {
@@ -1814,7 +1798,7 @@ const heroDomains = [
     font-size: 0.62rem;
   }
 
-  /* Compact 1-Line Root Cause & Locator Strip */
+  /* Compact Fixed-Height Root Cause & Locator Strip */
   .kb-ts-digest {
     display: flex;
     flex-direction: column;
@@ -1823,6 +1807,11 @@ const heroDomains = [
     border-radius: 0.48rem;
     border: 1px solid var(--kb-border);
     background: var(--kb-surface-elevated);
+    transition: border-color 0.18s ease;
+  }
+
+  .kb-bento-card:is(:hover, :focus-within) .kb-ts-digest {
+    border-color: color-mix(in srgb, var(--kb-type-color) 42%, var(--kb-border));
   }
 
   .kb-ts-digest-row {
@@ -1857,13 +1846,13 @@ const heroDomains = [
     font-size: 0.74rem;
     line-height: 1.46;
     display: -webkit-box;
-    -webkit-line-clamp: 1;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    transition: color 0.18s ease;
   }
 
   .kb-bento-card:is(:hover, :focus-within) .kb-ts-digest-val {
-    -webkit-line-clamp: 3;
     color: var(--sl-color-gray-1);
   }
 
@@ -1888,11 +1877,10 @@ const heroDomains = [
     font-size: 0.66rem;
     font-weight: 600;
     text-decoration: none;
-    transition: transform 0.15s;
+    transition: background-color 0.15s, color 0.15s;
   }
 
   .kb-proj-mini-tag:hover {
     text-decoration: underline;
-    transform: translateY(-1px);
   }
 </style>

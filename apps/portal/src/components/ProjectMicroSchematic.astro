@@ -238,8 +238,7 @@ const wavePath = isNet
     transition:
       border-color 0.2s calc(var(--step-idx) * 45ms),
       background-color 0.2s calc(var(--step-idx) * 45ms),
-      color 0.2s calc(var(--step-idx) * 45ms),
-      transform 0.2s calc(var(--step-idx) * 45ms);
+      color 0.2s calc(var(--step-idx) * 45ms);
   }
 
   .kb-schem-text {
@@ -251,7 +250,6 @@ const wavePath = isNet
     border-color: color-mix(in srgb, var(--kb-accent) 58%, var(--kb-border));
     background: color-mix(in srgb, var(--kb-surface) 80%, var(--kb-project-soft));
     color: var(--sl-color-gray-1);
-    transform: translateY(-1.5px);
   }
 
   .kb-schem-dot {
@@ -260,7 +258,7 @@ const wavePath = isNet
     border-radius: 50%;
     background: var(--kb-border-strong);
     flex-shrink: 0;
-    transition: background-color 0.2s calc(var(--step-idx) * 45ms), transform 0.2s calc(var(--step-idx) * 45ms);
+    transition: background-color 0.2s calc(var(--step-idx) * 45ms), box-shadow 0.2s calc(var(--step-idx) * 45ms);
   }
 
   .kb-schem-dot.is-origin {
@@ -270,6 +268,6 @@ const wavePath = isNet
 
   :global(.kb-project:is(:hover, :focus-within)) .kb-schem-dot {
     background: var(--kb-accent);
-    transform: scale(1.2);
+    box-shadow: 0 0 0 2px var(--kb-project-soft);
   }
 </style>
