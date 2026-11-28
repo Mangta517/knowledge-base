@@ -1,6 +1,17 @@
-{/* Light-first theme provider: defaults to 'light' once while preserving explicit user theme choices ('light' | 'dark' | 'auto'). */}
+---
+import { getDefaultBackdropPreset, loadKbData } from '../lib/kb-data';
+
+const { catalog } = loadKbData();
+const defaultBackdrop = getDefaultBackdropPreset(catalog);
+---
+
+<meta name="kb-backdrop-default" content={defaultBackdrop} />
+{/* Light-first theme & daylight backdrop provider: restores saved theme and light backdrop preset synchronously before first paint. */}
 <script is:inline>
   (() => {
+    const validBackdrops = { blueprint: 1, vellum: 1, aurora: 1 };
+    const defaultMeta = document.querySelector('meta[name="kb-backdrop-default"]')?.getAttribute('content');
+    const fallbackBackdrop = defaultMeta && validBackdrops[defaultMeta] ? defaultMeta : 'blueprint';
     try {
       const storageKey = 'starlight-theme';
       const initKey = 'kb-theme-light-default-v1';
@@ -24,8 +35,13 @@
             : 'light';
 
       document.documentElement.dataset.theme = resolved;
+
+      const storedBackdrop = typeof localStorage !== 'undefined' ? localStorage.getItem('kb-backdrop-v1') : null;
+      document.documentElement.dataset.kbBackdrop =
+        storedBackdrop && validBackdrops[storedBackdrop] ? storedBackdrop : fallbackBackdrop;
     } catch {
       document.documentElement.dataset.theme = 'light';
+      document.documentElement.dataset.kbBackdrop = fallbackBackdrop;
     }
   })();
 </script>

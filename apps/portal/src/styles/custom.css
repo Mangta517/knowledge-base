@@ -30,8 +30,8 @@
   --sl-color-black: #131c2e;
 
   --sl-color-bg: #131c2e;
-  --sl-color-bg-nav: rgba(21, 31, 50, 0.95);
-  --sl-color-bg-sidebar: #172236;
+  --sl-color-bg-nav: rgba(19, 28, 46, 0.84);
+  --sl-color-bg-sidebar: rgba(23, 34, 54, 0.78);
   --sl-color-bg-inline-code: #23324d;
   --sl-color-hairline-light: #273754;
   --sl-color-hairline: #1e2c45;
@@ -39,15 +39,22 @@
   --sl-color-accent: #38bdf8;
   --sl-color-accent-high: #bae6fd;
 
+  --kb-page-bg: linear-gradient(150deg, #0f1727 0%, #141f35 45%, #121c30 78%, #162138 100%);
   --kb-surface: #1b273d;
+  --kb-surface-glass: rgba(27, 39, 61, 0.82);
   --kb-surface-elevated: #22314c;
   --kb-surface-soft: rgba(34, 49, 76, 0.65);
+  --kb-mobile-drawer-bg: rgba(19, 28, 46, 0.96);
+  --kb-right-sidebar-bg: rgba(20, 30, 48, 0.56);
+  --kb-reading-sheet-bg: rgba(19, 28, 46, 0.68);
+  --kb-reading-sheet-border: rgba(56, 189, 248, 0.08);
+  --kb-card-specular: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   --kb-canvas-bg: #162238;
   --kb-canvas-dot: rgba(56, 189, 248, 0.16);
   --kb-border: #2a3c5c;
   --kb-border-strong: #3d5680;
-  --kb-shadow-sm: 0 4px 14px -4px rgba(6, 12, 24, 0.32);
-  --kb-shadow-hover: 0 14px 28px -8px rgba(14, 165, 233, 0.22);
+  --kb-shadow-sm: 0 6px 18px -6px rgba(6, 12, 24, 0.42);
+  --kb-shadow-hover: 0 16px 32px -10px rgba(14, 165, 233, 0.24);
 
   --kb-accent: #38bdf8;
   --kb-project-soft: rgba(56, 189, 248, 0.16);
@@ -65,47 +72,74 @@
   --kb-synthesis-soft: rgba(167, 139, 250, 0.18);
   --kb-synthesis-ink: #ddd6fe;
 
-  --kb-hero-glow: radial-gradient(64rem 28rem at 14% -4%, rgba(56, 189, 248, 0.13), transparent 70%),
-    radial-gradient(52rem 24rem at 88% 0%, rgba(52, 211, 153, 0.1), transparent 72%);
+  --kb-orb-primary: rgba(56, 189, 248, 0.17);
+  --kb-orb-warm: rgba(251, 191, 36, 0.1);
+  --kb-orb-mint: rgba(52, 211, 153, 0.12);
+  --kb-orb-iris: rgba(167, 139, 250, 0.12);
+  --kb-grid-minor-color: rgba(148, 163, 184, 0.055);
+  --kb-grid-major-color: rgba(56, 189, 248, 0.11);
+  --kb-grid-cross-color: rgba(56, 189, 248, 0.28);
+  --kb-grid-dot-color: rgba(148, 163, 184, 0.18);
+  --kb-art-line-color: rgba(148, 163, 184, 0.14);
+  --kb-art-accent-color: rgba(56, 189, 248, 0.26);
+  --kb-art-pulse-color: rgba(56, 189, 248, 0.78);
+  --kb-art-via-fill: #131c2e;
+  --kb-stamp-color: rgba(148, 163, 184, 0.36);
+
+  --kb-hero-glow: none;
 }
 
-/* Light-First Engineering Blueprint Palette (High-Contrast Ink on Airy Surfaces) */
+/* Light-First Sunlit Engineering Drafting Desk Palette (Luminous, Layered, Non-Monotonous) */
 :root[data-theme='light'] {
   --sl-color-white: #0f172a;
   --sl-color-gray-1: #0f172a;
-  --sl-color-gray-2: #334155;
-  --sl-color-gray-3: #475569;
+  --sl-color-gray-2: #2f3e52;
+  --sl-color-gray-3: #47586e;
   --sl-color-gray-4: #64748b;
-  --sl-color-gray-5: #cbd5e1;
-  --sl-color-gray-6: #eaf0f7;
-  --sl-color-gray-7: #f8fafd;
+  --sl-color-gray-5: #bfd0e2;
+  --sl-color-gray-6: #e1ebf5;
+  --sl-color-gray-7: #f2f6fb;
   --sl-color-black: #ffffff;
 
-  --sl-color-text: #1e293b;
-  --sl-color-bg: #f4f7fb;
-  --sl-color-bg-nav: rgba(255, 255, 255, 0.96);
-  --sl-color-bg-sidebar: #edf2f8;
-  --sl-color-bg-inline-code: #e4edf7;
-  --sl-color-hairline-light: #d8e3ef;
-  --sl-color-hairline: #cbd8e8;
-  --sl-color-hairline-shade: #dce6f2;
+  --sl-color-text: #1c2a3a;
+  --sl-color-bg: #e7eff7;
+  --sl-color-bg-nav: rgba(244, 248, 253, 0.78);
+  --sl-color-bg-sidebar: rgba(235, 243, 251, 0.68);
+  --sl-color-bg-inline-code: #e1ecf7;
+  --sl-color-hairline-light: rgba(148, 179, 209, 0.44);
+  --sl-color-hairline: rgba(148, 179, 209, 0.56);
+  --sl-color-hairline-shade: rgba(148, 179, 209, 0.52);
 
-  --sl-color-accent-low: #e0f2fe;
+  --sl-color-accent-low: #dff1fe;
   --sl-color-accent: #0284c7;
   --sl-color-accent-high: #075985;
 
-  --kb-surface: #ffffff;
-  --kb-surface-elevated: #f6f9fc;
-  --kb-surface-soft: #ecf3fb;
-  --kb-canvas-bg: #f7fafd;
-  --kb-canvas-dot: rgba(2, 132, 199, 0.14);
-  --kb-border: #d5e1ee;
-  --kb-border-strong: #9fb8d4;
-  --kb-shadow-sm: 0 6px 20px -6px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
-  --kb-shadow-hover: 0 16px 32px -10px rgba(2, 132, 199, 0.14), 0 4px 12px -2px rgba(15, 23, 42, 0.05);
+  --kb-page-bg: linear-gradient(
+    148deg,
+    #ddeaf7 0%,
+    #e8eff6 28%,
+    #f3efe5 55%,
+    #e2f1eb 82%,
+    #e4eaf7 100%
+  );
+  --kb-surface: #fdfeff;
+  --kb-surface-glass: rgba(255, 255, 255, 0.84);
+  --kb-surface-elevated: rgba(242, 247, 253, 0.88);
+  --kb-surface-soft: rgba(229, 239, 250, 0.82);
+  --kb-mobile-drawer-bg: rgba(244, 248, 253, 0.96);
+  --kb-right-sidebar-bg: rgba(240, 246, 252, 0.56);
+  --kb-reading-sheet-bg: rgba(255, 255, 255, 0.66);
+  --kb-reading-sheet-border: rgba(148, 179, 209, 0.36);
+  --kb-card-specular: inset 0 1px 0 rgba(255, 255, 255, 0.94);
+  --kb-canvas-bg: #f1f6fc;
+  --kb-canvas-dot: rgba(2, 132, 199, 0.17);
+  --kb-border: rgba(148, 179, 209, 0.56);
+  --kb-border-strong: #8eaac8;
+  --kb-shadow-sm: 0 8px 24px -10px rgba(15, 42, 74, 0.1), 0 1px 3px rgba(15, 42, 74, 0.05);
+  --kb-shadow-hover: 0 16px 34px -12px rgba(2, 132, 199, 0.18), 0 4px 12px -2px rgba(15, 42, 74, 0.07);
 
   --kb-accent: #0284c7;
-  --kb-project-soft: #e0f2fe;
+  --kb-project-soft: #dff1fe;
   --kb-project-ink: #075985;
   --kb-topic: #059669;
   --kb-topic-soft: #d1fae5;
@@ -120,8 +154,111 @@
   --kb-synthesis-soft: #ede9fe;
   --kb-synthesis-ink: #5b21b6;
 
-  --kb-hero-glow: radial-gradient(68rem 28rem at 16% -4%, rgba(14, 165, 233, 0.11), transparent 70%),
-    radial-gradient(54rem 24rem at 86% 2%, rgba(16, 185, 129, 0.09), transparent 72%);
+  --kb-orb-primary: rgba(56, 189, 248, 0.3);
+  --kb-orb-warm: rgba(251, 191, 36, 0.24);
+  --kb-orb-mint: rgba(45, 212, 191, 0.22);
+  --kb-orb-iris: rgba(129, 140, 248, 0.18);
+  --kb-grid-minor-color: rgba(15, 76, 129, 0.058);
+  --kb-grid-major-color: rgba(2, 132, 199, 0.125);
+  --kb-grid-cross-color: rgba(2, 132, 199, 0.34);
+  --kb-grid-dot-color: rgba(120, 88, 48, 0.22);
+  --kb-art-line-color: rgba(30, 84, 136, 0.17);
+  --kb-art-accent-color: rgba(2, 132, 199, 0.32);
+  --kb-art-pulse-color: rgba(2, 132, 199, 0.82);
+  --kb-art-via-fill: #edf4fb;
+  --kb-stamp-color: rgba(30, 64, 104, 0.42);
+
+  --kb-hero-glow: none;
+}
+
+/* Light Preset B: Sunlit Vellum Notebook (暖纸手记 — Pairs with LXGW WenKai) */
+:root[data-theme='light'][data-kb-backdrop='vellum'] {
+  --sl-color-bg: #efe8da;
+  --sl-color-bg-nav: rgba(252, 248, 240, 0.82);
+  --sl-color-bg-sidebar: rgba(244, 238, 226, 0.72);
+  --sl-color-bg-inline-code: #ebe4d5;
+  --sl-color-hairline-light: rgba(176, 154, 124, 0.36);
+  --sl-color-hairline: rgba(176, 154, 124, 0.48);
+  --sl-color-hairline-shade: rgba(176, 154, 124, 0.44);
+
+  --kb-page-bg: linear-gradient(
+    152deg,
+    #f4ecdd 0%,
+    #f1e9da 34%,
+    #ebe7df 66%,
+    #e6efe6 100%
+  );
+  --kb-surface: #fffdfa;
+  --kb-surface-glass: rgba(255, 253, 247, 0.87);
+  --kb-surface-elevated: rgba(247, 242, 231, 0.9);
+  --kb-surface-soft: rgba(239, 232, 218, 0.85);
+  --kb-mobile-drawer-bg: rgba(252, 248, 240, 0.97);
+  --kb-right-sidebar-bg: rgba(248, 243, 233, 0.62);
+  --kb-reading-sheet-bg: rgba(255, 253, 248, 0.72);
+  --kb-reading-sheet-border: rgba(176, 154, 124, 0.32);
+  --kb-canvas-bg: #f8f4ea;
+  --kb-canvas-dot: rgba(180, 122, 42, 0.22);
+  --kb-border: rgba(176, 154, 124, 0.48);
+  --kb-border-strong: #b39b7a;
+  --kb-shadow-sm: 0 8px 24px -10px rgba(72, 52, 24, 0.1), 0 1px 3px rgba(72, 52, 24, 0.05);
+  --kb-shadow-hover: 0 16px 34px -12px rgba(180, 110, 24, 0.16), 0 4px 12px -2px rgba(72, 52, 24, 0.07);
+
+  --kb-orb-primary: rgba(245, 158, 11, 0.24);
+  --kb-orb-warm: rgba(251, 146, 60, 0.18);
+  --kb-orb-mint: rgba(52, 211, 153, 0.19);
+  --kb-orb-iris: rgba(56, 189, 248, 0.16);
+  --kb-grid-minor-color: rgba(132, 98, 56, 0.06);
+  --kb-grid-major-color: rgba(168, 122, 62, 0.12);
+  --kb-grid-dot-color: rgba(138, 102, 54, 0.24);
+  --kb-art-line-color: rgba(138, 102, 54, 0.17);
+  --kb-art-accent-color: rgba(217, 119, 6, 0.3);
+  --kb-art-pulse-color: rgba(217, 119, 6, 0.8);
+  --kb-art-via-fill: #f6efe2;
+  --kb-stamp-color: rgba(116, 84, 42, 0.46);
+}
+
+/* Light Preset C: Daylight Aurora Mist (晴空微光 — Airy Watercolor Studio) */
+:root[data-theme='light'][data-kb-backdrop='aurora'] {
+  --sl-color-bg: #e4f0fb;
+  --sl-color-bg-nav: rgba(246, 250, 255, 0.76);
+  --sl-color-bg-sidebar: rgba(238, 245, 254, 0.64);
+  --sl-color-bg-inline-code: #e2edf9;
+  --sl-color-hairline-light: rgba(140, 174, 214, 0.42);
+  --sl-color-hairline: rgba(140, 174, 214, 0.54);
+  --sl-color-hairline-shade: rgba(140, 174, 214, 0.48);
+
+  --kb-page-bg: linear-gradient(
+    138deg,
+    #dceffa 0%,
+    #eae9fb 36%,
+    #dff5ee 70%,
+    #f6eee5 100%
+  );
+  --kb-surface: #fcfeff;
+  --kb-surface-glass: rgba(255, 255, 255, 0.8);
+  --kb-surface-elevated: rgba(242, 248, 255, 0.86);
+  --kb-surface-soft: rgba(230, 241, 253, 0.8);
+  --kb-mobile-drawer-bg: rgba(246, 250, 255, 0.96);
+  --kb-right-sidebar-bg: rgba(241, 247, 255, 0.52);
+  --kb-reading-sheet-bg: rgba(255, 255, 255, 0.64);
+  --kb-reading-sheet-border: rgba(140, 174, 214, 0.34);
+  --kb-canvas-bg: #f1f7fe;
+  --kb-canvas-dot: rgba(124, 58, 237, 0.16);
+  --kb-border: rgba(140, 174, 214, 0.54);
+  --kb-border-strong: #8ba8cf;
+  --kb-shadow-sm: 0 10px 26px -10px rgba(30, 58, 108, 0.1), 0 1px 3px rgba(30, 58, 108, 0.05);
+  --kb-shadow-hover: 0 16px 36px -12px rgba(99, 102, 241, 0.18), 0 4px 12px -2px rgba(30, 58, 108, 0.07);
+
+  --kb-orb-primary: rgba(14, 165, 233, 0.32);
+  --kb-orb-warm: rgba(251, 191, 36, 0.22);
+  --kb-orb-mint: rgba(45, 212, 191, 0.28);
+  --kb-orb-iris: rgba(167, 139, 250, 0.28);
+  --kb-grid-dot-color: rgba(79, 70, 229, 0.18);
+  --kb-art-line-color: rgba(99, 102, 241, 0.15);
+  --kb-art-accent-color: rgba(14, 165, 233, 0.26);
+  --kb-art-pulse-color: rgba(124, 58, 237, 0.72);
+  --kb-art-via-fill: #eef4fd;
+  --kb-stamp-color: rgba(67, 56, 202, 0.36);
 }
 
 .kb-type-project {
@@ -151,25 +288,409 @@
 }
 
 /* ===========================
-   Global Shell & Motion Primitives
+   Global Shell, Ambient Daylight Backdrop & Motion Primitives
    =========================== */
-.page {
-  background-image: var(--kb-hero-glow);
-  background-repeat: no-repeat;
+html {
+  background: var(--kb-page-bg);
+  background-attachment: fixed;
+  min-height: 100%;
 }
 
+body {
+  background-color: transparent !important;
+}
+
+.page {
+  background-image: none;
+}
+
+/* Multi-Layered Fixed Ambient Backdrop (Direct Child of <body>, Behind All Content) */
+.kb-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  contain: strict;
+}
+
+/* Contextual Per-Page Daylight Tone Modulation (Light Mode) */
+:root[data-theme='light'] .kb-backdrop[data-kb-tone='mint'] {
+  --kb-orb-primary: rgba(16, 185, 129, 0.27);
+  --kb-orb-mint: rgba(56, 189, 248, 0.22);
+  --kb-art-accent-color: rgba(5, 150, 105, 0.3);
+  --kb-art-pulse-color: rgba(5, 150, 105, 0.78);
+}
+
+:root[data-theme='light'] .kb-backdrop[data-kb-tone='amber'] {
+  --kb-orb-primary: rgba(245, 158, 11, 0.28);
+  --kb-orb-warm: rgba(56, 189, 248, 0.2);
+  --kb-art-accent-color: rgba(217, 119, 6, 0.32);
+  --kb-art-pulse-color: rgba(217, 119, 6, 0.8);
+}
+
+:root[data-theme='light'] .kb-backdrop[data-kb-tone='rose'] {
+  --kb-orb-primary: rgba(251, 113, 133, 0.24);
+  --kb-orb-warm: rgba(251, 191, 36, 0.24);
+  --kb-orb-mint: rgba(56, 189, 248, 0.2);
+  --kb-art-accent-color: rgba(225, 29, 72, 0.26);
+  --kb-art-pulse-color: rgba(225, 29, 72, 0.75);
+}
+
+:root[data-theme='light'] .kb-backdrop[data-kb-tone='violet'] {
+  --kb-orb-primary: rgba(139, 92, 246, 0.25);
+  --kb-orb-iris: rgba(56, 189, 248, 0.24);
+  --kb-art-accent-color: rgba(124, 58, 237, 0.28);
+  --kb-art-pulse-color: rgba(124, 58, 237, 0.78);
+}
+
+:root[data-theme='light'] .kb-backdrop[data-kb-tone='teal'] {
+  --kb-orb-primary: rgba(20, 184, 166, 0.27);
+  --kb-orb-mint: rgba(14, 165, 233, 0.23);
+  --kb-art-accent-color: rgba(13, 148, 136, 0.3);
+  --kb-art-pulse-color: rgba(13, 148, 136, 0.8);
+}
+
+/* Layer 1: Soft Drifting Atmospheric Daylight Orbs */
+.kb-backdrop-orbs {
+  position: absolute;
+  inset: -8%;
+}
+
+.kb-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(74px);
+  will-change: transform;
+}
+
+.kb-orb--primary {
+  top: -12%;
+  left: -6%;
+  width: clamp(28rem, 48vw, 54rem);
+  height: clamp(22rem, 38vw, 40rem);
+  background: radial-gradient(circle, var(--kb-orb-primary) 0%, transparent 70%);
+  animation: kbOrbDriftA 26s ease-in-out infinite alternate;
+}
+
+.kb-orb--warm {
+  top: -10%;
+  right: -5%;
+  width: clamp(26rem, 44vw, 48rem);
+  height: clamp(20rem, 34vw, 38rem);
+  background: radial-gradient(circle, var(--kb-orb-warm) 0%, transparent 70%);
+  animation: kbOrbDriftB 31s ease-in-out infinite alternate;
+}
+
+.kb-orb--mint {
+  bottom: -14%;
+  left: 6%;
+  width: clamp(24rem, 42vw, 46rem);
+  height: clamp(20rem, 34vw, 36rem);
+  background: radial-gradient(circle, var(--kb-orb-mint) 0%, transparent 72%);
+  animation: kbOrbDriftB 29s ease-in-out infinite alternate-reverse;
+}
+
+.kb-orb--iris {
+  bottom: -10%;
+  right: 4%;
+  width: clamp(22rem, 38vw, 42rem);
+  height: clamp(18rem, 30vw, 34rem);
+  background: radial-gradient(circle, var(--kb-orb-iris) 0%, transparent 72%);
+  animation: kbOrbDriftA 34s ease-in-out infinite alternate-reverse;
+}
+
+@keyframes kbOrbDriftA {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(3.2%, 4.2%, 0) scale(1.07);
+  }
+}
+
+@keyframes kbOrbDriftB {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1.02);
+  }
+  100% {
+    transform: translate3d(-3.5%, 3%, 0) scale(0.96);
+  }
+}
+
+/* Layer 2: Precision Engineering Grids & Vellum Micro-Grain */
+.kb-backdrop-grid {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.kb-grid-minor {
+  stroke: var(--kb-grid-minor-color);
+  stroke-width: 1;
+}
+
+.kb-grid-major {
+  stroke: var(--kb-grid-major-color);
+  stroke-width: 1;
+}
+
+.kb-grid-cross {
+  stroke: var(--kb-grid-cross-color);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+
+.kb-grid-dot {
+  fill: var(--kb-grid-dot-color);
+}
+
+.kb-grid-vellum-line {
+  stroke: var(--kb-grid-minor-color);
+  stroke-width: 0.75;
+}
+
+.kb-grid-dot-soft {
+  fill: var(--kb-grid-dot-color);
+  opacity: 0.78;
+}
+
+.kb-grid-layer--blueprint {
+  display: block;
+}
+
+.kb-grid-layer--vellum,
+.kb-grid-layer--aurora,
+.kb-grid-layer--grain {
+  display: none;
+}
+
+:root[data-kb-backdrop='vellum'] .kb-grid-layer--blueprint {
+  display: none;
+}
+
+:root[data-kb-backdrop='vellum'] .kb-grid-layer--vellum {
+  display: block;
+}
+
+:root[data-kb-backdrop='vellum'] .kb-grid-layer--grain {
+  display: block;
+  opacity: 0.042;
+  mix-blend-mode: multiply;
+}
+
+:root:not([data-theme='light'])[data-kb-backdrop='vellum'] .kb-grid-layer--grain {
+  opacity: 0.03;
+  mix-blend-mode: screen;
+}
+
+:root[data-kb-backdrop='aurora'] .kb-grid-layer--blueprint {
+  display: none;
+}
+
+:root[data-kb-backdrop='aurora'] .kb-grid-layer--aurora {
+  display: block;
+}
+
+/* Layer 3: Outer-Margin Embedded Hardware Drafting Artwork (Center Masked for Reading Clarity) */
+.kb-backdrop-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  mask-image: radial-gradient(ellipse 56% 52% at 50% 48%, rgba(0, 0, 0, 0.14) 0%, rgba(0, 0, 0, 0.85) 68%, #000 100%);
+  -webkit-mask-image: radial-gradient(ellipse 56% 52% at 50% 48%, rgba(0, 0, 0, 0.14) 0%, rgba(0, 0, 0, 0.85) 68%, #000 100%);
+}
+
+.kb-art-stroke {
+  fill: none;
+  stroke: var(--kb-art-line-color);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.kb-art-accent-line {
+  stroke: var(--kb-art-accent-color);
+  stroke-width: 1.35;
+}
+
+.kb-art-dashed {
+  stroke-dasharray: 5 7;
+}
+
+.kb-art-pulse {
+  fill: none;
+  stroke: var(--kb-art-pulse-color);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-dasharray: 6 94;
+  opacity: 0.72;
+  animation: kbBackdropPulse 11s linear infinite;
+}
+
+.kb-art-pulse--slow {
+  animation-duration: 18s;
+  stroke-dasharray: 9 91;
+  opacity: 0.56;
+}
+
+.kb-art-pulse--reverse {
+  animation-direction: reverse;
+  animation-duration: 13s;
+}
+
+@keyframes kbBackdropPulse {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.kb-art-via {
+  fill: var(--kb-art-via-fill);
+  stroke: var(--kb-art-line-color);
+  stroke-width: 1.6;
+}
+
+.kb-art-via--accent {
+  stroke: var(--kb-art-accent-color);
+}
+
+.kb-art-node {
+  fill: var(--kb-art-accent-color);
+}
+
+.kb-art-aurora-ribbons {
+  opacity: 0.18;
+  transition: opacity 0.35s ease;
+}
+
+:root[data-kb-backdrop='aurora'] .kb-art-aurora-ribbons {
+  opacity: 0.72;
+}
+
+:root[data-kb-backdrop='aurora'] .kb-art-traces,
+:root[data-kb-backdrop='aurora'] .kb-art-traces-bottom {
+  opacity: 0.45;
+}
+
+:root[data-kb-backdrop='vellum'] .kb-art-reticle {
+  opacity: 0.58;
+}
+
+.kb-aurora-ribbon {
+  fill: none;
+  stroke: var(--kb-art-accent-color);
+  stroke-width: 1.4;
+  stroke-dasharray: 10 8;
+}
+
+.kb-aurora-ribbon--2 {
+  stroke: var(--kb-art-line-color);
+}
+
+/* Layer 4: Subtle Edge Drafting Coordinate Stamp */
+.kb-backdrop-stamp {
+  position: fixed;
+  right: 1.15rem;
+  bottom: 0.9rem;
+  display: none;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--kb-stamp-color);
+  font-family: var(--sl-font-mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  user-select: none;
+}
+
+.kb-stamp-rule {
+  display: inline-block;
+  width: 1.8rem;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.7;
+}
+
+@media (min-width: 72rem) {
+  .kb-backdrop-stamp {
+    display: inline-flex;
+  }
+}
+
+/* Frosted Translucent Starlight Chrome & Reading Comfort Plane */
 header.header {
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px) saturate(1.28);
+  -webkit-backdrop-filter: blur(16px) saturate(1.28);
+}
+
+.sidebar-pane {
+  background-color: var(--kb-mobile-drawer-bg);
+}
+
+@media (min-width: 50rem) {
+  .sidebar-pane {
+    background-color: var(--sl-color-bg-sidebar);
+    backdrop-filter: blur(12px) saturate(1.18);
+    -webkit-backdrop-filter: blur(12px) saturate(1.18);
+  }
+}
+
+@media (min-width: 72rem) {
+  .right-sidebar {
+    background-color: var(--kb-right-sidebar-bg);
+    backdrop-filter: blur(10px) saturate(1.14);
+    -webkit-backdrop-filter: blur(10px) saturate(1.14);
+  }
+}
+
+/* Soft Translucent Vellum Reading Sheet on Long-Form Doc Pages (keeps text contrast crisp) */
+html[data-has-sidebar] .main-pane main {
+  background: var(--kb-reading-sheet-bg);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  min-height: calc(100vh - var(--sl-nav-height));
+}
+
+@media (min-width: 72rem) {
+  html[data-has-sidebar] .main-pane main {
+    border-inline: 1px solid var(--kb-reading-sheet-border);
+  }
+}
+
+/* Translucent Glass Elevation & Top Specular Edge on Component Surface Cards (yields cleanly to :hover color states) */
+:is(
+    .kb-project,
+    .kb-bento-card,
+    .kb-metric-card,
+    .kb-track-card,
+    .kb-filter-bar,
+    .kb-tabs,
+    .kb-ev-summary,
+    .kb-ev-toolbar,
+    .kb-ev-card,
+    .kb-dg-summary,
+    .kb-dg-toolbar,
+    .kb-dg-card,
+    .kb-graph-inspector
+  ):not(:hover) {
+  background: var(--kb-surface-glass);
+  box-shadow: var(--kb-card-specular), var(--kb-shadow-sm);
 }
 
 :root[data-theme='light'] site-search button[data-open-modal] {
-  background-color: #f1f5f9;
+  background-color: rgba(255, 255, 255, 0.72);
   border-color: var(--kb-border);
   color: var(--sl-color-gray-2);
 }
 
 :root[data-theme='light'] site-search button[data-open-modal]:hover {
+  background-color: rgba(255, 255, 255, 0.94);
   border-color: var(--kb-accent);
   color: var(--sl-color-gray-1);
 }
@@ -431,8 +952,8 @@ h6,
   border-radius: 0.72rem;
   border: 1px solid var(--kb-border);
   border-inline-start: 3.5px solid var(--kb-adr);
-  background: var(--kb-surface);
-  box-shadow: var(--kb-shadow-sm);
+  background: var(--kb-surface-glass);
+  box-shadow: var(--kb-card-specular), var(--kb-shadow-sm);
 }
 
 .sl-markdown-content .kb-human-notes::before {
@@ -497,8 +1018,8 @@ h6,
   padding: 0.95rem 1.05rem;
   border-radius: 0.75rem;
   border: 1px solid var(--kb-border);
-  background: var(--kb-surface);
-  box-shadow: var(--kb-shadow-sm);
+  background: var(--kb-surface-glass);
+  box-shadow: var(--kb-card-specular), var(--kb-shadow-sm);
 }
 
 .kb-doc-lead {
@@ -1639,8 +2160,8 @@ h6,
   margin: 0 !important;
   border: 1px solid var(--kb-border);
   border-radius: 0.6rem;
-  background: var(--kb-surface);
-  box-shadow: var(--kb-shadow-sm);
+  background: var(--kb-surface-glass);
+  box-shadow: var(--kb-card-specular), var(--kb-shadow-sm);
   cursor: pointer;
   transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
 }
@@ -1926,6 +2447,17 @@ h6,
 }
 
 @media print {
+  html {
+    background: #ffffff !important;
+  }
+
+  html[data-has-sidebar] .main-pane main {
+    background: transparent !important;
+    border-inline: 0 !important;
+  }
+
+  .kb-backdrop,
+  .kb-backdrop-switcher,
   .kb-reading-progress,
   .kb-ds-bar,
   .kb-ds-cards,

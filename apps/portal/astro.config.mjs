@@ -22,7 +22,7 @@ const siteRoot = new URL(`${siteUrl}${base || ''}/`);
 
 // These synchronous scripts run before the theme, shortcut and sidebar controls paint.
 const inlineScripts = [
-  "'sha256-+xF0M8GFq7VkWiEItkiv4YbcP/xcmYMVKvpQwtweWD0='", // CustomThemeProvider
+  "'sha256-CW9hPdUqBxcaEyxhbGuG8+r8VGP3NB+qjhP99udSZFk='", // CustomThemeProvider
   "'sha256-f/zAUE74ucc3JYp4r4QQvkJofoQdkOIhHYK+jeZ6eko='", // Starlight search shortcut
   "'sha256-yiTapURQAzVYqJIJXL03Gepg/022hHZUVvS4f8isCN8='", // Starlight theme selector
   "'sha256-wX2yOADeV+NMngflD5uYi3vl50SHC4sfM1EmylVjlX4='", // Sidebar state
@@ -124,6 +124,7 @@ export default defineConfig({
         './src/styles/custom.css',
       ],
       components: {
+        SkipLink: './src/components/CustomSkipLink.astro',
         ThemeProvider: './src/components/CustomThemeProvider.astro',
         Footer: './src/components/CustomFooter.astro',
         SocialIcons: './src/components/CustomSocialIcons.astro',

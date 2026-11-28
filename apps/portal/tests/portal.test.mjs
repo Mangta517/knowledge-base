@@ -661,3 +661,63 @@ test('hero metric cards: all 4 tiles are interactive links backed by exact evide
   assert.equal(parsedDg[0].diagram_type, 'sequenceDiagram');
   assert.equal(parsedDg[0].title, '真实章节');
 });
+
+test('sunlit backdrop: light-first layered canvas, 3 presets, CSP hash parity, and print/motion guards', () => {
+  const portalRoot = path.resolve(import.meta.dirname, '..');
+  const customCss = fs.readFileSync(path.join(portalRoot, 'src/styles/custom.css'), 'utf-8');
+  const astroCfg = fs.readFileSync(path.join(portalRoot, 'astro.config.mjs'), 'utf-8');
+  const themeProvider = fs.readFileSync(
+    path.join(portalRoot, 'src/components/CustomThemeProvider.astro'),
+    'utf-8',
+  );
+  const skipLink = fs.readFileSync(
+    path.join(portalRoot, 'src/components/CustomSkipLink.astro'),
+    'utf-8',
+  );
+  const backdropComp = fs.readFileSync(
+    path.join(portalRoot, 'src/components/AmbientBackdrop.astro'),
+    'utf-8',
+  );
+  const socialIcons = fs.readFileSync(
+    path.join(portalRoot, 'src/components/CustomSocialIcons.astro'),
+    'utf-8',
+  );
+
+  // SkipLink mounts AmbientBackdrop directly inside <body> outside .main-pane isolation
+  assert.match(astroCfg, /SkipLink:\s*'\.\/src\/components\/CustomSkipLink\.astro'/);
+  assert.match(skipLink, /<AmbientBackdrop\s*\/>/);
+  assert.match(backdropComp, /class="kb-backdrop print:hidden"/);
+  assert.match(backdropComp, /data-kb-motif=\{motif\}/);
+  assert.match(backdropComp, /data-kb-tone=\{tone\}/);
+  assert.match(backdropComp, /aria-hidden="true"/);
+
+  // Light mode uses a rich multi-stop daylight gradient and frosted glass surfaces (not flat pure white)
+  const lightBlock = customCss.match(/:root\[data-theme='light'\]\s*\{[\s\S]*?\n\}/);
+  assert.ok(lightBlock, 'Expected :root[data-theme="light"] palette block');
+  assert.match(lightBlock[0], /--kb-page-bg:\s*linear-gradient\(/);
+  assert.match(lightBlock[0], /--kb-surface-glass:\s*rgba\(255,\s*255,\s*255,/);
+  assert.doesNotMatch(lightBlock[0], /--sl-color-bg:\s*#fff(?:fff)?\s*;/i);
+
+  // All 3 light backdrop presets and contextual tones are styled
+  assert.match(customCss, /:root\[data-theme='light'\]\[data-kb-backdrop='vellum'\]/);
+  assert.match(customCss, /:root\[data-theme='light'\]\[data-kb-backdrop='aurora'\]/);
+  for (const tone of ['mint', 'amber', 'rose', 'violet', 'teal']) {
+    assert.match(customCss, new RegExp(`\\.kb-backdrop\\[data-kb-tone='${tone}'\\]`));
+  }
+
+  // Header switcher cycles presets cleanly without inline scripts
+  assert.match(socialIcons, /data-kb-backdrop-cycle/);
+  assert.doesNotMatch(socialIcons, /<script\s+is:inline/);
+
+  // Print media resets background to crisp white and hides decorative backdrop & switcher
+  assert.match(customCss, /@media print\s*\{[\s\S]*?\.kb-backdrop,[\s\S]*?display:\s*none !important;/);
+
+  // CustomThemeProvider inline script hash stays strictly synchronized with astro.config.mjs CSP
+  const scriptMatch = themeProvider.replace(/\r\n/g, '\n').match(/<script is:inline>([\s\S]*?)<\/script>/);
+  assert.ok(scriptMatch, 'Expected inline script in CustomThemeProvider.astro');
+  const expectedHash = `'sha256-${createHash('sha256').update(scriptMatch[1]).digest('base64')}'`;
+  assert.ok(
+    astroCfg.includes(expectedHash),
+    `Expected astro.config.mjs inlineScripts to contain ${expectedHash}`,
+  );
+});
