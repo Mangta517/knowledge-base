@@ -4,6 +4,7 @@ import json
 import sys
 import tempfile
 import unittest
+from collections import Counter
 from datetime import date
 from pathlib import Path
 from unittest.mock import patch
@@ -110,6 +111,87 @@ class LintTests(TemporaryWorkspace):
         self.assertIn("未发布或不存在 (draft)", errors[0])
         self.assertIn("未发布或不存在 (missing)", errors[1])
         self.assertIn("非空单行 id、role 和 focus", errors[2])
+
+    def test_backdrop_presets_validate_fields_and_exactly_one_default(self):
+        self.assertEqual(lint.load_backdrop_presets(), ([], []))
+        blueprint = {"id": "blueprint", "label": "蓝图晨光", "summary": "工程坐标格", "default": True}
+        vellum = {"id": "vellum", "label": "暖纸手记", "summary": "细纸纹"}
+        presets = [blueprint, vellum, {**vellum, "id": "aurora", "default": False}]
+        self.write(lint.BACKDROP_PRESETS_PATH, json.dumps(presets))
+        self.assertEqual(lint.load_backdrop_presets(), (presets, []))
+
+        cases = (
+            (blueprint, "必须是数组"),
+            ([blueprint, {**vellum, "id": "blueprint"}], "id 重复"),
+            ([blueprint, {**vellum, "id": "unknown"}], "id 枚举值非法"),
+            ([vellum], "恰好有一项 default: true"),
+            ([blueprint, {**vellum, "default": True}], "恰好有一项 default: true"),
+            ([blueprint, {**vellum, "default": "true"}], "default 必须为布尔值"),
+            ([blueprint, {**vellum, "default": 1}], "default 必须为布尔值"),
+            ([blueprint, {**vellum, "label": " "}], "label 必须是非空单行字符串"),
+            ([blueprint, {**vellum, "summary": "第一行\n第二行"}], "summary 必须是非空单行字符串"),
+            ([blueprint, {**vellum, "extra": True}], "必须含 id、label、summary"),
+            ([blueprint, {"id": "vellum", "label": "暖纸手记"}], "必须含 id、label、summary"),
+        )
+        for data, message in cases:
+            with self.subTest(data=data):
+                self.write(lint.BACKDROP_PRESETS_PATH, json.dumps(data))
+                _, errors = lint.load_backdrop_presets()
+                self.assertEqual(len(errors), 1)
+                self.assertIn(message, errors[0])
+
+    def test_page_backdrop_overrides_validate_and_export_independently(self):
+        for value in (None, "", "unknown", ["atlas"]):
+            with self.subTest(value=value):
+                self.project.meta.update(backdrop_motif=value, backdrop_tone=value)
+                self.assertEqual(list(lint.check_fields(self.project)), [
+                    "backdrop_motif 枚举值非法", "backdrop_tone 枚举值非法",
+                ])
+
+        for overrides, expected in (
+            ({"backdrop_motif": "atlas"}, {"motif": "atlas", "tone": "amber"}),
+            ({"backdrop_tone": "violet"}, {"motif": "bus", "tone": "violet"}),
+            ({"backdrop_motif": "atlas", "backdrop_tone": "violet"}, {"motif": "atlas", "tone": "violet"}),
+        ):
+            with self.subTest(overrides=overrides):
+                self.project.meta.pop("backdrop_motif", None)
+                self.project.meta.pop("backdrop_tone", None)
+                self.project.meta.update(overrides)
+                self.assertEqual(list(lint.check_fields(self.project)), [])
+                catalog, _, stats = indexes.build_data({"demo": self.project}, "owner")
+                item = catalog["projects"][0]
+                self.assertEqual(item["backdrop"], expected)
+                self.assertTrue(overrides.keys().isdisjoint(item))
+                self.assertEqual(stats["by_backdrop_motif"], {expected["motif"]: 1})
+
+    def test_backdrop_config_is_read_by_both_entry_points_and_generation_is_reproducible(self):
+        self.snapshot()
+        self.project.meta["backdrop_tone"] = "rose"
+        self.write(self.project.path, f"---\n{lint.yaml.safe_dump(self.project.meta)}---\n{REVIEW}\n")
+        self.write("registry.yaml", json.dumps({"owner": "owner", "repos": self.repos}))
+        paths = [self.root / path for path in (*indexes.JSON_PATHS, "index.md", "llms.txt", "llms-full.txt")]
+        presets = [{"id": "blueprint", "label": "蓝图晨光", "summary": "工程坐标格", "default": True}]
+
+        with patch.object(sys, "argv", ["build_indexes.py"]), contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(indexes.main(), 0)
+            self.assertNotIn("backdrop_presets", json.loads(paths[0].read_bytes()))
+            self.write(lint.BACKDROP_PRESETS_PATH, json.dumps(presets))
+            self.assertEqual(indexes.main(), 0)
+            generated = [path.read_bytes() for path in paths]
+            catalog = json.loads(generated[0])
+            self.assertEqual(catalog["backdrop_presets"], presets)
+            self.assertEqual(catalog["projects"][0]["backdrop"], {"motif": "bus", "tone": "rose"})
+            self.assertEqual(indexes.main(), 0)
+            self.assertEqual([path.read_bytes() for path in paths], generated)
+
+            self.write(lint.BACKDROP_PRESETS_PATH, "[]")
+            with contextlib.redirect_stderr(io.StringIO()) as diagnostics:
+                self.assertEqual(indexes.main(), 1)
+            self.assertIn(lint.BACKDROP_PRESETS_PATH, diagnostics.getvalue())
+            self.assertEqual([path.read_bytes() for path in paths], generated)
+        with contextlib.redirect_stdout(io.StringIO()) as diagnostics:
+            self.assertEqual(lint.main(), 1)
+        self.assertIn(lint.BACKDROP_PRESETS_PATH, diagnostics.getvalue())
 
     def test_wikilink_format_and_bidirectional_relations(self):
         topic = lint.Note(Path("wiki/topics/embedded/bus.md"), {
@@ -446,6 +528,34 @@ class TroubleshootingTests(TemporaryWorkspace):
 
 
 class IndexTests(TemporaryWorkspace):
+    def test_page_backdrop_matches_portal_fallback(self):
+        for project_id, domains, stack, motif, tone in (
+            ("Iwip", [], [], "network", "teal"),
+            ("bootloader", ["Networking"], ["CAN"], "network", "teal"),
+            ("flight", [], ["lwIP", "CAN"], "network", "teal"),
+            ("demo", [], ["EthernetRMII"], "network", "teal"),
+            ("demo", [], ["仅lwIP模式"], "network", "teal"),
+            ("bootloader", [], [], "bus", "amber"),
+            ("mspm0g3507", [], ["CAN", "K230"], "bus", "amber"),
+            ("demo", [], ["W25Q16"], "bus", "amber"),
+            ("flight", [], [], "control", "sky"),
+            ("demo", [], ["K230"], "control", "sky"),
+            ("demo", [], ["bxCAN", "lwIP2"], "rtos", "mint"),
+        ):
+            with self.subTest(project_id=project_id, domains=domains, stack=stack):
+                meta = {"type": "project", "id": project_id, "domains": domains, "tech_stack": stack}
+                self.assertEqual(indexes.resolve_page_backdrop(meta), {"motif": motif, "tone": tone})
+
+        for kind, domain, motif, tone in (
+            ("topic", "networking", "network", "teal"),
+            ("topic", "embedded", "index", "mint"),
+            ("adr", None, "ledger", "amber"),
+            ("troubleshooting", None, "probe", "rose"),
+            ("synthesis", None, "atlas", "violet"),
+        ):
+            with self.subTest(kind=kind, domain=domain):
+                self.assertEqual(indexes.resolve_page_backdrop({"type": kind, "domain": domain}), {"motif": motif, "tone": tone})
+
     def test_word_count_removes_markdown_targets_and_keeps_code(self):
         markup = f'''<!-- hidden words -->
 [驱动](https://github.com/owner/demo/blob/{SHA}/a(b)c.c "extra title") ![示意](<images/name file.svg>)
@@ -747,17 +857,21 @@ class CurrentRepositoryTests(unittest.TestCase):
         published = {key: notes[key] for key in sorted(notes) if notes[key].meta["draft"] is False}
         tracks, route_errors = lint.load_reading_tracks(notes)
         self.assertEqual(route_errors, [])
-        catalog, graph, stats = indexes.build_data(published, registry["owner"], tracks)
+        presets, backdrop_errors = lint.load_backdrop_presets()
+        self.assertEqual(backdrop_errors, [])
+        catalog, graph, stats = indexes.build_data(published, registry["owner"], tracks, presets)
         self.assertIsNotNone(indexes.reuse_timestamp((catalog, graph, stats)))
         self.assertEqual(set(catalog), {
-            "owner", "projects", "topics", "adrs", "troubleshooting", "synthesis", "link_map", "reading_tracks",
+            "owner", "projects", "topics", "adrs", "troubleshooting", "synthesis", "link_map", "reading_tracks", "backdrop_presets",
         })
         self.assertEqual(catalog["reading_tracks"], tracks)
+        self.assertEqual(catalog["backdrop_presets"], presets)
         self.assertEqual(catalog["link_map"], {key: note.route for key, note in published.items()})
         self.assertTrue(all(route == route.lower() for route in catalog["link_map"].values()))
         self.assertEqual(set(graph), {"nodes", "edges"})
         self.assertEqual(set(stats), {
             "counts", "by_tier", "by_domain", "by_tech_stack", "by_language", "by_evidence_repo", "by_diagram_type", "recent_updates",
+            "by_backdrop_motif",
         })
         self.assertEqual(sum(repo["count"] for repo in stats["by_evidence_repo"].values()), stats["counts"]["total_evidence_links"])
         self.assertEqual(sum(stats["by_diagram_type"].values()), stats["counts"]["total_mermaids"])
@@ -769,9 +883,15 @@ class CurrentRepositoryTests(unittest.TestCase):
             self.assertIn(edge["target"], published)
             self.assertIn(edge["source"], published)
 
+        motifs = Counter()
         for kind, (directory, _) in lint.SECTIONS.items():
             for item in catalog[lint.OUTPUT_KEYS.get(kind, directory)]:
                 note = published[item["id"]]
+                backdrop = item["backdrop"]
+                self.assertEqual(set(backdrop), {"motif", "tone"})
+                self.assertIn(backdrop["motif"], lint.BACKDROP_MOTIFS)
+                self.assertIn(backdrop["tone"], lint.BACKDROP_TONES)
+                motifs[backdrop["motif"]] += 1
                 for key in set(lint.COMMON + lint.FIELDS[kind]) - {"draft"}:
                     self.assertEqual(item[key], note.meta[key])
                 for key in lint.VISUAL_FIELDS.get(kind, ()):
@@ -788,6 +908,8 @@ class CurrentRepositoryTests(unittest.TestCase):
                 self.assertEqual(len(pinned_links), item["evidence_count"])
                 self.assertEqual(len(item["diagrams"]), item["mermaid_count"])
                 self.assertEqual([code.strip() for code in lint.mermaid_blocks(note.body)], [entry["source"] for entry in item["diagrams"]])
+        self.assertEqual(stats["by_backdrop_motif"], dict(motifs))
+        self.assertEqual(sum(motifs.values()), stats["counts"]["total_notes"])
         for project in catalog["projects"]:
             self.assertEqual(project["related_troubleshooting"], sorted(
                 issue["id"] for issue in catalog["troubleshooting"] if project["id"] in issue["related_projects"]

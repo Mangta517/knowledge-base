@@ -44,6 +44,10 @@ VISUAL_STEP_MAX_LENGTH = 16
 TROUBLESHOOTING_SECTIONS = ("错误原因与触发机理", "定位过程与关键证据", "具体排查流程")
 MARKDOWN = MarkdownIt("commonmark")
 READING_TRACKS_PATH = "wiki/reading_tracks.yaml"
+BACKDROP_PRESETS_PATH = "wiki/backdrop_presets.yaml"
+BACKDROP_PRESETS = {"blueprint", "vellum", "aurora"}
+BACKDROP_MOTIFS = {"atlas", "control", "bus", "network", "rtos", "ledger", "probe", "index"}
+BACKDROP_TONES = {"sky", "mint", "amber", "rose", "violet", "teal"}
 ENUMS = {
     "visibility": {"public", "private"},
     "publish_policy": {"public", "sanitized"},
@@ -51,6 +55,8 @@ ENUMS = {
     "status": {"active", "maintained", "archived", "experimental"},
     "decision_status": {"proposed", "accepted", "deprecated", "superseded"},
     "severity": {"low", "medium", "high"},
+    "backdrop_motif": BACKDROP_MOTIFS,
+    "backdrop_tone": BACKDROP_TONES,
 }
 SLUG = r"[a-z0-9]+(?:-[a-z0-9]+)*"
 SHA = re.compile(r"[0-9a-f]{40}", re.I)
@@ -521,6 +527,46 @@ def load_reading_tracks(notes):
     return tracks, errors
 
 
+def load_backdrop_presets():
+    try:
+        presets = load_yaml(ROOT / BACKDROP_PRESETS_PATH)
+    except FileNotFoundError:
+        return [], []
+    except (OSError, UnicodeError, yaml.YAMLError):
+        return [], [f"{BACKDROP_PRESETS_PATH}: 无法读取背景预设"]
+    if not isinstance(presets, list):
+        return [], [f"{BACKDROP_PRESETS_PATH}: 背景预设必须是数组"]
+
+    required = {"id", "label", "summary"}
+    allowed = required | {"default"}
+    ids = set()
+    defaults = 0
+    errors = []
+    for number, preset in enumerate(presets, start=1):
+        prefix = f"{BACKDROP_PRESETS_PATH}: 第 {number} 项预设"
+        if not isinstance(preset, dict) or not required <= preset.keys() <= allowed:
+            errors.append(f"{prefix} 必须含 id、label、summary，仅可额外指定 default")
+            continue
+        preset_id = preset["id"]
+        if not isinstance(preset_id, str) or preset_id not in BACKDROP_PRESETS:
+            errors.append(f"{prefix} 的 id 枚举值非法")
+        elif preset_id in ids:
+            errors.append(f"{prefix} 的 id 重复")
+        else:
+            ids.add(preset_id)
+        for key in ("label", "summary"):
+            if not is_text(preset[key]):
+                errors.append(f"{prefix} 的 {key} 必须是非空单行字符串")
+        default = preset.get("default", False)
+        if type(default) is not bool:
+            errors.append(f"{prefix} 的 default 必须为布尔值")
+        elif default:
+            defaults += 1
+    if defaults != 1:
+        errors.append(f"{BACKDROP_PRESETS_PATH}: 必须恰好有一项 default: true")
+    return presets, errors
+
+
 def relative_wiki_asset(note, pathname):
     pathname = unquote(pathname)
     if not pathname or pathname.startswith("/") or "\\" in pathname or "\0" in pathname:
@@ -814,6 +860,8 @@ def main():
     errors.extend(content_errors)
     _, route_errors = load_reading_tracks(notes)
     errors.extend(route_errors)
+    _, backdrop_errors = load_backdrop_presets()
+    errors.extend(backdrop_errors)
     errors.extend(scan_secrets())
     for warning in warnings:
         print(f"WARNING {redact_secrets(warning)}")

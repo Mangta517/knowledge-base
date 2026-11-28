@@ -11,7 +11,7 @@ from urllib.parse import quote, urlsplit
 from lint_kb import (
     COMMENT, COMMON, FIELDS, MARKDOWN, NOTES, OUTPUT_KEYS, RELATED_TYPES, ROOT, SECTIONS, WIKILINK,
     VISUAL_FIELDS, check_content, extract_diagrams, extract_evidence_links, inline_source_positions,
-    line_offsets, load_notes, load_reading_tracks, load_yaml, markup_chunks, redact_secrets,
+    line_offsets, load_backdrop_presets, load_notes, load_reading_tracks, load_yaml, markup_chunks, redact_secrets,
     relative_wiki_asset, resolve_wiki_asset, visible_markup, wikilinks,
 )
 
@@ -84,11 +84,40 @@ def recent_update_key(item):
     return (-date.fromisoformat(item["updated"]).toordinal(), RECENT_TYPE_ORDER.index(item["type"]), item["id"])
 
 
-def build_data(notes, owner, reading_tracks=()):
+def resolve_page_backdrop(meta):
+    kind = meta["type"]
+    if kind == "project":
+        project_id = meta["id"].lower()
+        domains = [domain.lower() for domain in meta["domains"]]
+        stack = " ".join(meta["tech_stack"]).lower()
+        # Match the portal's JavaScript word boundaries for lwIP and CAN.
+        if "networking" in domains or project_id == "iwip" or re.search(r"\blwip\b|ethernet|rmii", stack, re.ASCII):
+            motif, tone = "network", "teal"
+        elif project_id == "bootloader" or re.search(r"\bcan\b|w25q|eeprom|bootloader", stack, re.ASCII):
+            motif, tone = "bus", "amber"
+        elif project_id in {"flight", "mspm0g3507"} or re.search(r"mpu6050|k230|pid", stack):
+            motif, tone = "control", "sky"
+        else:
+            motif, tone = "rtos", "mint"
+    elif kind == "topic" and meta["domain"] == "networking":
+        motif, tone = "network", "teal"
+    else:
+        motif, tone = {
+            "topic": ("index", "mint"),
+            "adr": ("ledger", "amber"),
+            "troubleshooting": ("probe", "rose"),
+            "synthesis": ("atlas", "violet"),
+        }[kind]
+    return {"motif": meta.get("backdrop_motif", motif), "tone": meta.get("backdrop_tone", tone)}
+
+
+def build_data(notes, owner, reading_tracks=(), backdrop_presets=()):
     keys = {kind: OUTPUT_KEYS.get(kind, directory) for kind, (directory, _) in SECTIONS.items()}
     catalog = {"owner": owner, **{key: [] for key in keys.values()}, "link_map": {}}
     if reading_tracks:
         catalog["reading_tracks"] = reading_tracks
+    if backdrop_presets:
+        catalog["backdrop_presets"] = backdrop_presets
     repo_names = {}
     project_ids = {}
     for note in notes.values():
@@ -121,6 +150,7 @@ def build_data(notes, owner, reading_tracks=()):
             has_human_notes=has_human_notes(note.body),
             evidence_links=evidence,
             diagrams=diagrams,
+            backdrop=resolve_page_backdrop(meta),
         )
         catalog[keys[kind]].append(item)
         catalog["link_map"][source] = note.route
@@ -170,6 +200,7 @@ def build_data(notes, owner, reading_tracks=()):
             for repo, urls in sorted(evidence_urls.items())
         },
         "by_diagram_type": dict(sorted(diagram_counts.items())),
+        "by_backdrop_motif": dict(sorted(Counter(item["backdrop"]["motif"] for item in items).items())),
         "recent_updates": [
             {key: item[key] for key in ("id", "title", "type", "updated", "route", "description")}
             for item in sorted(items, key=recent_update_key)[:12]
@@ -316,12 +347,14 @@ def main():
     errors.extend(content_errors)
     reading_tracks, route_errors = load_reading_tracks(notes)
     errors.extend(route_errors)
+    backdrop_presets, backdrop_errors = load_backdrop_presets()
+    errors.extend(backdrop_errors)
     if errors:
         for error in errors:
             print(f"ERROR {redact_secrets(error)}", file=sys.stderr)
         return 1
     notes = {key: notes[key] for key in sorted(notes) if notes[key].meta["draft"] is False}
-    payloads = build_data(notes, registry["owner"], reading_tracks)
+    payloads = build_data(notes, registry["owner"], reading_tracks, backdrop_presets)
     stamp = reuse_timestamp(payloads)
     if stamp is None:
         stamp = datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
