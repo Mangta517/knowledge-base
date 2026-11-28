@@ -939,7 +939,38 @@ h6,
   line-height: 1.66;
 }
 
-/* Global C Syntax Highlighting Token Classes (used inside set:html build-time C excerpts) */
+/* Global C Syntax Highlighting Line & Token Classes (used inside set:html build-time C excerpts) */
+.kb-c-line {
+  display: grid;
+  grid-template-columns: 3.35rem minmax(0, 1fr);
+  padding-right: 0.9rem;
+  border-left: 3px solid transparent;
+  white-space: normal;
+}
+
+.kb-c-line.is-hl {
+  border-left-color: var(--kb-c-hl-bar);
+  background: var(--kb-c-hl-bg);
+}
+
+.kb-c-ln {
+  padding: 0 0.7rem 0 0.45rem;
+  text-align: right;
+  color: var(--kb-c-gutter);
+  font-size: 0.72rem;
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.kb-c-line.is-hl .kb-c-ln {
+  color: var(--kb-c-hl-bar);
+  font-weight: 700;
+}
+
+.kb-c-line-code {
+  white-space: pre;
+}
+
 .kb-c-kw {
   color: var(--kb-c-kw);
   font-weight: 600;

@@ -28,7 +28,11 @@ import {
   isCSourcePath,
   parseGithubLineHash,
 } from '../src/lib/kb-extract.mjs';
-import { highlightCCode, renderInlineCodeHtml } from '../src/lib/c-highlight.mjs';
+import {
+  highlightCCode,
+  renderHighlightedCLinesHtml,
+  renderInlineCodeHtml,
+} from '../src/lib/c-highlight.mjs';
 import {
   existsExactCase,
   normalizeSiteOrigin,
@@ -619,10 +623,12 @@ test('hero metric cards: all 4 tiles are interactive links backed by C-only evid
   assert.doesNotMatch(evidenceAstro, /<script\s+is:inline/);
   assert.doesNotMatch(cSourceCardAstro, /<script\s+is:inline/);
   assert.doesNotMatch(docSourceAnchorsAstro, /<script\s+is:inline/);
+  const customCss = fs.readFileSync(path.join(portalSrc, 'styles/custom.css'), 'utf-8');
   assert.match(cSourceCardAstro, /data-c-copy/);
   assert.match(cSourceCardAstro, /data-c-fold-toggle/);
   assert.match(cSourceCardAstro, /\.kb-cs-pre\s*\{[^}]*white-space:\s*normal;/s);
-  assert.match(cSourceCardAstro, /\.kb-c-line-code\s*\{[^}]*white-space:\s*pre;/s);
+  assert.match(customCss, /\.kb-c-line\s*\{[^}]*white-space:\s*normal;/s);
+  assert.match(customCss, /\.kb-c-line-code\s*\{[^}]*white-space:\s*pre;/s);
 
   // Extractors match published C-only evidence subset and exact diagram counts across all published docs
   const catalog = JSON.parse(fs.readFileSync(path.join(repoRoot, 'data/catalog.json'), 'utf-8'));
@@ -775,6 +781,11 @@ test('c-highlight: tokenizes embedded C99 safely with real line numbers, multi-l
   assert.equal(res.lines[6].lineNo, 41);
   assert.equal(res.lines[6].isHighlighted, true);
   assert.match(res.lines[6].html, /<span class="kb-c-macro">SCB<\/span><span class="kb-c-op">-&gt;<\/span><span class="kb-c-macro">VTOR<\/span>/);
+
+  // Compact HTML serializer emits exact line numbers, highlight class, and zero Astro scope bloat
+  const linesHtml = renderHighlightedCLinesHtml(res);
+  assert.match(linesHtml, /<span class="kb-c-line is-hl"><span class="kb-c-ln" aria-hidden="true">40<\/span>/);
+  assert.doesNotMatch(linesHtml, /<script>/);
 
   // Inline prose markdown code renderer escapes HTML safely
   const prose = renderInlineCodeHtml('当 `a < b` 时写入 `SCB->VTOR` & <img src=x>');

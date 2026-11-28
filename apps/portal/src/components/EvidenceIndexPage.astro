@@ -324,6 +324,14 @@ const thirdStatLabel =
                   {anchor.symbol && <code class="kb-ev-file-sym">{anchor.symbol}</code>}
                   {lineLabel && <span class="kb-ev-file-lines">{lineLabel}</span>}
                   {anchor.category && <span class="kb-ev-file-cat">{anchor.category}</span>}
+                  <button
+                    type="button"
+                    class="kb-ev-file-jump"
+                    data-ev-jump-anchor={anchor.id}
+                    title={`切回精讲视图并定位到 ${anchor.title} 的内联 C 源码`}
+                  >
+                    看这段 C 源码 →
+                  </button>
                 </div>
                 {anchor.summary && (
                   <p
@@ -335,21 +343,6 @@ const thirdStatLabel =
             );
           })}
         </ul>
-
-        {file.inlineCodeCount > 0 && (
-          <details class="kb-ev-file-code-drawer">
-            <summary>
-              直接展开该文件已截取的 {file.inlineCodeCount} 段 C 源码（免跳 GitHub）
-            </summary>
-            <div class="kb-ev-file-code-stack">
-              {file.anchors
-                .filter((a) => Boolean(a.code && a.code.trim()))
-                .map((anchor) => (
-                  <CSourceCard anchor={anchor} compact={true} />
-                ))}
-            </div>
-          </details>
-        )}
 
         <div class="kb-ev-ref-pills" aria-label="引用该 C 源码的知识文档">
           {file.docRefs.map((ref) => (
@@ -555,10 +548,34 @@ const thirdStatLabel =
       applyFilters(true);
     });
 
-    // Delegated C code copy & fold toggles for inline C walkthrough cards
+    // Delegated C code copy, fold, and file-to-walkthrough jump toggles
     page.addEventListener('click', async (event) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
+
+      const jumpBtn = target.closest<HTMLButtonElement>('[data-ev-jump-anchor]');
+      if (jumpBtn) {
+        const anchorId = jumpBtn.dataset.evJumpAnchor || '';
+        if (!anchorId) return;
+        activeMode = 'walkthrough';
+        applyFilters(true);
+        const card = page.querySelector<HTMLElement>(`#anchor-${CSS.escape(anchorId)}`);
+        if (card) {
+          if (card.hidden) {
+            activeRepo = '';
+            activeExt = 'all';
+            activeCat = 'all';
+            activeType = 'all';
+            query = '';
+            searchInput.value = '';
+            applyFilters(true);
+          }
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.classList.add('is-jump-flash');
+          window.setTimeout(() => card.classList.remove('is-jump-flash'), 1600);
+        }
+        return;
+      }
 
       const copyBtn = target.closest<HTMLButtonElement>('[data-c-copy]');
       if (copyBtn) {
@@ -1169,32 +1186,31 @@ const thirdStatLabel =
     border-radius: 999px;
   }
 
+  .kb-ev-file-jump {
+    margin-left: auto;
+    padding: 0.12rem 0.5rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--kb-accent) 42%, var(--kb-border));
+    background: var(--kb-project-soft);
+    color: var(--kb-project-ink);
+    font: inherit;
+    font-size: 0.69rem;
+    font-weight: 650;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .kb-ev-file-jump:hover {
+    border-color: var(--kb-accent);
+    background: color-mix(in srgb, var(--kb-project-soft) 75%, var(--kb-accent));
+  }
+
   .kb-ev-file-summary {
     margin: 0.24rem 0 0;
     color: var(--sl-color-gray-2);
     font-size: 0.78rem;
     line-height: 1.56;
-  }
-
-  .kb-ev-file-code-drawer {
-    border-radius: 0.52rem;
-    border: 1px solid color-mix(in srgb, var(--kb-accent) 32%, var(--kb-border));
-    background: var(--kb-surface-elevated);
-    padding: 0.45rem 0.62rem;
-  }
-
-  .kb-ev-file-code-drawer summary {
-    cursor: pointer;
-    color: var(--kb-accent);
-    font-size: 0.76rem;
-    font-weight: 650;
-  }
-
-  .kb-ev-file-code-stack {
-    margin-top: 0.55rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
   }
 
   .kb-ev-ref-pills {

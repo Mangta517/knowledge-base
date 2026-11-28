@@ -316,3 +316,19 @@ export function highlightCCode(rawCode = '', options = {}) {
     endLine: parsedStart + lines.length - 1,
   };
 }
+
+/**
+ * Serialize highlighted C lines into compact semantic HTML without per-span Astro scope attributes.
+ * Every token is already HTML-escaped by `highlightCCode`.
+ */
+export function renderHighlightedCLinesHtml(highlighted) {
+  if (!highlighted || !Array.isArray(highlighted.lines) || highlighted.lines.length === 0) {
+    return '';
+  }
+  return highlighted.lines
+    .map(
+      (line) =>
+        `<span class="kb-c-line${line.isHighlighted ? ' is-hl' : ''}"><span class="kb-c-ln" aria-hidden="true">${line.lineNo}</span><span class="kb-c-line-code">${line.html}</span></span>`,
+    )
+    .join('');
+}

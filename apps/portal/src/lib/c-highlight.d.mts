@@ -22,3 +22,6 @@ export declare function highlightCCode(
   rawCode?: string,
   options?: HighlightCOptions,
 ): HighlightedCResult;
+export declare function renderHighlightedCLinesHtml(
+  highlighted: HighlightedCResult,
+): string;

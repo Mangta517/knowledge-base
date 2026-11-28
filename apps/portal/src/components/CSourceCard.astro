@@ -1,6 +1,10 @@
 ---
 import path from 'node:path';
-import { highlightCCode, renderInlineCodeHtml } from '../lib/c-highlight.mjs';
+import {
+  highlightCCode,
+  renderHighlightedCLinesHtml,
+  renderInlineCodeHtml,
+} from '../lib/c-highlight.mjs';
 import { TYPE_SHORT_LABELS, type ResolvedSourceAnchor } from '../lib/kb-data';
 
 interface Props {
@@ -20,6 +24,7 @@ const highlighted = hasCode
       highlightLines: anchor.highlight_lines,
     })
   : null;
+const highlightedLinesHtml = highlighted ? renderHighlightedCLinesHtml(highlighted) : '';
 
 const FOLD_THRESHOLD = compact ? 16 : 22;
 const isFoldable = Boolean(highlighted && highlighted.totalLines > FOLD_THRESHOLD);
@@ -168,7 +173,7 @@ const highlightCount = highlighted
       </div>
 
       <div class="kb-cs-code-viewport" tabindex="0" aria-label={`${filename} C 语言源码截取片段`}>
-        <pre class="kb-cs-pre"><code class="kb-cs-code">{highlighted.lines.map((line) => (<span class={`kb-c-line${line.isHighlighted ? ' is-hl' : ''}`}><span class="kb-c-ln" aria-hidden="true">{line.lineNo}</span><span class="kb-c-line-code" set:html={line.html} /></span>))}</code></pre>
+        <pre class="kb-cs-pre"><code class="kb-cs-code" set:html={highlightedLinesHtml} /></pre>
       </div>
 
       {isFoldable && (
@@ -589,35 +594,9 @@ const highlightCount = highlighted
     white-space: normal;
   }
 
-  .kb-c-line {
-    display: grid;
-    grid-template-columns: 3.35rem minmax(0, 1fr);
-    padding-right: 0.9rem;
-    border-left: 3px solid transparent;
-    white-space: normal;
-  }
-
-  .kb-c-line.is-hl {
-    border-left-color: var(--kb-c-hl-bar);
-    background: var(--kb-c-hl-bg);
-  }
-
-  .kb-c-ln {
-    padding: 0 0.7rem 0 0.45rem;
-    text-align: right;
-    color: var(--kb-c-gutter);
-    font-size: 0.72rem;
-    user-select: none;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .kb-c-line.is-hl .kb-c-ln {
-    color: var(--kb-c-hl-bar);
-    font-weight: 700;
-  }
-
-  .kb-c-line-code {
-    white-space: pre;
+  .kb-cs-card.is-jump-flash {
+    border-color: var(--kb-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--kb-accent) 32%, transparent), var(--kb-shadow-hover);
   }
 
   .kb-cs-fold-bar {

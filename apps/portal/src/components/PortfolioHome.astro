@@ -244,7 +244,9 @@ const heroDomains = [
             </svg>
           </div>
           <span class="kb-metric-foot">
-            <span class="kb-metric-label">C 源码锚点</span>
+            <span class="kb-metric-label">
+              {sourceAnchorCatalog.mode === 'curated' ? 'C 源码精讲' : 'C 源码锚点'}
+            </span>
             <span class="kb-metric-go" aria-hidden="true">→</span>
           </span>
         </a>
