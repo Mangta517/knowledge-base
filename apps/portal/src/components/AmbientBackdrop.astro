@@ -1,0 +1,202 @@
+---
+import {
+  BACKDROP_MOTIF_LABELS,
+  getPageBackdrop,
+  loadKbData,
+  normalizeDocKey,
+} from '../lib/kb-data';
+
+const entryId = Astro.locals.starlightRoute?.entry?.id || '';
+const cleanId = normalizeDocKey(entryId);
+const { byRouteKey } = loadKbData();
+const doc = byRouteKey.get(cleanId);
+const { motif, tone } = getPageBackdrop(doc, cleanId);
+const motifStamp = BACKDROP_MOTIF_LABELS[motif];
+---
+
+<div
+  class="kb-backdrop print:hidden"
+  data-kb-motif={motif}
+  data-kb-tone={tone}
+  aria-hidden="true"
+  data-pagefind-ignore
+>
+  {/* Layer 1: Luminous Multi-Zone Daylight Atmospheric Washes */}
+  <div class="kb-backdrop-orbs">
+    <span class="kb-orb kb-orb--primary"></span>
+    <span class="kb-orb kb-orb--warm"></span>
+    <span class="kb-orb kb-orb--mint"></span>
+    <span class="kb-orb kb-orb--iris"></span>
+  </div>
+
+  {/* Layer 2: Precision Dual-Scale Drafting Grid & Crosshair Reticles */}
+  <svg class="kb-backdrop-grid" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+    <defs>
+      <pattern id="kb-grid-blueprint" width="120" height="120" patternUnits="userSpaceOnUse">
+        <path
+          d="M 24 0 V 120 M 48 0 V 120 M 72 0 V 120 M 96 0 V 120 M 0 24 H 120 M 0 48 H 120 M 0 72 H 120 M 0 96 H 120"
+          fill="none"
+          class="kb-grid-minor"
+        />
+        <path d="M 120 0 H 0 V 120" fill="none" class="kb-grid-major" />
+        <path d="M -4 0 H 4 M 0 -4 V 4 M 116 0 H 120 M 0 116 V 120" fill="none" class="kb-grid-cross" />
+      </pattern>
+
+      <pattern id="kb-grid-vellum" width="28" height="28" patternUnits="userSpaceOnUse">
+        <circle cx="14" cy="14" r="1.05" class="kb-grid-dot" />
+        <path d="M 28 0 H 0 V 28" fill="none" class="kb-grid-vellum-line" />
+      </pattern>
+
+      <pattern id="kb-grid-aurora" width="22" height="22" patternUnits="userSpaceOnUse">
+        <circle cx="11" cy="11" r="0.95" class="kb-grid-dot-soft" />
+      </pattern>
+
+      <filter id="kb-vellum-grain" x="0%" y="0%" width="100%" height="100%">
+        <feTurbulence
+          type="fractalNoise"
+          baseFrequency="0.78"
+          numOctaves="2"
+          stitchTiles="stitch"
+        />
+        <feColorMatrix type="saturate" values="0" />
+      </filter>
+    </defs>
+
+    <rect class="kb-grid-layer kb-grid-layer--blueprint" width="100%" height="100%" fill="url(#kb-grid-blueprint)" />
+    <rect class="kb-grid-layer kb-grid-layer--vellum" width="100%" height="100%" fill="url(#kb-grid-vellum)" />
+    <rect class="kb-grid-layer kb-grid-layer--aurora" width="100%" height="100%" fill="url(#kb-grid-aurora)" />
+    <rect class="kb-grid-layer kb-grid-layer--grain" width="100%" height="100%" filter="url(#kb-vellum-grain)" />
+  </svg>
+
+  {/* Layer 3: Outer-Margin Embedded Drafting Vector Artwork (softly masked away from prose center) */}
+  <svg
+    class="kb-backdrop-art"
+    viewBox="0 0 1600 1000"
+    preserveAspectRatio="xMidYMid slice"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    {/* Top-Right Calibration Reticle & Arc */}
+    <g class="kb-art-reticle">
+      <circle cx="1420" cy="160" r="245" class="kb-art-stroke kb-art-dashed" />
+      <circle cx="1420" cy="160" r="185" class="kb-art-stroke" />
+      <circle cx="1420" cy="160" r="118" class="kb-art-stroke kb-art-accent-line" />
+      <path d="M 1135 160 H 1220 M 1420 0 V 35 M 1420 285 V 360" class="kb-art-stroke" />
+      <path
+        d="M 1245 78 A 196 196 0 0 1 1538 308"
+        pathLength="100"
+        class="kb-art-pulse kb-art-pulse--slow"
+      />
+    </g>
+
+    {/* Upper-Left 45-Degree Chamfered PCB Bus Traces */}
+    <g class="kb-art-traces">
+      <path d="M -20 210 H 128 L 194 276 H 316" class="kb-art-stroke" />
+      <path d="M -20 232 H 118 L 184 298 H 286" class="kb-art-stroke kb-art-accent-line" />
+      <path
+        d="M -20 232 H 118 L 184 298 H 286"
+        pathLength="100"
+        class="kb-art-pulse"
+      />
+      <circle cx="316" cy="276" r="4.5" class="kb-art-via" />
+      <circle cx="286" cy="298" r="4.5" class="kb-art-via kb-art-via--accent" />
+      <circle cx="128" cy="210" r="2.6" class="kb-art-node" />
+    </g>
+
+    {/* Bottom-Left Hardware Bus Ribbon & Solder Vias */}
+    <g class="kb-art-traces-bottom">
+      <path d="M -20 790 H 150 L 222 718 H 370" class="kb-art-stroke" />
+      <path d="M -20 814 H 164 L 236 742 H 336" class="kb-art-stroke kb-art-accent-line" />
+      <path d="M 48 1015 V 862 L 106 804" class="kb-art-stroke" />
+      <path
+        d="M -20 814 H 164 L 236 742 H 336"
+        pathLength="100"
+        class="kb-art-pulse kb-art-pulse--reverse"
+      />
+      <circle cx="370" cy="718" r="4.5" class="kb-art-via" />
+      <circle cx="336" cy="742" r="4.5" class="kb-art-via kb-art-via--accent" />
+    </g>
+
+    {/* Bottom-Right Signal Wave / Schematic Motif */}
+    <g class="kb-art-wave-group">
+      {motif === 'control' ? (
+        <>
+          <path
+            d="M 1160 855 Q 1210 785, 1260 855 T 1360 855 T 1460 855 T 1560 855"
+            class="kb-art-stroke kb-art-accent-line"
+          />
+          <path
+            d="M 1160 855 Q 1210 785, 1260 855 T 1360 855 T 1460 855 T 1560 855"
+            pathLength="100"
+            class="kb-art-pulse"
+          />
+          <line x1="1150" y1="855" x2="1580" y2="855" class="kb-art-stroke kb-art-dashed" />
+        </>
+      ) : motif === 'network' ? (
+        <>
+          <path d="M 1230 880 L 1315 815 L 1425 845 L 1510 765 L 1580 810" class="kb-art-stroke kb-art-accent-line" />
+          <path d="M 1315 815 L 1385 910 L 1510 765" class="kb-art-stroke kb-art-dashed" />
+          <circle cx="1230" cy="880" r="5" class="kb-art-via" />
+          <circle cx="1315" cy="815" r="5.5" class="kb-art-via kb-art-via--accent" />
+          <circle cx="1425" cy="845" r="4.5" class="kb-art-via" />
+          <circle cx="1510" cy="765" r="6" class="kb-art-via kb-art-via--accent" />
+          <circle cx="1385" cy="910" r="4" class="kb-art-via" />
+        </>
+      ) : motif === 'probe' ? (
+        <>
+          <path
+            d="M 1170 865 H 1245 L 1262 802 L 1284 904 L 1304 836 L 1324 865 H 1412 L 1432 812 L 1450 865 H 1580"
+            class="kb-art-stroke kb-art-accent-line"
+          />
+          <path
+            d="M 1170 865 H 1245 L 1262 802 L 1284 904 L 1304 836 L 1324 865 H 1412 L 1432 812 L 1450 865 H 1580"
+            pathLength="100"
+            class="kb-art-pulse"
+          />
+        </>
+      ) : motif === 'ledger' ? (
+        <>
+          <rect x="1250" y="760" width="270" height="150" rx="14" class="kb-art-stroke kb-art-dashed" />
+          <line x1="1276" y1="802" x2="1494" y2="802" class="kb-art-stroke" />
+          <line x1="1276" y1="836" x2="1462" y2="836" class="kb-art-stroke kb-art-accent-line" />
+          <line x1="1276" y1="870" x2="1428" y2="870" class="kb-art-stroke" />
+        </>
+      ) : (
+        <>
+          <path
+            d="M 1180 875 H 1262 L 1318 819 H 1446 L 1492 773 H 1610"
+            class="kb-art-stroke"
+          />
+          <path
+            d="M 1218 898 H 1278 L 1334 842 H 1474 L 1520 796 H 1610"
+            class="kb-art-stroke kb-art-accent-line"
+          />
+          <path
+            d="M 1218 898 H 1278 L 1334 842 H 1474 L 1520 796 H 1610"
+            pathLength="100"
+            class="kb-art-pulse"
+          />
+          <circle cx="1180" cy="875" r="4.5" class="kb-art-via" />
+          <circle cx="1218" cy="898" r="4.5" class="kb-art-via kb-art-via--accent" />
+        </>
+      )}
+    </g>
+
+    {/* Subtle Aurora Contour Ribbon (visible primarily in aurora preset) */}
+    <g class="kb-art-aurora-ribbons">
+      <path
+        d="M -60 340 C 260 220, 560 440, 920 310 C 1220 200, 1440 320, 1680 230"
+        class="kb-aurora-ribbon kb-aurora-ribbon--1"
+      />
+      <path
+        d="M -60 720 C 310 610, 620 820, 1020 680 C 1290 585, 1470 700, 1680 620"
+        class="kb-aurora-ribbon kb-aurora-ribbon--2"
+      />
+    </g>
+  </svg>
+
+  {/* Layer 4: Subtle Edge Coordinate Stamp (Desktop Only) */}
+  <div class="kb-backdrop-stamp">
+    <span class="kb-stamp-rule"></span>
+    <span>{motifStamp}</span>
+  </div>
+</div>

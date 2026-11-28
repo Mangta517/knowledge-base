@@ -1,12 +1,149 @@
 ---
 import DefaultSocialIcons from '@astrojs/starlight/components/SocialIcons.astro';
-import { withBase } from '../lib/kb-data';
+import { getBackdropPresets, loadKbData, withBase } from '../lib/kb-data';
+
+const { catalog } = loadKbData();
+const presets = getBackdropPresets(catalog);
+const presetOrder = presets.map((p) => p.id);
+const presetTooltips = Object.fromEntries(presets.map((p) => [p.id, `${p.label}：${p.summary}`]));
 ---
 
+<button
+  type="button"
+  class="kb-backdrop-switcher"
+  data-kb-backdrop-cycle
+  data-presets={JSON.stringify(presetOrder)}
+  data-tooltips={JSON.stringify(presetTooltips)}
+  aria-label="切换浅色画布背景风格"
+  title="切换浅色画布背景风格（蓝图晨光 / 暖纸手记 / 晴空微光）"
+>
+  <span class="kb-bg-swatch" aria-hidden="true"></span>
+  {presets.map((preset) => (
+    <span class={`kb-bg-label kb-bg-label--${preset.id}`}>{preset.label}</span>
+  ))}
+</button>
 <a class="kb-header-graph" href={withBase('/graph/')}>知识图谱</a>
 <DefaultSocialIcons {...Astro.props} />
 
+<script>
+  const STORAGE_KEY = 'kb-backdrop-v1';
+  const buttons = Array.from(
+    document.querySelectorAll<HTMLButtonElement>('[data-kb-backdrop-cycle]'),
+  );
+
+  if (buttons.length > 0) {
+    const firstBtn = buttons[0];
+    let order: string[] = ['blueprint', 'vellum', 'aurora'];
+    let tooltips: Record<string, string> = {};
+    try {
+      const parsedOrder = JSON.parse(firstBtn.dataset.presets || '[]');
+      if (Array.isArray(parsedOrder) && parsedOrder.length > 0) {
+        order = parsedOrder;
+      }
+      tooltips = JSON.parse(firstBtn.dataset.tooltips || '{}');
+    } catch {
+      // Keep default preset list
+    }
+
+    const getCurrent = (): string => {
+      const cur = document.documentElement.dataset.kbBackdrop || order[0];
+      return order.includes(cur) ? cur : order[0];
+    };
+
+    const syncButtons = (active: string) => {
+      const nextIdx = (order.indexOf(active) + 1) % order.length;
+      const nextId = order[nextIdx];
+      const curTip = tooltips[active] || active;
+      const nextLabel = tooltips[nextId]?.split('：')[0] || nextId;
+      for (const btn of buttons) {
+        btn.title = `当前画布：${curTip}（点击切换至「${nextLabel}」）`;
+        btn.setAttribute('aria-label', `当前画布风格：${curTip.split('：')[0]}，点击切换至${nextLabel}`);
+      }
+    };
+
+    const applyBackdrop = (id: string) => {
+      document.documentElement.dataset.kbBackdrop = id;
+      try {
+        localStorage.setItem(STORAGE_KEY, id);
+      } catch {
+        // Ignore private browsing storage restrictions
+      }
+      syncButtons(id);
+    };
+
+    syncButtons(getCurrent());
+
+    for (const btn of buttons) {
+      if (btn.dataset.bound === '1') continue;
+      btn.dataset.bound = '1';
+      btn.addEventListener('click', () => {
+        const cur = getCurrent();
+        const next = order[(order.indexOf(cur) + 1) % order.length];
+        applyBackdrop(next);
+      });
+    }
+  }
+</script>
+
 <style>
+  .kb-backdrop-switcher {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.36rem;
+    padding: 0.22rem 0.56rem;
+    border-radius: 999px;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-glass);
+    color: var(--sl-color-gray-2);
+    font: inherit;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    line-height: 1.35;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: var(--kb-card-specular), 0 1px 2px rgba(15, 23, 42, 0.04);
+    transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+  }
+
+  .kb-backdrop-switcher:hover {
+    border-color: var(--kb-accent);
+    color: var(--sl-color-gray-1);
+    background: var(--kb-surface);
+  }
+
+  .kb-backdrop-switcher:focus-visible {
+    outline: 2px solid var(--kb-accent);
+    outline-offset: 2px;
+  }
+
+  .kb-bg-swatch {
+    width: 0.62rem;
+    height: 0.62rem;
+    border-radius: 50%;
+    border: 1px solid color-mix(in srgb, var(--kb-border-strong) 70%, transparent);
+    background: conic-gradient(from 40deg, #38bdf8 0 120deg, #fbbf24 120deg 240deg, #34d399 240deg 360deg);
+    flex-shrink: 0;
+  }
+
+  :global(:root[data-kb-backdrop='vellum']) .kb-bg-swatch {
+    background: conic-gradient(from 40deg, #f59e0b 0 130deg, #f3e6cf 130deg 255deg, #34d399 255deg 360deg);
+  }
+
+  :global(:root[data-kb-backdrop='aurora']) .kb-bg-swatch {
+    background: conic-gradient(from 40deg, #38bdf8 0 120deg, #a78bfa 120deg 245deg, #2dd4bf 245deg 360deg);
+  }
+
+  .kb-bg-label {
+    display: none;
+  }
+
+  :global(:root:not([data-kb-backdrop])) .kb-bg-label--blueprint,
+  :global(:root[data-kb-backdrop='blueprint']) .kb-bg-label--blueprint,
+  :global(:root[data-kb-backdrop='vellum']) .kb-bg-label--vellum,
+  :global(:root[data-kb-backdrop='aurora']) .kb-bg-label--aurora {
+    display: inline;
+  }
+
   .kb-header-graph {
     color: var(--sl-color-gray-2);
     font-size: var(--sl-text-sm);

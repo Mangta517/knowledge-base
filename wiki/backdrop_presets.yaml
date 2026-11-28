@@ -1,0 +1,10 @@
+- id: blueprint
+  label: 蓝图晨光
+  summary: 日光矿雾渐变底色 + 双尺度精密工程坐标格与外侧 PCB 走线底纹
+  default: true
+- id: vellum
+  label: 暖纸手记
+  summary: 晨光象牙暖纸 + 柔点格与细纸纹，适配工程师手记长文阅读
+- id: aurora
+  label: 晴空微光
+  summary: 轻盈天青、浅薰衣草与薄荷日光柔彩光晕 + 细密坐标点阵

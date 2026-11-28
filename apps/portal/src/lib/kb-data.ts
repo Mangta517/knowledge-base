@@ -38,6 +38,32 @@ export interface DiagramEntry {
   source: string;
 }
 
+export type BackdropPresetId = 'blueprint' | 'vellum' | 'aurora';
+
+export type BackdropMotif =
+  | 'atlas'
+  | 'control'
+  | 'bus'
+  | 'network'
+  | 'rtos'
+  | 'ledger'
+  | 'probe'
+  | 'index';
+
+export type BackdropTone = 'sky' | 'mint' | 'amber' | 'rose' | 'violet' | 'teal';
+
+export interface BackdropPresetEntry {
+  id: BackdropPresetId;
+  label: string;
+  summary: string;
+  default?: boolean;
+}
+
+export interface PageBackdropMeta {
+  motif: BackdropMotif;
+  tone: BackdropTone;
+}
+
 export interface ItemMetrics {
   reading_minutes?: number;
   mermaid_count?: number;
@@ -49,6 +75,8 @@ export interface ItemMetrics {
   evidence_links?: EvidenceLinkEntry[];
   /** Populated by backend index pipeline (optional until Codex backend upgrade ships). */
   diagrams?: DiagramEntry[];
+  /** Optional contextual page atmosphere emitted by backend index pipeline. */
+  backdrop?: PageBackdropMeta;
 }
 
 export interface ProjectHighlight {
@@ -182,6 +210,8 @@ export interface CatalogData {
   synthesis: SynthesisItem[];
   link_map: Record<string, string>;
   reading_tracks?: ReadingTrackData[];
+  /** Optional site-level light backdrop presets emitted by backend index pipeline. */
+  backdrop_presets?: BackdropPresetEntry[];
 }
 
 export interface GraphNode {
@@ -443,6 +473,137 @@ export function getReadingTracks(catalog: CatalogData): ReadingTrackData[] {
     return catalog.reading_tracks;
   }
   return FALLBACK_TRACKS;
+}
+
+const VALID_BACKDROP_PRESETS = new Set<BackdropPresetId>(['blueprint', 'vellum', 'aurora']);
+const VALID_BACKDROP_MOTIFS = new Set<BackdropMotif>([
+  'atlas',
+  'control',
+  'bus',
+  'network',
+  'rtos',
+  'ledger',
+  'probe',
+  'index',
+]);
+const VALID_BACKDROP_TONES = new Set<BackdropTone>([
+  'sky',
+  'mint',
+  'amber',
+  'rose',
+  'violet',
+  'teal',
+]);
+
+export const FALLBACK_BACKDROP_PRESETS: BackdropPresetEntry[] = [
+  {
+    id: 'blueprint',
+    label: '蓝图晨光',
+    summary: '日光矿雾渐变底色 + 双尺度精密工程坐标格与外侧 PCB 走线底纹',
+    default: true,
+  },
+  {
+    id: 'vellum',
+    label: '暖纸手记',
+    summary: '晨光象牙暖纸 + 柔点格与细纸纹，适配工程师手记长文阅读',
+  },
+  {
+    id: 'aurora',
+    label: '晴空微光',
+    summary: '轻盈天青、浅薰衣草与薄荷日光柔彩光晕 + 细密坐标点阵',
+  },
+];
+
+export function getBackdropPresets(catalog?: CatalogData): BackdropPresetEntry[] {
+  if (Array.isArray(catalog?.backdrop_presets) && catalog.backdrop_presets.length > 0) {
+    const valid = catalog.backdrop_presets.filter(
+      (entry): entry is BackdropPresetEntry =>
+        Boolean(
+          entry &&
+            VALID_BACKDROP_PRESETS.has(entry.id) &&
+            typeof entry.label === 'string' &&
+            entry.label.trim().length > 0,
+        ),
+    );
+    if (valid.length > 0) {
+      return valid;
+    }
+  }
+  return FALLBACK_BACKDROP_PRESETS;
+}
+
+export function getDefaultBackdropPreset(catalog?: CatalogData): BackdropPresetId {
+  const presets = getBackdropPresets(catalog);
+  return presets.find((p) => p.default)?.id || presets[0]?.id || 'blueprint';
+}
+
+export const BACKDROP_MOTIF_LABELS: Record<BackdropMotif, string> = {
+  atlas: 'ATLAS · DAYLIGHT GRID',
+  control: 'CTRL · TELEMETRY ARC',
+  bus: 'BUS · PCB TRACE',
+  network: 'NET · PACKET LATTICE',
+  rtos: 'RTOS · TASK LANES',
+  ledger: 'ADR · VELLUM LEDGER',
+  probe: 'TS · PROBE BENCH',
+  index: 'IDX · SIGNAL MATRIX',
+};
+
+/**
+ * Resolve contextual backdrop motif & daylight tint for any page.
+ * Prefers backend-emitted `doc.backdrop` from `data/catalog.json`, falling back
+ * deterministically to document type, hardware domain, and route role.
+ */
+export function getPageBackdrop(
+  doc?: KbDocItem,
+  cleanRouteKey = '',
+): PageBackdropMeta {
+  const backend = doc?.backdrop;
+  if (
+    backend &&
+    VALID_BACKDROP_MOTIFS.has(backend.motif) &&
+    VALID_BACKDROP_TONES.has(backend.tone)
+  ) {
+    return backend;
+  }
+
+  if (!doc) {
+    if (cleanRouteKey === 'graph' || cleanRouteKey === 'evidence' || cleanRouteKey === 'diagrams') {
+      return { motif: 'index', tone: 'teal' };
+    }
+    return { motif: 'atlas', tone: 'sky' };
+  }
+
+  if (doc.type === 'project') {
+    const id = doc.id.toLowerCase();
+    const domains = (doc.domains || []).map((d) => d.toLowerCase());
+    const stack = (doc.tech_stack || []).join(' ').toLowerCase();
+    if (domains.includes('networking') || id === 'iwip' || /\blwip\b|ethernet|rmii/.test(stack)) {
+      return { motif: 'network', tone: 'teal' };
+    }
+    if (id === 'bootloader' || /\bcan\b|w25q|eeprom|bootloader/.test(stack)) {
+      return { motif: 'bus', tone: 'amber' };
+    }
+    if (id === 'flight' || id === 'mspm0g3507' || /mpu6050|k230|pid/.test(stack)) {
+      return { motif: 'control', tone: 'sky' };
+    }
+    return { motif: 'rtos', tone: 'mint' };
+  }
+
+  if (doc.type === 'topic') {
+    return doc.domain === 'networking'
+      ? { motif: 'network', tone: 'teal' }
+      : { motif: 'index', tone: 'mint' };
+  }
+
+  if (doc.type === 'adr') {
+    return { motif: 'ledger', tone: 'amber' };
+  }
+
+  if (doc.type === 'troubleshooting') {
+    return { motif: 'probe', tone: 'rose' };
+  }
+
+  return { motif: 'atlas', tone: 'violet' };
 }
 
 function readJson<T>(relativePath: string): T {
