@@ -3,9 +3,11 @@
 import json
 import os
 import re
+from bisect import bisect_right
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path, PurePosixPath
+from unicodedata import category
 from urllib.parse import unquote, urlsplit
 
 import yaml
@@ -60,12 +62,14 @@ WIKILINK = re.compile(r"(?P<embed>!)?\[\[(?P<target>[^]\n|]+)(?P<label>\|[^\n]+?
 SOURCE_LINK = re.compile(
     r"https://github\.com/(?P<repo>[\w-]+/[\w.-]+)/(?P<kind>blob|tree)/"
     r"(?P<ref>[^/\s<>()\[\]`\"'?#、，。；：！？]+)"
-    r"(?:/(?P<path>(?:\\[()]|\([^()\s<>]*\)|[^()\s<>\[\]`\"'?#、，。；：！？])*))?",
+    r"(?:/(?P<path>(?:\\[()]|\([^()\s<>]*\)|[^()\s<>\[\]`\"'?#、，。；：！？])*))?"
+    r"(?:#[^\s<>()\[\]`\"'\\、，。；：！？]+)?",
     re.I,
 )
 MERMAID_TYPE = re.compile(
-    r"^(?:flowchart|graph|sequenceDiagram|stateDiagram(?:-v2)?|classDiagram|erDiagram|xychart-beta)(?=\s|;|$)"
+    r"^(?P<type>flowchart|graph|sequenceDiagram|stateDiagram(?:-v2)?|classDiagram|erDiagram|xychart-beta)(?=\s|;|$)"
 )
+FLOWCHART_DIRECTION = re.compile(r"\s+(TB|TD|BT|RL|LR)(?=\s|;|$)")
 QUOTED = r'"(?:\\.|[^"\\])*"'
 NODE_LABEL = re.compile(QUOTED + r"|(?<=\w)\[(?P<label>(?:" + QUOTED + r'|[^\]\n"])*)\]')
 REGISTRY_FIELDS = ("repo", "repo_url", "visibility", "publish_policy", "tier", "domains", "primary_language", "stars", "synced_commit")
@@ -184,9 +188,13 @@ def markup_chunks(body):
     yield False, body[end:]
 
 
+def mask_markup(text):
+    return re.sub(r"[^\n]", " ", text)
+
+
 def visible_markup(body):
     return "".join(
-        re.sub(r"[^\n]", " ", chunk) if is_code else COMMENT.sub("\n", chunk)
+        mask_markup(chunk) if is_code else COMMENT.sub(lambda match: mask_markup(match[0]), chunk)
         for is_code, chunk in markup_chunks(body)
     )
 
@@ -199,10 +207,142 @@ def source_links(body):
     return SOURCE_LINK.finditer(visible_markup(body))
 
 
-def mermaid_blocks(body):
-    for token in MARKDOWN.parse(body):
+def mermaid_fences(tokens):
+    for token in tokens:
         if token.type == "fence" and token.level == 0 and token.info.split()[:1] == ["mermaid"]:
-            yield token.content
+            yield token
+
+
+def mermaid_blocks(body):
+    for token in mermaid_fences(MARKDOWN.parse(body)):
+        yield token.content
+
+
+def markdown_inline_text(tokens):
+    parts = []
+    for token in tokens:
+        if token.type in {"text", "code_inline"}:
+            parts.append(token.content)
+        elif token.type in {"softbreak", "hardbreak"}:
+            parts.append("\n")
+    return "".join(parts).strip()
+
+
+def extract_headings(body, tokens=None):
+    if tokens is None:
+        tokens = MARKDOWN.parse(body)
+    headings = []
+    used_slugs = set()
+    for heading, inline in zip(tokens, tokens[1:]):
+        if heading.type != "heading_open":
+            continue
+        title = WIKILINK.sub(
+            lambda match: (match["label"] or "|" + match["target"])[1:], markdown_inline_text(inline.children),
+        )
+        # Match the slugger used by Astro, including spaces around removed punctuation.
+        base = "".join(
+            char for char in title.lower()
+            if char in " -" or category(char)[0] in "LM" or category(char) in {"Nd", "Nl", "Pc"}
+        ).replace(" ", "-")
+        slug = base
+        suffix = 0
+        while slug in used_slugs:
+            suffix += 1
+            slug = f"{base}-{suffix}"
+        used_slugs.add(slug)
+        if heading.level == 0 and heading.tag in {"h2", "h3"} and title:
+            headings.append((heading.map[0], title, slug))
+    return headings
+
+
+def section_at(headings, line):
+    for heading_line, title, slug in reversed(headings):
+        if heading_line <= line:
+            return title, slug
+    return "", ""
+
+
+def markdown_link_labels(tokens, lines, offsets):
+    labels = {}
+    for token in tokens:
+        if token.type != "inline":
+            continue
+        positions = None
+        for index, child in enumerate(token.children):
+            span = child.meta.get("destination_span")
+            if child.type != "link_open" or span is None:
+                continue
+            if positions is None:
+                positions = inline_source_positions(token, lines, offsets)
+            start = span[0]
+            if token.content[start] == "<":
+                start += 1
+            label_tokens = []
+            for label_token in token.children[index + 1:]:
+                if label_token.type == "link_close":
+                    break
+                label_tokens.append(label_token)
+            labels[positions[start]] = markdown_inline_text(label_tokens)
+    return labels
+
+
+def unescape_source_path(path):
+    return path.replace(r"\(", "(").replace(r"\)", ")")
+
+
+def extract_evidence_links(note, registered_repos):
+    lines = note.body.split("\n")
+    offsets = line_offsets(lines)
+    tokens = MARKDOWN.parse(note.body, {"resource_destinations": True})
+    headings = extract_headings(note.body, tokens)
+    labels = markdown_link_labels(tokens, lines, offsets)
+    entries = []
+    for link in source_links(note.body):
+        if not SHA.fullmatch(link["ref"]):
+            continue
+        repo = link["repo"]
+        path = unquote(unescape_source_path(link["path"] or ""))
+        section, slug = section_at(headings, bisect_right(offsets, link.start()) - 1)
+        entry = {
+            "url": unescape_source_path(link[0]), "repo": repo, "kind": link["kind"].lower(),
+            "commit": link["ref"], "path": path,
+            "label": labels.get(link.start()) or PurePosixPath(path).name or repo, "section": section,
+        }
+        if repo.casefold() in registered_repos:
+            entry["project_id"] = registered_repos[repo.casefold()]
+        if slug:
+            entry["section_slug"] = slug
+        entries.append(entry)
+    return entries
+
+
+def mermaid_content_lines(code):
+    return [line for line in map(str.strip, code.splitlines()) if line and not line.startswith("%%")]
+
+
+def extract_diagrams(note):
+    tokens = MARKDOWN.parse(note.body)
+    headings = extract_headings(note.body, tokens)
+    diagrams = []
+    for index, token in enumerate(mermaid_fences(tokens), start=1):
+        source = token.content.strip()
+        first_line = next(iter(mermaid_content_lines(source)), "")
+        header = MERMAID_TYPE.match(first_line)
+        diagram_type = "diagram"
+        if header:
+            diagram_type = header["type"]
+        if diagram_type == "graph":
+            diagram_type = "flowchart"
+        section, slug = section_at(headings, token.map[0])
+        diagram = {"index": index, "diagram_type": diagram_type, "title": section or note.meta["title"], "source": source}
+        if diagram_type == "flowchart":
+            direction = FLOWCHART_DIRECTION.match(first_line, header.end())
+            if direction:
+                diagram["direction"] = direction[1]
+        if slug:
+            diagram["section_slug"] = slug
+        diagrams.append(diagram)
+    return diagrams
 
 
 def secret_hits(content):
@@ -562,7 +702,7 @@ def check_source_links(note, registered, trees):
         elif not isinstance(commit, str) or ref.lower() != commit.lower():
             yield f"{note.path}: GitHub 源码链接与 {key} 的 synced_commit 不一致 ({link[0]})"
         elif key in trees:
-            path = unquote((link["path"] or "").replace(r"\(", "(").replace(r"\)", ")"))
+            path = unquote(unescape_source_path(link["path"] or ""))
             files, directories = trees[key]
             if link["kind"].lower() == "blob":
                 exists = path in files
@@ -574,7 +714,7 @@ def check_source_links(note, registered, trees):
 
 def check_mermaid(note):
     for number, code in enumerate(mermaid_blocks(note.body), start=1):
-        lines = [line.strip() for line in code.splitlines() if line.strip() and not line.lstrip().startswith("%%")]
+        lines = mermaid_content_lines(code)
         prefix = f"{note.path}: Mermaid 第 {number} 块"
         if not lines or not MERMAID_TYPE.match(lines[0]):
             yield f"{prefix}为空或图类型不受支持"

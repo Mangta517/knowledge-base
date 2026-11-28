@@ -99,6 +99,8 @@ export function verifyOutputs({ dataDir = DATA_DIR, distDir = DIST_DIR } = {}) {
     'index.html',
     '404.html',
     'graph/index.html',
+    'evidence/index.html',
+    'diagrams/index.html',
     'robots.txt',
     'sitemap-index.xml',
     'pagefind/pagefind.js',

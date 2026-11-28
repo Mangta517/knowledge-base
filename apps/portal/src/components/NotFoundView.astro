@@ -8,6 +8,10 @@ const base = getSiteBase();
 const routeAliases: Record<string, string> = {
   '/graph': withBase('/graph/'),
   '/graph/': withBase('/graph/'),
+  '/evidence': withBase('/evidence/'),
+  '/evidence/': withBase('/evidence/'),
+  '/diagrams': withBase('/diagrams/'),
+  '/diagrams/': withBase('/diagrams/'),
 };
 
 for (const route of Object.values(catalog.link_map || {})) {

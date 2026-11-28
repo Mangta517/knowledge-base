@@ -210,48 +210,78 @@ const heroDomains = [
         ))}
       </div>
 
-      <!-- Animated Bento Metric Tiles with Live Micro-Sparklines -->
-      <div class="kb-metric-bento" aria-label="知识库核心指标">
-        <div class="kb-metric-card kb-type-project">
+      <!-- Interactive Bento Metric Tiles with Live Micro-Sparklines -->
+      <nav class="kb-metric-bento" aria-label="知识库核心指标与直达入口">
+        <a
+          class="kb-metric-card kb-type-project"
+          href="#kb-projects"
+          data-metric-jump="projects"
+          title="定位到固件矩阵并查看全部工程"
+        >
           <div class="kb-metric-row">
             <span class="kb-metric-num" data-count-to={counts.projects}>{counts.projects}</span>
             <svg class="kb-metric-spark" viewBox="0 0 40 16" aria-hidden="true">
               <path d="M2,12 L10,12 L14,4 L24,4 L28,12 L38,12" pathLength="100" fill="none" />
             </svg>
           </div>
-          <span class="kb-metric-label">固件工程</span>
-        </div>
+          <span class="kb-metric-foot">
+            <span class="kb-metric-label">固件工程</span>
+            <span class="kb-metric-go" aria-hidden="true">↓</span>
+          </span>
+        </a>
 
-        <div class="kb-metric-card kb-type-topic">
+        <a
+          class="kb-metric-card kb-type-topic"
+          href={withBase('/evidence/')}
+          title="打开全部公开源码锚点索引"
+        >
           <div class="kb-metric-row">
             <span class="kb-metric-num" data-count-to={totalEvidence}>{totalEvidence}</span>
             <svg class="kb-metric-spark" viewBox="0 0 40 16" aria-hidden="true">
               <path d="M2,9 Q11,2 20,9 T38,9" pathLength="100" fill="none" />
             </svg>
           </div>
-          <span class="kb-metric-label">源码锚点</span>
-        </div>
+          <span class="kb-metric-foot">
+            <span class="kb-metric-label">源码锚点</span>
+            <span class="kb-metric-go" aria-hidden="true">→</span>
+          </span>
+        </a>
 
-        <div class="kb-metric-card kb-type-adr">
+        <a
+          class="kb-metric-card kb-type-adr"
+          href={withBase('/diagrams/')}
+          title="打开全库 Mermaid 架构与时序图画廊"
+        >
           <div class="kb-metric-row">
             <span class="kb-metric-num" data-count-to={totalMermaids}>{totalMermaids}</span>
             <svg class="kb-metric-spark" viewBox="0 0 40 16" aria-hidden="true">
               <path d="M2,13 L12,5 L22,11 L32,3 L38,7" pathLength="100" fill="none" />
             </svg>
           </div>
-          <span class="kb-metric-label">架构时序图</span>
-        </div>
+          <span class="kb-metric-foot">
+            <span class="kb-metric-label">架构时序图</span>
+            <span class="kb-metric-go" aria-hidden="true">→</span>
+          </span>
+        </a>
 
-        <div class="kb-metric-card kb-type-troubleshooting">
+        <a
+          class="kb-metric-card kb-type-troubleshooting"
+          href="#kb-library"
+          data-metric-jump="library"
+          title="定位到跨域沉淀并展开全部专题、排障、ADR 与复盘"
+        >
           <div class="kb-metric-row">
             <span class="kb-metric-num" data-count-to={crossNotesCount}>{crossNotesCount}</span>
             <svg class="kb-metric-spark" viewBox="0 0 40 16" aria-hidden="true">
               <path d="M2,11 L13,11 L17,3 L21,14 L25,8 L38,8" pathLength="100" fill="none" />
             </svg>
           </div>
-          <span class="kb-metric-label">专题 · 排障</span>
-        </div>
-      </div>
+          <span class="kb-metric-foot">
+            <span class="kb-metric-label">专题 · 排障</span>
+            <span class="kb-metric-go" aria-hidden="true">↓</span>
+          </span>
+        </a>
+      </nav>
 
       <div class="kb-actions">
         {synthesis && (
@@ -513,6 +543,17 @@ const heroDomains = [
             <span class="kb-tab-badge">{items.length}</span>
           </button>
         ))}
+        <button
+          type="button"
+          id="kb-tab-all"
+          class="kb-type-project"
+          data-tab-all="1"
+          aria-controls={groups.map((g) => `kb-panel-${g.id}`).join(' ')}
+        >
+          <span class="kb-tab-dot" aria-hidden="true"></span>
+          全部
+          <span class="kb-tab-badge">{crossNotesCount}</span>
+        </button>
       </div>
     </div>
 
@@ -793,19 +834,29 @@ const heroDomains = [
     applyFilter(false);
   }
 
-  // 4. Cross-project Library Pill Tabs with Animated Transitions
+  // 4. Cross-project Library Pill Tabs with Animated Transitions & All-Notes View
+  const librarySection = document.querySelector<HTMLElement>('.kb-library-section');
   const tablist = document.querySelector<HTMLElement>('.kb-tabs');
-  if (tablist) {
-    const tabs = Array.from(tablist.querySelectorAll('button'));
-    const panels = tabs.map((tab) => document.getElementById(tab.getAttribute('aria-controls')!)!);
+  let selectLibraryAll: (() => void) | null = null;
+  if (tablist && librarySection) {
+    const tabs = Array.from(tablist.querySelectorAll<HTMLButtonElement>('button'));
+    const panels = Array.from(librarySection.querySelectorAll<HTMLElement>('.kb-category'));
 
     function selectTab(active: number, animate = false) {
+      const targetTab = tabs[active];
+      if (!targetTab) return;
+      const isAll = targetTab.dataset.tabAll === '1';
+      const targetPanelId = targetTab.getAttribute('aria-controls') || '';
+
       const apply = () => {
+        librarySection!.classList.toggle('is-all-view', isAll);
         tabs.forEach((tab, index) => {
           const selected = index === active;
           tab.setAttribute('aria-selected', String(selected));
           tab.tabIndex = selected ? 0 : -1;
-          panels[index].hidden = !selected;
+        });
+        panels.forEach((panel) => {
+          panel.hidden = isAll ? false : panel.id !== targetPanelId;
         });
       };
       if (animate) runWithTransition(apply);
@@ -815,8 +866,13 @@ const heroDomains = [
     tablist.setAttribute('role', 'tablist');
     tabs.forEach((tab, index) => {
       tab.setAttribute('role', 'tab');
-      panels[index].setAttribute('role', 'tabpanel');
-      panels[index].setAttribute('aria-labelledby', tab.id);
+      if (tab.dataset.tabAll !== '1') {
+        const panel = document.getElementById(tab.getAttribute('aria-controls') || '');
+        if (panel) {
+          panel.setAttribute('role', 'tabpanel');
+          panel.setAttribute('aria-labelledby', tab.id);
+        }
+      }
       tab.addEventListener('click', () => selectTab(index, true));
       tab.addEventListener('keydown', (event) => {
         const nextIndex = {
@@ -832,13 +888,24 @@ const heroDomains = [
       });
     });
 
+    const allTabIdx = tabs.findIndex((t) => t.dataset.tabAll === '1');
+    if (allTabIdx !== -1) {
+      selectLibraryAll = () => selectTab(allTabIdx, true);
+    }
+
     const syncFromHash = () => {
       const rawHash = window.location.hash.replace(/^#/, '');
       if (!rawHash) return false;
-      const idx = tabs.findIndex(
-        (tab, i) =>
-          tab.id === rawHash || panels[i].id === rawHash || `kb-panel-${rawHash}` === panels[i].id,
-      );
+      if (rawHash === 'all' || rawHash === 'kb-tab-all' || rawHash === 'kb-panel-all') {
+        if (allTabIdx !== -1) {
+          selectTab(allTabIdx, false);
+          return true;
+        }
+      }
+      const idx = tabs.findIndex((tab) => {
+        const ctrl = tab.getAttribute('aria-controls') || '';
+        return tab.id === rawHash || ctrl === rawHash || `kb-panel-${rawHash}` === ctrl;
+      });
       if (idx !== -1) {
         selectTab(idx, false);
         return true;
@@ -852,6 +919,45 @@ const heroDomains = [
     window.addEventListener('hashchange', syncFromHash);
     tablist.hidden = false;
   }
+
+  // 5. Metric Card In-Page Jump Actions (reset filters / expand all 12 cross-project notes)
+  function flashSectionHeading(el: HTMLElement | null) {
+    if (!el) return;
+    el.classList.remove('is-jump-flash');
+    void el.offsetWidth;
+    el.classList.add('is-jump-flash');
+    window.setTimeout(() => el.classList.remove('is-jump-flash'), 1200);
+  }
+
+  document.querySelectorAll<HTMLAnchorElement>('[data-metric-jump]').forEach((cardLink) => {
+    cardLink.addEventListener('click', (e) => {
+      const targetKind = cardLink.dataset.metricJump;
+      if (targetKind === 'projects') {
+        const resetBtn = document.querySelector<HTMLButtonElement>('[data-filter-reset]');
+        if (resetBtn && !resetBtn.hidden) {
+          resetBtn.click();
+        }
+        const heading = document.getElementById('kb-projects');
+        if (heading) {
+          e.preventDefault();
+          heading.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+          window.history.replaceState(null, '', '#kb-projects');
+          flashSectionHeading(heading);
+        }
+      } else if (targetKind === 'library') {
+        if (selectLibraryAll) {
+          selectLibraryAll();
+        }
+        const heading = document.getElementById('kb-library');
+        if (heading) {
+          e.preventDefault();
+          heading.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+          window.history.replaceState(null, '', '#kb-library');
+          flashSectionHeading(heading);
+        }
+      }
+    });
+  });
 </script>
 
 <style>
@@ -963,6 +1069,9 @@ const heroDomains = [
     background: var(--kb-surface);
     box-shadow: var(--kb-shadow-sm);
     border-top: 2.5px solid var(--kb-type-color);
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
     transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
   }
 
@@ -970,6 +1079,36 @@ const heroDomains = [
     border-color: var(--kb-type-color);
     background: color-mix(in srgb, var(--kb-surface) 93%, var(--kb-type-color));
     box-shadow: var(--kb-shadow-hover);
+  }
+
+  .kb-metric-card:focus-visible {
+    border-color: var(--kb-type-color);
+    outline: 2px solid var(--kb-type-color);
+    outline-offset: 2px;
+  }
+
+  .kb-metric-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.25rem;
+  }
+
+  .kb-metric-go {
+    color: var(--sl-color-gray-4);
+    font-family: var(--sl-font-mono);
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+    transition: color 0.18s ease;
+  }
+
+  .kb-metric-card:is(:hover, :focus-visible) .kb-metric-go {
+    color: var(--kb-type-color);
+  }
+
+  .kb-metric-card:is(:hover, :focus-visible) .kb-metric-label {
+    color: var(--sl-color-gray-1);
   }
 
   .kb-metric-row {
@@ -1114,6 +1253,12 @@ const heroDomains = [
     margin: 0;
     font-size: var(--sl-text-xl);
     color: var(--sl-color-white);
+    scroll-margin-top: calc(var(--sl-nav-height, 3.5rem) + 1.25rem);
+    transition: color 0.25s ease;
+  }
+
+  .kb-home h2.is-jump-flash {
+    color: var(--kb-accent);
   }
 
   .kb-count-pill {
@@ -1584,6 +1729,33 @@ const heroDomains = [
 
   .kb-category[role='tabpanel'] h3 {
     display: none;
+  }
+
+  .kb-library-section.is-all-view .kb-category {
+    margin-bottom: 1.35rem;
+  }
+
+  .kb-library-section.is-all-view .kb-category:last-child {
+    margin-bottom: 0;
+  }
+
+  .kb-library-section.is-all-view .kb-category h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.42rem;
+    margin: 0 0 0.55rem;
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--sl-color-gray-2);
+  }
+
+  .kb-library-section.is-all-view .kb-category h3::before {
+    content: "";
+    width: 0.46rem;
+    height: 0.46rem;
+    border-radius: 50%;
+    background: var(--kb-type-color);
+    flex-shrink: 0;
   }
 
   .kb-category:not([hidden]) .kb-bento-list {

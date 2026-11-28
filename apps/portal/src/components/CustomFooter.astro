@@ -8,8 +8,14 @@ const cleanId = normalizeDocKey(entryId);
 const { byRouteKey } = loadKbData();
 const doc = byRouteKey.get(cleanId);
 
-const isSplash = cleanId === '' || cleanId === 'index' || cleanId === 'graph' || cleanId === '404';
-const shouldLoadMermaid = !isSplash && (doc ? (doc.mermaid_count ?? 1) > 0 : true);
+const isNoMermaidSplash =
+  cleanId === '' ||
+  cleanId === 'index' ||
+  cleanId === 'graph' ||
+  cleanId === 'evidence' ||
+  cleanId === '404';
+const shouldLoadMermaid =
+  cleanId === 'diagrams' || (!isNoMermaidSplash && (doc ? (doc.mermaid_count ?? 1) > 0 : true));
 ---
 
 <DefaultFooter {...Astro.props}><slot /></DefaultFooter>
@@ -20,6 +26,8 @@ const shouldLoadMermaid = !isSplash && (doc ? (doc.mermaid_count ?? 1) > 0 : tru
   <a href={withBase('/data/catalog.json')}>catalog.json</a>
   <a href={withBase('/data/graph.json')}>graph.json</a>
   <a href={withBase('/data/stats.json')}>stats.json</a>
+  <a href={withBase('/evidence/')}>源码锚点</a>
+  <a href={withBase('/diagrams/')}>架构图画廊</a>
   <a href={withBase('/graph/')}>知识图谱</a>
 </nav>
 {shouldLoadMermaid && <MermaidInit />}

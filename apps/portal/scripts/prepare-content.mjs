@@ -534,7 +534,37 @@ import KnowledgeGraphPage from '../../components/KnowledgeGraphPage.astro';
 `;
   fs.writeFileSync(path.join(OUT_DOCS_DIR, 'graph.mdx'), graphMdx, 'utf-8');
 
-  console.log(`[prepare-content] Prepared ${written} docs + index.mdx + graph.mdx (SITE_BASE="${SITE_BASE || '/'}")`);
+  const evidenceMdx = `---
+title: ${yamlStr('源码锚点索引')}
+description: ${yamlStr('集中检索全库固定 40 位 Git SHA 的公开源码引用与对应知识文档章节。')}
+template: splash
+editUrl: false
+pagefind: false
+---
+
+import EvidenceIndexPage from '../../components/EvidenceIndexPage.astro';
+
+<EvidenceIndexPage />
+`;
+  fs.writeFileSync(path.join(OUT_DOCS_DIR, 'evidence.mdx'), evidenceMdx, 'utf-8');
+
+  const diagramsMdx = `---
+title: ${yamlStr('架构时序图画廊')}
+description: ${yamlStr('集中浏览并全屏缩放全库嵌入式固件架构流图、状态机与交互时序图。')}
+template: splash
+editUrl: false
+pagefind: false
+---
+
+import DiagramsGalleryPage from '../../components/DiagramsGalleryPage.astro';
+
+<DiagramsGalleryPage />
+`;
+  fs.writeFileSync(path.join(OUT_DOCS_DIR, 'diagrams.mdx'), diagramsMdx, 'utf-8');
+
+  console.log(
+    `[prepare-content] Prepared ${written} docs + index.mdx + graph.mdx + evidence.mdx + diagrams.mdx (SITE_BASE="${SITE_BASE || '/'}")`,
+  );
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === SCRIPT_PATH) {

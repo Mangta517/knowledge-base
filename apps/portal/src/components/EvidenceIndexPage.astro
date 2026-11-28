@@ -1,0 +1,1008 @@
+---
+import {
+  TYPE_LABELS,
+  TYPE_SHORT_LABELS,
+  getEvidenceCatalog,
+  loadKbData,
+  withBase,
+  withDocRoute,
+} from '../lib/kb-data';
+
+const bundle = loadKbData();
+const { catalog, stats } = bundle;
+const { items: evidenceItems } = getEvidenceCatalog(bundle);
+
+const projectById = new Map(catalog.projects.map((p) => [p.id, p]));
+
+// Aggregate repository distribution
+const repoMap = new Map<
+  string,
+  {
+    repo: string;
+    projectId: string | null;
+    projectTitle: string;
+    projectHref: string | null;
+    commit: string;
+    count: number;
+    uniqueUrls: Set<string>;
+  }
+>();
+
+for (const ev of evidenceItems) {
+  const key = ev.repo.toLowerCase();
+  let bucket = repoMap.get(key);
+  if (!bucket) {
+    const proj = ev.project_id ? projectById.get(ev.project_id) : undefined;
+    bucket = {
+      repo: ev.repo,
+      projectId: proj?.id || ev.project_id || null,
+      projectTitle: proj?.title || ev.repo,
+      projectHref: proj ? withDocRoute(proj.route) : null,
+      commit: proj?.synced_commit || ev.commit,
+      count: 0,
+      uniqueUrls: new Set(),
+    };
+    repoMap.set(key, bucket);
+  }
+  bucket.count++;
+  bucket.uniqueUrls.add(ev.url.split('#')[0]);
+}
+
+const repoSummaries = Array.from(repoMap.values()).sort(
+  (a, b) => b.count - a.count || a.repo.localeCompare(b.repo),
+);
+const maxRepoCount = Math.max(1, ...repoSummaries.map((r) => r.count));
+
+// Deduplicated unique file/directory view
+interface UniqueFileGroup {
+  baseUrl: string;
+  repo: string;
+  projectId: string | null;
+  kind: 'blob' | 'tree';
+  commit: string;
+  path: string;
+  refs: Array<{
+    doc_id: string;
+    doc_title: string;
+    doc_type: keyof typeof TYPE_LABELS;
+    doc_href: string;
+    section: string;
+    label: string;
+  }>;
+  docTypes: string[];
+  searchKey: string;
+}
+
+const fileGroupMap = new Map<string, UniqueFileGroup>();
+for (const ev of evidenceItems) {
+  const baseUrl = ev.url.split('#')[0];
+  let grp = fileGroupMap.get(baseUrl);
+  if (!grp) {
+    grp = {
+      baseUrl,
+      repo: ev.repo,
+      projectId: ev.project_id || null,
+      kind: ev.kind,
+      commit: ev.commit,
+      path: ev.path || '/',
+      refs: [],
+      docTypes: [],
+      searchKey: '',
+    };
+    fileGroupMap.set(baseUrl, grp);
+  }
+  grp.refs.push({
+    doc_id: ev.doc_id,
+    doc_title: ev.doc_title,
+    doc_type: ev.doc_type,
+    doc_href: ev.doc_href,
+    section: ev.section,
+    label: ev.label,
+  });
+}
+
+const uniqueFiles = Array.from(fileGroupMap.values())
+  .map((grp) => {
+    const types = Array.from(new Set(grp.refs.map((r) => r.doc_type)));
+    const searchKey = [
+      grp.repo,
+      grp.projectId || '',
+      grp.path,
+      grp.commit,
+      ...grp.refs.map((r) => `${r.doc_title} ${r.section} ${r.label}`),
+    ]
+      .join(' ')
+      .toLowerCase();
+    return { ...grp, docTypes: types, searchKey };
+  })
+  .sort(
+    (a, b) =>
+      b.refs.length - a.refs.length ||
+      a.repo.localeCompare(b.repo) ||
+      a.path.localeCompare(b.path),
+  );
+
+const docTypesOrder: Array<keyof typeof TYPE_LABELS> = [
+  'project',
+  'topic',
+  'adr',
+  'troubleshooting',
+  'synthesis',
+];
+const typeCounts: Record<string, number> = {};
+const coveredDocs = new Set<string>();
+for (const ev of evidenceItems) {
+  typeCounts[ev.doc_type] = (typeCounts[ev.doc_type] || 0) + 1;
+  coveredDocs.add(ev.doc_id);
+}
+
+const totalRefs = stats.counts.total_evidence_links ?? evidenceItems.length;
+const totalUniqueFiles = stats.counts.unique_evidence_files ?? uniqueFiles.length;
+---
+
+<div class="kb-evidence not-content" data-evidence-page>
+  <div class="kb-subpage-top">
+    <a class="kb-back-link" href={withBase('/')}>← 返回知识库总览</a>
+    <div class="kb-subpage-nav">
+      <a class="kb-subpage-pill" href={withBase('/diagrams/')}>架构时序图画廊</a>
+      <a class="kb-subpage-pill" href={withBase('/graph/')}>知识关系图谱</a>
+    </div>
+  </div>
+
+  <!-- Summary Telemetry Strip -->
+  <section class="kb-ev-summary" aria-label="源码锚点总览指标">
+    <div class="kb-ev-stat-grid">
+      <div class="kb-ev-stat kb-type-topic">
+        <span class="kb-ev-stat-num">{totalRefs}</span>
+        <span class="kb-ev-stat-label">固定 SHA 引用</span>
+      </div>
+      <div class="kb-ev-stat kb-type-project">
+        <span class="kb-ev-stat-num">{totalUniqueFiles}</span>
+        <span class="kb-ev-stat-label">覆盖源码路径</span>
+      </div>
+      <div class="kb-ev-stat kb-type-adr">
+        <span class="kb-ev-stat-num">{repoSummaries.length}</span>
+        <span class="kb-ev-stat-label">关联公开仓库</span>
+      </div>
+      <div class="kb-ev-stat kb-type-synthesis">
+        <span class="kb-ev-stat-num">{coveredDocs.size}</span>
+        <span class="kb-ev-stat-label">归档知识文档</span>
+      </div>
+    </div>
+
+    <div class="kb-ev-repo-bars" aria-label="各公开仓库源码锚点分布">
+      {repoSummaries.map((r) => {
+        const pct = Math.max(8, Math.round((r.count / maxRepoCount) * 100));
+        return (
+          <button
+            type="button"
+            class="kb-ev-repo-row"
+            data-ev-repo-btn={r.repo.toLowerCase()}
+            aria-pressed="false"
+            title={`点击筛选 ${r.repo}（${r.count} 处引用 / ${r.uniqueUrls.size} 个路径）`}
+          >
+            <span class="kb-ev-repo-name">{r.projectId || r.repo}</span>
+            <span class="kb-ev-repo-sha">@{r.commit.slice(0, 7)}</span>
+            <span class="kb-ev-repo-track" aria-hidden="true">
+              <span class="kb-ev-repo-fill" style={`width: ${pct}%;`}></span>
+            </span>
+            <span class="kb-ev-repo-count">
+              {r.count} 处 · {r.uniqueUrls.size} 路径
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  </section>
+
+  <!-- Interactive Filter & View Toolbar -->
+  <section class="kb-ev-toolbar" aria-label="源码锚点筛选控制">
+    <div class="kb-ev-toolbar-row">
+      <div class="kb-ev-mode-switch" role="group" aria-label="列表聚合视图">
+        <button type="button" class="kb-ev-mode-btn is-active" data-ev-mode="refs" aria-pressed="true">
+          引用明细 ({evidenceItems.length})
+        </button>
+        <button type="button" class="kb-ev-mode-btn" data-ev-mode="files" aria-pressed="false">
+          按路径去重 ({uniqueFiles.length})
+        </button>
+      </div>
+
+      <div class="kb-ev-search-wrap">
+        <input
+          type="search"
+          class="kb-ev-search"
+          placeholder="检索文件路径、章节、文档名或 SHA…"
+          aria-label="筛选源码锚点"
+          data-ev-search
+        />
+        <span class="kb-ev-match-count" data-ev-count>
+          显示 {evidenceItems.length} / {evidenceItems.length}
+        </span>
+        <button type="button" class="kb-ev-reset" data-ev-reset hidden>
+          重置 ✕
+        </button>
+      </div>
+    </div>
+
+    <div class="kb-ev-filter-row" role="group" aria-label="按文档类型筛选">
+      <button type="button" class="kb-ev-chip is-active" data-ev-type="all" aria-pressed="true">
+        全部类型 ({evidenceItems.length})
+      </button>
+      {docTypesOrder.map((t) => (
+        <button
+          type="button"
+          class={`kb-ev-chip kb-type-${t}`}
+          data-ev-type={t}
+          aria-pressed="false"
+        >
+          <span class="kb-ev-dot" aria-hidden="true"></span>
+          {TYPE_LABELS[t]} ({typeCounts[t] || 0})
+        </button>
+      ))}
+    </div>
+  </section>
+
+  <!-- Mode 1: All 187 Reference Citations -->
+  <div class="kb-ev-list" data-ev-panel="refs">
+    {evidenceItems.map((ev, idx) => {
+      const searchKey = [
+        ev.repo,
+        ev.project_id || '',
+        ev.path,
+        ev.commit,
+        ev.label,
+        ev.section,
+        ev.doc_title,
+      ]
+        .join(' ')
+        .toLowerCase();
+      return (
+        <article
+          class={`kb-ev-card kb-type-${ev.doc_type}`}
+          data-ev-item="refs"
+          data-repo={ev.repo.toLowerCase()}
+          data-types={ev.doc_type}
+          data-search={searchKey}
+        >
+          <div class="kb-ev-card-head">
+            <div class="kb-ev-card-meta">
+              <span class="kb-ev-seq">#{String(idx + 1).padStart(3, '0')}</span>
+              <span class={`kb-ev-badge kb-type-${ev.doc_type}`}>
+                {TYPE_SHORT_LABELS[ev.doc_type]}
+              </span>
+              <a class="kb-ev-doc-link" href={ev.doc_href}>
+                {ev.doc_title}
+              </a>
+              {ev.section && <span class="kb-ev-section">§ {ev.section}</span>}
+            </div>
+            <span class="kb-ev-repo-pill" title={`固定提交 ${ev.commit}`}>
+              {ev.project_id || ev.repo} · @{ev.commit.slice(0, 7)}
+            </span>
+          </div>
+
+          <div class="kb-ev-card-body">
+            <span class={`kb-ev-kind ${ev.kind === 'tree' ? 'is-tree' : ''}`}>
+              {ev.kind === 'tree' ? 'DIR' : 'FILE'}
+            </span>
+            <code class="kb-ev-path" title={ev.path || '/'}>
+              {ev.path || '/'}
+            </code>
+            <a
+              class="kb-ev-ext-link"
+              href={ev.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`在 GitHub 固定提交 @${ev.commit.slice(0, 8)} 中查看源码`}
+            >
+              查看源码 ↗
+            </a>
+          </div>
+        </article>
+      );
+    })}
+  </div>
+
+  <!-- Mode 2: Deduplicated Unique File Paths (125) -->
+  <div class="kb-ev-list" data-ev-panel="files" hidden>
+    {uniqueFiles.map((file) => (
+      <article
+        class="kb-ev-card kb-ev-file-card kb-type-project"
+        data-ev-item="files"
+        data-repo={file.repo.toLowerCase()}
+        data-types={file.docTypes.join(',')}
+        data-search={file.searchKey}
+      >
+        <div class="kb-ev-card-head">
+          <div class="kb-ev-card-meta">
+            <span class={`kb-ev-kind ${file.kind === 'tree' ? 'is-tree' : ''}`}>
+              {file.kind === 'tree' ? 'DIR' : 'FILE'}
+            </span>
+            <code class="kb-ev-path" title={file.path}>
+              {file.path}
+            </code>
+          </div>
+          <div class="kb-ev-file-actions">
+            <span class="kb-ev-ref-badge">被引用 {file.refs.length} 次</span>
+            <span class="kb-ev-repo-pill" title={`固定提交 ${file.commit}`}>
+              {file.projectId || file.repo} · @{file.commit.slice(0, 7)}
+            </span>
+            <a
+              class="kb-ev-ext-link"
+              href={file.baseUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              GitHub ↗
+            </a>
+          </div>
+        </div>
+
+        <div class="kb-ev-ref-pills" aria-label="引用该源码的知识文档">
+          {file.refs.map((ref) => (
+            <a
+              class={`kb-ev-ref-pill kb-type-${ref.doc_type}`}
+              href={ref.doc_href}
+              title={ref.section ? `${ref.doc_title} · ${ref.section}` : ref.doc_title}
+            >
+              <span class="kb-ev-dot" aria-hidden="true"></span>
+              <span>{ref.doc_title}</span>
+              {ref.section && <span class="kb-ev-ref-sec">§ {ref.section}</span>}
+            </a>
+          ))}
+        </div>
+      </article>
+    ))}
+  </div>
+
+  <p class="kb-ev-empty" data-ev-empty hidden>
+    没有匹配的源码锚点，请放宽筛选条件或点击“重置”。
+  </p>
+</div>
+
+<script>
+  const page = document.querySelector<HTMLElement>('[data-evidence-page]');
+  if (page) {
+    const modeBtns = Array.from(page.querySelectorAll<HTMLButtonElement>('[data-ev-mode]'));
+    const repoBtns = Array.from(page.querySelectorAll<HTMLButtonElement>('[data-ev-repo-btn]'));
+    const typeBtns = Array.from(page.querySelectorAll<HTMLButtonElement>('[data-ev-type]'));
+    const searchInput = page.querySelector<HTMLInputElement>('[data-ev-search]')!;
+    const countEl = page.querySelector<HTMLElement>('[data-ev-count]')!;
+    const resetBtn = page.querySelector<HTMLButtonElement>('[data-ev-reset]')!;
+    const emptyEl = page.querySelector<HTMLElement>('[data-ev-empty]')!;
+    const refsPanel = page.querySelector<HTMLElement>('[data-ev-panel="refs"]')!;
+    const filesPanel = page.querySelector<HTMLElement>('[data-ev-panel="files"]')!;
+    const refItems = Array.from(page.querySelectorAll<HTMLElement>('[data-ev-item="refs"]'));
+    const fileItems = Array.from(page.querySelectorAll<HTMLElement>('[data-ev-item="files"]'));
+
+    let activeMode: 'refs' | 'files' = 'refs';
+    let activeRepo = '';
+    let activeType = 'all';
+    let query = '';
+
+    // Hydrate initial filters from URL query
+    const initParams = new URLSearchParams(window.location.search);
+    if (initParams.get('mode') === 'files') activeMode = 'files';
+    const initRepo = (initParams.get('repo') || '').toLowerCase();
+    if (initRepo && repoBtns.some((b) => b.dataset.evRepoBtn === initRepo)) {
+      activeRepo = initRepo;
+    }
+    const initType = initParams.get('type') || 'all';
+    if (typeBtns.some((b) => b.dataset.evType === initType)) {
+      activeType = initType;
+    }
+    const initQ = initParams.get('q') || '';
+    if (initQ) {
+      query = initQ;
+      searchInput.value = initQ;
+    }
+
+    function applyFilters(syncUrl = true) {
+      const q = query.trim().toLowerCase();
+      const isFiles = activeMode === 'files';
+      refsPanel.hidden = isFiles;
+      filesPanel.hidden = !isFiles;
+
+      const list = isFiles ? fileItems : refItems;
+      let visible = 0;
+
+      for (const el of list) {
+        const repoOk = !activeRepo || el.dataset.repo === activeRepo;
+        const itemTypes = (el.dataset.types || '').split(',');
+        const typeOk = activeType === 'all' || itemTypes.includes(activeType);
+        const queryOk = !q || (el.dataset.search || '').includes(q);
+        const show = repoOk && typeOk && queryOk;
+        el.hidden = !show;
+        if (show) visible++;
+      }
+
+      modeBtns.forEach((btn) => {
+        const on = btn.dataset.evMode === activeMode;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-pressed', String(on));
+      });
+      repoBtns.forEach((btn) => {
+        const on = Boolean(activeRepo) && btn.dataset.evRepoBtn === activeRepo;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-pressed', String(on));
+      });
+      typeBtns.forEach((btn) => {
+        const on = btn.dataset.evType === activeType;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-pressed', String(on));
+      });
+
+      const isFiltered = Boolean(activeRepo) || activeType !== 'all' || Boolean(q);
+      countEl.textContent = `显示 ${visible} / ${list.length}`;
+      resetBtn.hidden = !isFiltered;
+      emptyEl.hidden = visible > 0;
+
+      if (syncUrl) {
+        const url = new URL(window.location.href);
+        if (activeMode === 'files') url.searchParams.set('mode', 'files');
+        else url.searchParams.delete('mode');
+        if (activeRepo) url.searchParams.set('repo', activeRepo);
+        else url.searchParams.delete('repo');
+        if (activeType !== 'all') url.searchParams.set('type', activeType);
+        else url.searchParams.delete('type');
+        if (q) url.searchParams.set('q', query.trim());
+        else url.searchParams.delete('q');
+        window.history.replaceState(null, '', url);
+      }
+    }
+
+    modeBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeMode = btn.dataset.evMode === 'files' ? 'files' : 'refs';
+        applyFilters(true);
+      });
+    });
+
+    repoBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const next = btn.dataset.evRepoBtn || '';
+        activeRepo = activeRepo === next ? '' : next;
+        applyFilters(true);
+      });
+    });
+
+    typeBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeType = btn.dataset.evType || 'all';
+        applyFilters(true);
+      });
+    });
+
+    searchInput.addEventListener('input', () => {
+      query = searchInput.value;
+      applyFilters(true);
+    });
+
+    resetBtn.addEventListener('click', () => {
+      activeRepo = '';
+      activeType = 'all';
+      query = '';
+      searchInput.value = '';
+      applyFilters(true);
+    });
+
+    applyFilters(false);
+  }
+</script>
+
+<style>
+  .kb-evidence {
+    display: flex;
+    flex-direction: column;
+    gap: 1.05rem;
+  }
+
+  .kb-subpage-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .kb-back-link {
+    color: var(--kb-accent);
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .kb-back-link:hover {
+    text-decoration: underline;
+  }
+
+  .kb-subpage-nav {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .kb-subpage-pill {
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface);
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+  }
+
+  .kb-subpage-pill:hover {
+    border-color: var(--kb-accent);
+    background: color-mix(in srgb, var(--kb-surface) 92%, var(--kb-accent));
+    color: var(--kb-accent);
+  }
+
+  .kb-ev-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.85rem;
+    padding: 0.9rem 1rem;
+    border-radius: 0.78rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface);
+    box-shadow: var(--kb-shadow-sm);
+  }
+
+  @media (min-width: 62rem) {
+    .kb-ev-summary {
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr);
+      align-items: center;
+    }
+  }
+
+  .kb-ev-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+  }
+
+  .kb-ev-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    padding: 0.56rem 0.72rem;
+    border-radius: 0.58rem;
+    border: 1px solid var(--kb-border);
+    border-top: 2.5px solid var(--kb-type-color);
+    background: var(--kb-surface-elevated);
+  }
+
+  .kb-ev-stat-num {
+    font-family: var(--sl-font-mono);
+    font-size: 1.32rem;
+    font-weight: 700;
+    line-height: 1.18;
+    color: var(--sl-color-white);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kb-ev-stat-label {
+    color: var(--sl-color-gray-3);
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .kb-ev-repo-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 0.34rem;
+  }
+
+  .kb-ev-repo-row {
+    display: grid;
+    grid-template-columns: 7.4rem 4.6rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.28rem 0.48rem;
+    border: 1px solid transparent;
+    border-radius: 0.44rem;
+    background: transparent;
+    color: var(--sl-color-gray-2);
+    font: inherit;
+    font-size: 0.74rem;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+  }
+
+  @media (max-width: 40rem) {
+    .kb-ev-repo-row {
+      grid-template-columns: 6.4rem minmax(0, 1fr) auto;
+    }
+    .kb-ev-repo-sha {
+      display: none;
+    }
+  }
+
+  .kb-ev-repo-row:hover,
+  .kb-ev-repo-row.is-active {
+    border-color: color-mix(in srgb, var(--kb-topic) 55%, var(--kb-border));
+    background: color-mix(in srgb, var(--kb-surface) 92%, var(--kb-topic));
+    color: var(--sl-color-white);
+  }
+
+  .kb-ev-repo-name {
+    font-family: var(--sl-font-mono);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .kb-ev-repo-sha {
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
+    color: var(--sl-color-gray-3);
+  }
+
+  .kb-ev-repo-track {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--kb-surface-elevated);
+    overflow: hidden;
+  }
+
+  .kb-ev-repo-fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--kb-topic), var(--kb-accent));
+  }
+
+  .kb-ev-repo-count {
+    font-family: var(--sl-font-mono);
+    font-size: 0.69rem;
+    color: var(--sl-color-gray-3);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kb-ev-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.72rem 0.85rem;
+    border-radius: 0.72rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface);
+    box-shadow: var(--kb-shadow-sm);
+  }
+
+  .kb-ev-toolbar-row,
+  .kb-ev-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.45rem;
+  }
+
+  .kb-ev-filter-row {
+    justify-content: flex-start;
+  }
+
+  .kb-ev-mode-switch {
+    display: inline-flex;
+    gap: 0.25rem;
+    padding: 0.18rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+  }
+
+  .kb-ev-mode-btn {
+    padding: 0.24rem 0.62rem;
+    border: 1px solid transparent;
+    border-radius: 0.36rem;
+    background: transparent;
+    color: var(--sl-color-gray-2);
+    font: inherit;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+  }
+
+  .kb-ev-mode-btn:hover {
+    color: var(--sl-color-white);
+  }
+
+  .kb-ev-mode-btn.is-active {
+    border-color: color-mix(in srgb, var(--kb-accent) 45%, var(--kb-border));
+    background: var(--kb-surface);
+    color: var(--kb-accent);
+  }
+
+  .kb-ev-search-wrap {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+    margin-left: auto;
+  }
+
+  .kb-ev-search {
+    width: min(100%, 17.5rem);
+    padding: 0.28rem 0.65rem;
+    border-radius: 0.44rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-white);
+    font: inherit;
+    font-size: var(--sl-text-xs);
+  }
+
+  .kb-ev-search:focus {
+    outline: none;
+    border-color: var(--kb-accent);
+  }
+
+  .kb-ev-match-count {
+    color: var(--sl-color-gray-3);
+    font-family: var(--sl-font-mono);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kb-ev-reset {
+    padding: 0.18rem 0.52rem;
+    border: 1px dashed var(--kb-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--sl-color-gray-3);
+    font: inherit;
+    font-size: var(--sl-text-xs);
+    cursor: pointer;
+  }
+
+  .kb-ev-reset:hover {
+    border-color: var(--kb-accent);
+    color: var(--kb-accent);
+  }
+
+  .kb-ev-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.56rem;
+    border-radius: 999px;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-2);
+    font: inherit;
+    font-size: var(--sl-text-xs);
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+  }
+
+  .kb-ev-chip:hover,
+  .kb-ev-chip.is-active {
+    border-color: var(--kb-type-color, var(--kb-accent));
+    background: color-mix(in srgb, var(--kb-surface) 90%, var(--kb-type-color, var(--kb-accent)));
+    color: var(--sl-color-white);
+    font-weight: 600;
+  }
+
+  .kb-ev-dot {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: var(--kb-type-color, var(--kb-accent));
+    flex-shrink: 0;
+  }
+
+  .kb-ev-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .kb-ev-list[hidden],
+  .kb-ev-card[hidden],
+  .kb-ev-empty[hidden],
+  .kb-ev-reset[hidden] {
+    display: none !important;
+  }
+
+  .kb-ev-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.42rem;
+    padding: 0.68rem 0.85rem;
+    border-radius: 0.66rem;
+    border: 1px solid var(--kb-border);
+    border-left: 3px solid var(--kb-type-color, var(--kb-accent));
+    background: var(--kb-surface);
+    box-shadow: var(--kb-shadow-sm);
+    transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  .kb-ev-card:hover {
+    border-color: color-mix(in srgb, var(--kb-type-color, var(--kb-accent)) 62%, var(--kb-border));
+    border-left-color: var(--kb-type-color, var(--kb-accent));
+    background: color-mix(in srgb, var(--kb-surface) 94%, var(--kb-type-color, var(--kb-accent)));
+    box-shadow: var(--kb-shadow-hover);
+  }
+
+  .kb-ev-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem 0.65rem;
+  }
+
+  .kb-ev-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.36rem;
+    min-width: 0;
+  }
+
+  .kb-ev-seq {
+    color: var(--sl-color-gray-4);
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
+  }
+
+  .kb-ev-badge {
+    padding: 0.06rem 0.42rem;
+    border-radius: 999px;
+    background: var(--kb-type-soft);
+    color: var(--kb-type-ink, var(--kb-type-color));
+    font-size: 0.66rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .kb-ev-doc-link {
+    color: var(--sl-color-white);
+    font-size: 0.84rem;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .kb-ev-doc-link:hover {
+    color: var(--kb-accent);
+    text-decoration: underline;
+  }
+
+  .kb-ev-section {
+    color: var(--sl-color-gray-3);
+    font-size: 0.72rem;
+  }
+
+  .kb-ev-repo-pill {
+    padding: 0.08rem 0.44rem;
+    border-radius: 0.3rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-2);
+    font-family: var(--sl-font-mono);
+    font-size: 0.68rem;
+    white-space: nowrap;
+  }
+
+  .kb-ev-card-body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .kb-ev-kind {
+    padding: 0.06rem 0.36rem;
+    border-radius: 0.25rem;
+    background: var(--kb-project-soft);
+    color: var(--kb-project-ink);
+    font-family: var(--sl-font-mono);
+    font-size: 0.64rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .kb-ev-kind.is-tree {
+    background: var(--kb-adr-soft);
+    color: var(--kb-adr-ink);
+  }
+
+  .kb-ev-path {
+    flex: 1 1 14rem;
+    min-width: 0;
+    padding: 0.14rem 0.45rem;
+    border-radius: 0.32rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-1);
+    font-family: var(--sl-font-mono);
+    font-size: 0.76rem;
+    overflow-wrap: anywhere;
+  }
+
+  .kb-ev-ext-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.16rem 0.56rem;
+    border-radius: 0.36rem;
+    border: 1px solid color-mix(in srgb, var(--kb-accent) 42%, var(--kb-border));
+    background: var(--kb-project-soft);
+    color: var(--kb-project-ink);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+  }
+
+  .kb-ev-ext-link:hover {
+    border-color: var(--kb-accent);
+    background: color-mix(in srgb, var(--kb-project-soft) 75%, var(--kb-accent));
+  }
+
+  .kb-ev-file-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.38rem;
+  }
+
+  .kb-ev-ref-badge {
+    padding: 0.08rem 0.42rem;
+    border-radius: 999px;
+    background: var(--kb-topic-soft);
+    color: var(--kb-topic-ink);
+    font-family: var(--sl-font-mono);
+    font-size: 0.67rem;
+    font-weight: 700;
+  }
+
+  .kb-ev-ref-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.34rem;
+  }
+
+  .kb-ev-ref-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    padding: 0.16rem 0.5rem;
+    border-radius: 0.36rem;
+    border: 1px solid color-mix(in srgb, var(--kb-type-color) 32%, var(--kb-border));
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-1);
+    font-size: 0.72rem;
+    text-decoration: none;
+    transition: border-color 0.16s ease, background-color 0.16s ease;
+  }
+
+  .kb-ev-ref-pill:hover {
+    border-color: var(--kb-type-color);
+    background: color-mix(in srgb, var(--kb-surface-elevated) 88%, var(--kb-type-color));
+  }
+
+  .kb-ev-ref-sec {
+    color: var(--sl-color-gray-3);
+    font-size: 0.68rem;
+  }
+
+  .kb-ev-empty {
+    margin: 0;
+    padding: 1.4rem;
+    border-radius: 0.65rem;
+    border: 1px dashed var(--kb-border);
+    background: var(--kb-surface);
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-sm);
+    text-align: center;
+  }
+</style>
