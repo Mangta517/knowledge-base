@@ -192,13 +192,13 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
     border-radius: 0.78rem;
     background: var(--kb-surface);
     box-shadow: var(--kb-shadow-sm);
-    transition: border-color 0.2s, box-shadow 0.22s, transform 0.22s;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.22s ease;
   }
 
   .kb-track-card:hover {
-    border-color: var(--kb-border-strong);
+    border-color: color-mix(in srgb, var(--kb-type-color) 62%, var(--kb-border));
+    background: color-mix(in srgb, var(--kb-surface) 93%, var(--kb-type-color));
     box-shadow: var(--kb-shadow-hover);
-    transform: translateY(-2px);
   }
 
   .kb-track-top {
@@ -281,7 +281,7 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
     font-size: 0.69rem;
     font-weight: 600;
     cursor: pointer;
-    transition: border-color 0.18s, background 0.18s, color 0.18s, transform 0.18s;
+    transition: border-color 0.18s, background 0.18s, color 0.18s;
   }
 
   .kb-step-btn.is-passed:not(.is-active) {
@@ -293,7 +293,6 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
     border-color: var(--kb-type-color);
     background: var(--kb-type-soft);
     color: var(--kb-type-ink, var(--sl-color-gray-1));
-    transform: translateY(-1px);
   }
 
   .kb-step-num,
@@ -407,17 +406,18 @@ const trackAccents = ['kb-type-project', 'kb-type-topic', 'kb-type-adr'];
 
   .kb-step-focus-text {
     margin: 0;
+    min-height: calc(1.45em * 2);
     color: var(--sl-color-gray-3);
     font-size: 0.72rem;
     line-height: 1.45;
     display: -webkit-box;
-    -webkit-line-clamp: 1;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    transition: color 0.18s ease;
   }
 
   .kb-track-card:is(:hover, :focus-within) .kb-step-focus-text {
-    -webkit-line-clamp: 2;
     color: var(--sl-color-gray-2);
   }
 </style>
