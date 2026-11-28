@@ -174,7 +174,7 @@ header.header {
   color: var(--sl-color-gray-1);
 }
 
-main:has(.kb-home, .kb-graph) .sl-container {
+main:has(.kb-home, .kb-graph, .kb-evidence, .kb-diagrams) .sl-container {
   max-width: 74rem;
 }
 
@@ -182,7 +182,7 @@ main:has(.kb-home) .content-panel:first-of-type {
   display: none;
 }
 
-main:has(.kb-home, .kb-graph, .kb-notfound) .content-panel + .content-panel {
+main:has(.kb-home, .kb-graph, .kb-evidence, .kb-diagrams, .kb-notfound) .content-panel + .content-panel {
   border-top: 0;
   padding-top: 0.5rem;
 }
@@ -191,7 +191,7 @@ main:has(.kb-home) .content-panel + .content-panel {
   padding-top: 1.35rem;
 }
 
-main:has(.kb-home, .kb-graph, .kb-notfound) footer .meta:empty {
+main:has(.kb-home, .kb-graph, .kb-evidence, .kb-diagrams, .kb-notfound) footer .meta:empty {
   display: none;
 }
 

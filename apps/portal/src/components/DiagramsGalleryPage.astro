@@ -1,0 +1,684 @@
+---
+import {
+  DIAGRAM_TYPE_LABELS,
+  TYPE_LABELS,
+  TYPE_SHORT_LABELS,
+  getDiagramCatalog,
+  loadKbData,
+  withBase,
+} from '../lib/kb-data';
+
+const bundle = loadKbData();
+const { stats } = bundle;
+const { items: diagramItems } = getDiagramCatalog(bundle);
+
+const diagramTypeCounts: Record<string, number> = {};
+const docTypeCounts: Record<string, number> = {};
+const coveredDocs = new Set<string>();
+
+for (const d of diagramItems) {
+  diagramTypeCounts[d.diagram_type] = (diagramTypeCounts[d.diagram_type] || 0) + 1;
+  docTypeCounts[d.doc_type] = (docTypeCounts[d.doc_type] || 0) + 1;
+  coveredDocs.add(d.doc_id);
+}
+
+const diagramTypes = Object.entries(diagramTypeCounts).sort(
+  ([a, ca], [b, cb]) => cb - ca || a.localeCompare(b),
+);
+
+const docTypesOrder: Array<keyof typeof TYPE_LABELS> = [
+  'project',
+  'topic',
+  'adr',
+  'troubleshooting',
+  'synthesis',
+];
+
+const totalDiagrams = stats.counts.total_mermaids ?? diagramItems.length;
+const flowchartCount = diagramTypeCounts['flowchart'] || 0;
+const sequenceCount = diagramTypeCounts['sequenceDiagram'] || 0;
+
+function captionFor(diagramType: string, direction?: string): string {
+  const base = DIAGRAM_TYPE_LABELS[diagramType] || diagramType;
+  return direction ? `${base} (${direction}) · 点击缩放` : `${base} · 点击缩放`;
+}
+---
+
+<div class="kb-diagrams not-content" data-diagrams-page>
+  <div class="kb-subpage-top">
+    <a class="kb-back-link" href={withBase('/')}>← 返回知识库总览</a>
+    <div class="kb-subpage-nav">
+      <a class="kb-subpage-pill" href={withBase('/evidence/')}>源码锚点索引</a>
+      <a class="kb-subpage-pill" href={withBase('/graph/')}>知识关系图谱</a>
+    </div>
+  </div>
+
+  <!-- Summary Strip -->
+  <section class="kb-dg-summary" aria-label="架构时序图概览统计">
+    <div class="kb-dg-stat kb-type-adr">
+      <span class="kb-dg-stat-num">{totalDiagrams}</span>
+      <span class="kb-dg-stat-label">架构与时序图</span>
+    </div>
+    <div class="kb-dg-stat kb-type-project">
+      <span class="kb-dg-stat-num">{flowchartCount}</span>
+      <span class="kb-dg-stat-label">信号与架构流图</span>
+    </div>
+    <div class="kb-dg-stat kb-type-topic">
+      <span class="kb-dg-stat-num">{sequenceCount}</span>
+      <span class="kb-dg-stat-label">交互时序图</span>
+    </div>
+    <div class="kb-dg-stat kb-type-synthesis">
+      <span class="kb-dg-stat-num">{coveredDocs.size}</span>
+      <span class="kb-dg-stat-label">覆盖知识文档</span>
+    </div>
+  </section>
+
+  <!-- Interactive Toolbar -->
+  <section class="kb-dg-toolbar" aria-label="架构图筛选与布局控制">
+    <div class="kb-dg-toolbar-row">
+      <div class="kb-dg-chip-group" role="group" aria-label="按图表类型筛选">
+        <button type="button" class="kb-dg-chip is-active" data-dg-kind="all" aria-pressed="true">
+          全部图表 ({diagramItems.length})
+        </button>
+        {diagramTypes.map(([kind, count]) => (
+          <button type="button" class="kb-dg-chip" data-dg-kind={kind} aria-pressed="false">
+            {DIAGRAM_TYPE_LABELS[kind] || kind} ({count})
+          </button>
+        ))}
+      </div>
+
+      <div class="kb-dg-tools-right">
+        <div class="kb-dg-layout-switch" role="group" aria-label="画廊列数切换">
+          <button type="button" class="kb-dg-layout-btn is-active" data-dg-cols="2" aria-pressed="true">
+            双列画廊
+          </button>
+          <button type="button" class="kb-dg-layout-btn" data-dg-cols="1" aria-pressed="false">
+            单列大图
+          </button>
+        </div>
+        <input
+          type="search"
+          class="kb-dg-search"
+          placeholder="检索图表标题、文档或技术栈…"
+          aria-label="筛选架构图"
+          data-dg-search
+        />
+        <span class="kb-dg-count" data-dg-count>
+          显示 {diagramItems.length} / {diagramItems.length}
+        </span>
+        <button type="button" class="kb-dg-reset" data-dg-reset hidden>
+          重置 ✕
+        </button>
+      </div>
+    </div>
+
+    <div class="kb-dg-chip-group" role="group" aria-label="按文档分类筛选">
+      <button type="button" class="kb-dg-chip is-active" data-dg-doc-type="all" aria-pressed="true">
+        全部文档 ({diagramItems.length})
+      </button>
+      {docTypesOrder.map((t) => (
+        <button
+          type="button"
+          class={`kb-dg-chip kb-type-${t}`}
+          data-dg-doc-type={t}
+          aria-pressed="false"
+        >
+          <span class="kb-dg-dot" aria-hidden="true"></span>
+          {TYPE_LABELS[t]} ({docTypeCounts[t] || 0})
+        </button>
+      ))}
+    </div>
+  </section>
+
+  <!-- Mermaid Gallery Grid -->
+  <div class="kb-dg-grid" data-dg-grid>
+    {diagramItems.map((item, idx) => {
+      const b64 = Buffer.from(item.source, 'utf-8').toString('base64');
+      const searchKey = [
+        item.title,
+        item.doc_title,
+        item.doc_id,
+        item.diagram_type,
+        item.direction || '',
+        ...item.doc_tags,
+        ...item.related_projects,
+      ]
+        .join(' ')
+        .toLowerCase();
+      return (
+        <article
+          class={`kb-dg-card kb-type-${item.doc_type}`}
+          data-dg-card
+          data-kind={item.diagram_type}
+          data-doc-type={item.doc_type}
+          data-search={searchKey}
+        >
+          <header class="kb-dg-card-head">
+            <div class="kb-dg-head-left">
+              <span class="kb-dg-idx">#{String(idx + 1).padStart(2, '0')}</span>
+              <span class={`kb-dg-type-pill kb-type-${item.doc_type}`}>
+                {TYPE_SHORT_LABELS[item.doc_type]}
+              </span>
+              <span class="kb-dg-syntax-pill">
+                {item.diagram_type}
+                {item.direction ? ` ${item.direction}` : ''}
+              </span>
+            </div>
+            <a class="kb-dg-doc-jump" href={item.doc_href} title={`打开 ${item.doc_title}`}>
+              阅读原文 →
+            </a>
+          </header>
+
+          <h2 class="kb-dg-title">
+            <a href={item.doc_href}>{item.title}</a>
+          </h2>
+          <p class="kb-dg-source-doc">所属文档：{item.doc_title}</p>
+
+          <figure
+            class="kb-mermaid-wrap kb-dg-mermaid not-content"
+            data-pagefind-ignore
+            data-mermaid-b64={b64}
+          >
+            <div class="kb-mermaid-toolbar" hidden>
+              <span class="kb-mermaid-caption">
+                {captionFor(item.diagram_type, item.direction)}
+              </span>
+              <div class="kb-mermaid-actions">
+                <button
+                  type="button"
+                  class="kb-mmd-btn"
+                  data-mmd-action="copy"
+                  aria-label="复制 Mermaid 源码"
+                  title="复制 Mermaid 源码"
+                >
+                  源码
+                </button>
+                <button
+                  type="button"
+                  class="kb-mmd-btn"
+                  data-mmd-action="zoom"
+                  aria-label="全屏缩放查看图表"
+                  title="全屏放大并支持滚轮缩放与拖拽平移"
+                >
+                  全屏 ⤢
+                </button>
+              </div>
+            </div>
+            <div class="kb-mermaid-stage" data-mmd-stage-zoom title="点击全屏放大检视">
+              <pre class="kb-mermaid-fallback"><code>{item.source}</code></pre>
+            </div>
+          </figure>
+        </article>
+      );
+    })}
+  </div>
+
+  <p class="kb-dg-empty" data-dg-empty hidden>
+    没有匹配的架构图或时序图，请更换筛选条件或点击“重置”。
+  </p>
+</div>
+
+<script>
+  const page = document.querySelector<HTMLElement>('[data-diagrams-page]');
+  if (page) {
+    const kindBtns = Array.from(page.querySelectorAll<HTMLButtonElement>('[data-dg-kind]'));
+    const docTypeBtns = Array.from(page.querySelectorAll<HTMLButtonElement>('[data-dg-doc-type]'));
+    const colBtns = Array.from(page.querySelectorAll<HTMLButtonElement>('[data-dg-cols]'));
+    const gridEl = page.querySelector<HTMLElement>('[data-dg-grid]')!;
+    const searchInput = page.querySelector<HTMLInputElement>('[data-dg-search]')!;
+    const countEl = page.querySelector<HTMLElement>('[data-dg-count]')!;
+    const resetBtn = page.querySelector<HTMLButtonElement>('[data-dg-reset]')!;
+    const emptyEl = page.querySelector<HTMLElement>('[data-dg-empty]')!;
+    const cards = Array.from(page.querySelectorAll<HTMLElement>('[data-dg-card]'));
+
+    let activeKind = 'all';
+    let activeDocType = 'all';
+    let cols: '1' | '2' = '2';
+    let query = '';
+
+    const initParams = new URLSearchParams(window.location.search);
+    const initKind = initParams.get('kind') || 'all';
+    if (kindBtns.some((b) => b.dataset.dgKind === initKind)) activeKind = initKind;
+    const initDoc = initParams.get('type') || 'all';
+    if (docTypeBtns.some((b) => b.dataset.dgDocType === initDoc)) activeDocType = initDoc;
+    if (initParams.get('cols') === '1') cols = '1';
+    const initQ = initParams.get('q') || '';
+    if (initQ) {
+      query = initQ;
+      searchInput.value = initQ;
+    }
+
+    function apply(syncUrl = true) {
+      const q = query.trim().toLowerCase();
+      let visible = 0;
+
+      for (const card of cards) {
+        const kindOk = activeKind === 'all' || card.dataset.kind === activeKind;
+        const docOk = activeDocType === 'all' || card.dataset.docType === activeDocType;
+        const queryOk = !q || (card.dataset.search || '').includes(q);
+        const show = kindOk && docOk && queryOk;
+        card.hidden = !show;
+        if (show) visible++;
+      }
+
+      gridEl.classList.toggle('is-single-col', cols === '1');
+      kindBtns.forEach((btn) => {
+        const on = btn.dataset.dgKind === activeKind;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-pressed', String(on));
+      });
+      docTypeBtns.forEach((btn) => {
+        const on = btn.dataset.dgDocType === activeDocType;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-pressed', String(on));
+      });
+      colBtns.forEach((btn) => {
+        const on = btn.dataset.dgCols === cols;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-pressed', String(on));
+      });
+
+      const isFiltered = activeKind !== 'all' || activeDocType !== 'all' || Boolean(q);
+      countEl.textContent = `显示 ${visible} / ${cards.length}`;
+      resetBtn.hidden = !isFiltered;
+      emptyEl.hidden = visible > 0;
+
+      if (syncUrl) {
+        const url = new URL(window.location.href);
+        if (activeKind !== 'all') url.searchParams.set('kind', activeKind);
+        else url.searchParams.delete('kind');
+        if (activeDocType !== 'all') url.searchParams.set('type', activeDocType);
+        else url.searchParams.delete('type');
+        if (cols === '1') url.searchParams.set('cols', '1');
+        else url.searchParams.delete('cols');
+        if (q) url.searchParams.set('q', query.trim());
+        else url.searchParams.delete('q');
+        window.history.replaceState(null, '', url);
+      }
+    }
+
+    kindBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeKind = btn.dataset.dgKind || 'all';
+        apply(true);
+      });
+    });
+
+    docTypeBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeDocType = btn.dataset.dgDocType || 'all';
+        apply(true);
+      });
+    });
+
+    colBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        cols = btn.dataset.dgCols === '1' ? '1' : '2';
+        apply(true);
+      });
+    });
+
+    searchInput.addEventListener('input', () => {
+      query = searchInput.value;
+      apply(true);
+    });
+
+    resetBtn.addEventListener('click', () => {
+      activeKind = 'all';
+      activeDocType = 'all';
+      query = '';
+      searchInput.value = '';
+      apply(true);
+    });
+
+    apply(false);
+  }
+</script>
+
+<style>
+  .kb-diagrams {
+    display: flex;
+    flex-direction: column;
+    gap: 1.05rem;
+  }
+
+  .kb-subpage-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .kb-back-link {
+    color: var(--kb-accent);
+    font-size: var(--sl-text-sm);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .kb-back-link:hover {
+    text-decoration: underline;
+  }
+
+  .kb-subpage-nav {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .kb-subpage-pill {
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface);
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+  }
+
+  .kb-subpage-pill:hover {
+    border-color: var(--kb-accent);
+    background: color-mix(in srgb, var(--kb-surface) 92%, var(--kb-accent));
+    color: var(--kb-accent);
+  }
+
+  .kb-dg-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
+
+  @media (max-width: 44rem) {
+    .kb-dg-summary {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .kb-dg-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    padding: 0.68rem 0.85rem;
+    border-radius: 0.68rem;
+    border: 1px solid var(--kb-border);
+    border-top: 2.5px solid var(--kb-type-color);
+    background: var(--kb-surface);
+    box-shadow: var(--kb-shadow-sm);
+  }
+
+  .kb-dg-stat-num {
+    font-family: var(--sl-font-mono);
+    font-size: 1.38rem;
+    font-weight: 700;
+    line-height: 1.18;
+    color: var(--sl-color-white);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kb-dg-stat-label {
+    color: var(--sl-color-gray-3);
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .kb-dg-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.72rem 0.85rem;
+    border-radius: 0.72rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface);
+    box-shadow: var(--kb-shadow-sm);
+  }
+
+  .kb-dg-toolbar-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .kb-dg-chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .kb-dg-tools-right {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem;
+    margin-left: auto;
+  }
+
+  .kb-dg-layout-switch {
+    display: inline-flex;
+    gap: 0.2rem;
+    padding: 0.16rem;
+    border-radius: 0.46rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+  }
+
+  .kb-dg-layout-btn {
+    padding: 0.2rem 0.52rem;
+    border: 1px solid transparent;
+    border-radius: 0.34rem;
+    background: transparent;
+    color: var(--sl-color-gray-2);
+    font: inherit;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+  }
+
+  .kb-dg-layout-btn.is-active {
+    border-color: color-mix(in srgb, var(--kb-adr) 50%, var(--kb-border));
+    background: var(--kb-surface);
+    color: var(--kb-adr-ink, var(--kb-adr));
+  }
+
+  .kb-dg-search {
+    width: min(100%, 14.5rem);
+    padding: 0.26rem 0.6rem;
+    border-radius: 0.42rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-white);
+    font: inherit;
+    font-size: var(--sl-text-xs);
+  }
+
+  .kb-dg-search:focus {
+    outline: none;
+    border-color: var(--kb-accent);
+  }
+
+  .kb-dg-count {
+    color: var(--sl-color-gray-3);
+    font-family: var(--sl-font-mono);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .kb-dg-reset {
+    padding: 0.18rem 0.5rem;
+    border: 1px dashed var(--kb-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--sl-color-gray-3);
+    font: inherit;
+    font-size: var(--sl-text-xs);
+    cursor: pointer;
+  }
+
+  .kb-dg-reset:hover {
+    border-color: var(--kb-accent);
+    color: var(--kb-accent);
+  }
+
+  .kb-dg-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.56rem;
+    border-radius: 999px;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-2);
+    font: inherit;
+    font-size: var(--sl-text-xs);
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+  }
+
+  .kb-dg-chip:hover,
+  .kb-dg-chip.is-active {
+    border-color: var(--kb-type-color, var(--kb-adr));
+    background: color-mix(in srgb, var(--kb-surface) 90%, var(--kb-type-color, var(--kb-adr)));
+    color: var(--sl-color-white);
+    font-weight: 600;
+  }
+
+  .kb-dg-dot {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: var(--kb-type-color, var(--kb-accent));
+    flex-shrink: 0;
+  }
+
+  .kb-dg-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 31rem), 1fr));
+    gap: 1rem;
+  }
+
+  .kb-dg-grid.is-single-col {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kb-dg-card[hidden],
+  .kb-dg-empty[hidden],
+  .kb-dg-reset[hidden] {
+    display: none !important;
+  }
+
+  .kb-dg-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.42rem;
+    padding: 0.9rem 1rem;
+    border-radius: 0.78rem;
+    border: 1px solid var(--kb-border);
+    border-top: 2.5px solid var(--kb-type-color, var(--kb-adr));
+    background: var(--kb-surface);
+    box-shadow: var(--kb-shadow-sm);
+    min-width: 0;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .kb-dg-card:hover {
+    border-color: color-mix(in srgb, var(--kb-type-color, var(--kb-adr)) 62%, var(--kb-border));
+    border-top-color: var(--kb-type-color, var(--kb-adr));
+    background: color-mix(in srgb, var(--kb-surface) 95%, var(--kb-type-color, var(--kb-adr)));
+    box-shadow: var(--kb-shadow-hover);
+  }
+
+  .kb-dg-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+  }
+
+  .kb-dg-head-left {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.34rem;
+  }
+
+  .kb-dg-idx {
+    color: var(--sl-color-gray-4);
+    font-family: var(--sl-font-mono);
+    font-size: 0.7rem;
+  }
+
+  .kb-dg-type-pill {
+    padding: 0.06rem 0.44rem;
+    border-radius: 999px;
+    background: var(--kb-type-soft);
+    color: var(--kb-type-ink, var(--kb-type-color));
+    font-size: 0.66rem;
+    font-weight: 700;
+  }
+
+  .kb-dg-syntax-pill {
+    padding: 0.06rem 0.42rem;
+    border-radius: 0.28rem;
+    border: 1px solid var(--kb-border);
+    background: var(--kb-surface-elevated);
+    color: var(--sl-color-gray-3);
+    font-family: var(--sl-font-mono);
+    font-size: 0.65rem;
+  }
+
+  .kb-dg-doc-jump {
+    color: var(--kb-accent);
+    font-size: 0.74rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .kb-dg-doc-jump:hover {
+    text-decoration: underline;
+  }
+
+  .kb-dg-title {
+    margin: 0;
+    font-size: 0.98rem;
+    line-height: 1.36;
+  }
+
+  .kb-dg-title a {
+    color: var(--sl-color-white);
+    text-decoration: none;
+  }
+
+  .kb-dg-title a:hover {
+    color: var(--kb-accent);
+  }
+
+  .kb-dg-source-doc {
+    margin: 0;
+    color: var(--sl-color-gray-3);
+    font-size: 0.74rem;
+  }
+
+  .kb-dg-mermaid {
+    margin: 0.35rem 0 0;
+  }
+
+  .kb-dg-empty {
+    margin: 0;
+    padding: 1.4rem;
+    border-radius: 0.65rem;
+    border: 1px dashed var(--kb-border);
+    background: var(--kb-surface);
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-sm);
+    text-align: center;
+  }
+</style>

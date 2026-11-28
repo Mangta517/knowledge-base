@@ -503,13 +503,79 @@ int port
 
     def test_timestamp_reuse_includes_added_fields(self):
         stamp = "2026-11-24T03:04:05Z"
-        data = [{"projects": [{"mermaid_count": 2}]}, {"nodes": [], "edges": []}, {"counts": {"total_mermaids": 2}}]
+        item = {"evidence_links": [{"label": "启动代码"}], "diagrams": [{"title": "启动流程"}]}
+        data = [{"projects": [item]}, {"nodes": [], "edges": []}, {}]
         self.assertIsNone(indexes.reuse_timestamp(data))
         for path, payload in zip(indexes.JSON_PATHS, data, strict=True):
             self.write(path, indexes.json_text({"generated_at": stamp, **payload}))
         self.assertEqual(indexes.reuse_timestamp(data), stamp)
-        data[0]["projects"][0]["mermaid_count"] = 3
-        self.assertIsNone(indexes.reuse_timestamp(data))
+        for field, key in (("evidence_links", "label"), ("diagrams", "title")):
+            with self.subTest(field=field), patch.dict(item[field][0], {key: "修改后"}):
+                self.assertIsNone(indexes.reuse_timestamp(data))
+
+    def test_extract_evidence_preserves_labels_heading_and_fixed_refs(self):
+        repo = "https://github.com/Owner/Demo"
+        base = f"{repo}/blob/{SHA}/src"
+        external = f"https://github.com/other/external/tree/{NEW_SHA}"
+        body = (
+            f"<{external}>\n\n"
+            f"## **接口** · `USART1`\n\n"
+            f"<!-- {base}/comment.c\n## 隐藏标题\n-->\n\n"
+            f"[`接收`驱动](<{base}/name\\(v2\\)%20test.c#L4-L8>)\n\n"
+            f"`{base}/inline.c`\n\n"
+            f"``示例\n{base}/multiline.c``\n\n"
+            f"    {base}/indented.c\n\n"
+            f"```md\n{base}/fenced.c\n```\n\n"
+            f"{repo}/blob/main/src/not-pinned.c\n"
+            f"{repo}/blob/{SHA}a/src/invalid-ref.c\n\n"
+            f"### 接口 · USART1\n\n{base}/main.c#L20\n"
+        )
+        note = lint.Note(Path("wiki/projects/demo.md"), {"title": "示例"}, body)
+        first, second, third = lint.extract_evidence_links(note, {"owner/demo": "demo"})
+        self.assertEqual(first, {
+            "url": external, "repo": "other/external", "kind": "tree", "commit": NEW_SHA,
+            "path": "", "label": "other/external", "section": "",
+        })
+        self.assertEqual(second, {
+            "url": f"{base}/name(v2)%20test.c#L4-L8", "repo": "Owner/Demo", "project_id": "demo", "kind": "blob",
+            "commit": SHA, "path": "src/name(v2) test.c", "label": "接收驱动", "section": "接口 · USART1",
+            "section_slug": "接口--usart1",
+        })
+        self.assertEqual(third["label"], "main.c")
+        self.assertEqual(third["section_slug"], "接口--usart1-1")
+
+    def test_extract_diagrams_uses_visible_headings_and_top_level_fences(self):
+        note = lint.Note(Path("wiki/projects/demo.md"), {"title": "文档标题"}, (
+            "```mermaid\nsequenceDiagram\n    A->>B: start\n```\n\n"
+            "## 重复\n\n"
+            "<!--\n### 隐藏\n```mermaid\nflowchart TD\n```\n-->\n\n"
+            "> ### 引用标题\n> ```mermaid\n> graph BT\n> ```\n\n"
+            "    ```mermaid\n    flowchart RL\n    ```\n\n"
+            "- 列表\n\n  ```mermaid\n  flowchart TB\n  ```\n\n"
+            "~~~mermaid\n%% 说明\n\ngraph LR; A --> B\n~~~\n\n"
+            "### 重复-1\n\n"
+            "### 重复\n\n"
+            "```mermaid\nstateDiagram-v2\n[*] --> Idle\n```\n"
+        ))
+        self.assertEqual(lint.extract_diagrams(note), [
+            {"index": 1, "diagram_type": "sequenceDiagram", "title": "文档标题", "source": "sequenceDiagram\n    A->>B: start"},
+            {"index": 2, "diagram_type": "flowchart", "direction": "LR", "title": "重复", "section_slug": "重复",
+             "source": "%% 说明\n\ngraph LR; A --> B"},
+            {"index": 3, "diagram_type": "stateDiagram-v2", "title": "重复", "section_slug": "重复-2",
+             "source": "stateDiagram-v2\n[*] --> Idle"},
+        ])
+
+    def test_evidence_stats_deduplicate_urls_without_fragments(self):
+        base = f"https://github.com/owner/demo/blob/{SHA}"
+        note = lint.Note(Path("wiki/topics/embedded/demo.md"), {
+            "title": "示例", "description": "专题示例", "type": "topic", "id": "demo", "tags": [],
+            "created": "2026-11-24", "updated": "2026-11-24", "draft": False, "domain": "embedded", "related_projects": [],
+        }, f"{base}/main.c#L1\n{base}/main.c#L9\n{base}/other.c\n\n```mermaid\ngraph TD\nA --> B\n```\n")
+        catalog, _, stats = indexes.build_data({"demo": note}, "owner")
+        self.assertEqual(catalog["topics"][0]["evidence_count"], 3)
+        self.assertEqual(stats["counts"]["unique_evidence_files"], 2)
+        self.assertEqual(stats["by_evidence_repo"], {"owner/demo": {"project_id": None, "count": 3, "unique_files": 2}})
+        self.assertEqual(stats["by_diagram_type"], {"flowchart": 1})
 
     def test_recent_updates_sort_by_date_then_type_then_id(self):
         entries = [
@@ -690,7 +756,11 @@ class CurrentRepositoryTests(unittest.TestCase):
         self.assertEqual(catalog["link_map"], {key: note.route for key, note in published.items()})
         self.assertTrue(all(route == route.lower() for route in catalog["link_map"].values()))
         self.assertEqual(set(graph), {"nodes", "edges"})
-        self.assertEqual(set(stats), {"counts", "by_tier", "by_domain", "by_tech_stack", "by_language", "recent_updates"})
+        self.assertEqual(set(stats), {
+            "counts", "by_tier", "by_domain", "by_tech_stack", "by_language", "by_evidence_repo", "by_diagram_type", "recent_updates",
+        })
+        self.assertEqual(sum(repo["count"] for repo in stats["by_evidence_repo"].values()), stats["counts"]["total_evidence_links"])
+        self.assertEqual(sum(stats["by_diagram_type"].values()), stats["counts"]["total_mermaids"])
         self.assertEqual({node["id"]: node["route"] for node in graph["nodes"]}, catalog["link_map"])
         for node in graph["nodes"]:
             self.assertEqual(set(node), {"id", "title", "type", "route", "group", "degree"})
@@ -713,6 +783,11 @@ class CurrentRepositoryTests(unittest.TestCase):
                 for key in ("reading_minutes", "mermaid_count", "table_count", "evidence_count", "word_count"):
                     self.assertIs(type(item[key]), int)
                 self.assertIs(type(item["has_human_notes"]), bool)
+                pinned_links = [link for link in lint.source_links(note.body) if lint.SHA.fullmatch(link["ref"])]
+                self.assertEqual(len(item["evidence_links"]), item["evidence_count"])
+                self.assertEqual(len(pinned_links), item["evidence_count"])
+                self.assertEqual(len(item["diagrams"]), item["mermaid_count"])
+                self.assertEqual([code.strip() for code in lint.mermaid_blocks(note.body)], [entry["source"] for entry in item["diagrams"]])
         for project in catalog["projects"]:
             self.assertEqual(project["related_troubleshooting"], sorted(
                 issue["id"] for issue in catalog["troubleshooting"] if project["id"] in issue["related_projects"]

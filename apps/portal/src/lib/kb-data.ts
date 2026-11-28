@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { extractDiagrams, extractEvidenceLinks } from './kb-extract.mjs';
 
 function findRepoRoot(): string {
   let dir = process.cwd();
@@ -16,6 +17,27 @@ function findRepoRoot(): string {
 
 const REPO_ROOT = findRepoRoot();
 
+export interface EvidenceLinkEntry {
+  url: string;
+  repo: string;
+  project_id?: string;
+  kind: 'blob' | 'tree';
+  commit: string;
+  path: string;
+  label: string;
+  section: string;
+  section_slug?: string;
+}
+
+export interface DiagramEntry {
+  index: number;
+  diagram_type: string;
+  direction?: string;
+  title: string;
+  section_slug?: string;
+  source: string;
+}
+
 export interface ItemMetrics {
   reading_minutes?: number;
   mermaid_count?: number;
@@ -23,6 +45,10 @@ export interface ItemMetrics {
   evidence_count?: number;
   has_human_notes?: boolean;
   assets?: Record<string, string>;
+  /** Populated by backend index pipeline (optional until Codex backend upgrade ships). */
+  evidence_links?: EvidenceLinkEntry[];
+  /** Populated by backend index pipeline (optional until Codex backend upgrade ships). */
+  diagrams?: DiagramEntry[];
 }
 
 export interface ProjectHighlight {
@@ -179,6 +205,12 @@ export interface GraphData {
   edges: GraphEdge[];
 }
 
+export interface EvidenceRepoSummary {
+  project_id: string | null;
+  count: number;
+  unique_files: number;
+}
+
 export interface StatsData {
   generated_at: string;
   counts: {
@@ -192,11 +224,14 @@ export interface StatsData {
     total_mermaids?: number;
     total_tables?: number;
     total_evidence_links?: number;
+    unique_evidence_files?: number;
   };
   by_tier: Record<string, number>;
   by_domain: Record<string, number>;
   by_tech_stack: Record<string, number>;
   by_language: Record<string, number>;
+  by_evidence_repo?: Record<string, EvidenceRepoSummary>;
+  by_diagram_type?: Record<string, number>;
   recent_updates: Array<{
     id: string;
     title: string;
@@ -205,6 +240,25 @@ export interface StatsData {
     route: string;
     description: string;
   }>;
+}
+
+export interface ResolvedEvidenceItem extends EvidenceLinkEntry {
+  doc_id: string;
+  doc_title: string;
+  doc_type: KbDocItem['type'];
+  doc_route: string;
+  doc_href: string;
+  project_id?: string;
+}
+
+export interface ResolvedDiagramItem extends DiagramEntry {
+  doc_id: string;
+  doc_title: string;
+  doc_type: KbDocItem['type'];
+  doc_route: string;
+  doc_href: string;
+  doc_tags: string[];
+  related_projects: string[];
 }
 
 export interface NeighborRelation {
@@ -247,6 +301,16 @@ export const SEVERITY_LABELS: Record<string, string> = {
   high: '高严重度',
   medium: '中严重度',
   low: '低严重度',
+};
+
+export const DIAGRAM_TYPE_LABELS: Record<string, string> = {
+  flowchart: '信号与架构流图',
+  sequenceDiagram: '交互时序图',
+  'stateDiagram-v2': '状态迁移图',
+  stateDiagram: '状态迁移图',
+  classDiagram: '类结构图',
+  erDiagram: '实体关系图',
+  'xychart-beta': '数据趋势图',
 };
 
 export function normalizeBase(raw?: string): string {
@@ -490,4 +554,106 @@ export function loadKbData() {
     cachedBundle = bundle;
   }
   return bundle;
+}
+
+const rawSourceCache = new Map<string, string>();
+
+function readSourceMarkdown(sourcePath: string): string {
+  if (import.meta.env.PROD && rawSourceCache.has(sourcePath)) {
+    return rawSourceCache.get(sourcePath)!;
+  }
+  const fullPath = path.join(REPO_ROOT, sourcePath);
+  const content = fs.existsSync(fullPath) ? fs.readFileSync(fullPath, 'utf-8') : '';
+  if (import.meta.env.PROD) {
+    rawSourceCache.set(sourcePath, content);
+  }
+  return content;
+}
+
+/**
+ * Resolve all fixed-SHA source evidence links across published docs.
+ * Prefers structured `item.evidence_links` emitted by the backend index pipeline,
+ * falling back to read-only Markdown extraction until the backend upgrade lands.
+ */
+export function getEvidenceCatalog(bundle = loadKbData()) {
+  const repoToProjectId = new Map<string, string>(
+    bundle.catalog.projects.map((p) => [p.repo.toLowerCase(), p.id]),
+  );
+
+  const items: ResolvedEvidenceItem[] = [];
+  let fromBackend = false;
+
+  for (const doc of bundle.allItems) {
+    let rawLinks: EvidenceLinkEntry[];
+    if (Array.isArray(doc.evidence_links)) {
+      fromBackend = true;
+      rawLinks = doc.evidence_links;
+    } else {
+      const md = readSourceMarkdown(doc.source_path);
+      rawLinks = md ? extractEvidenceLinks(md, repoToProjectId) : [];
+    }
+
+    for (const entry of rawLinks) {
+      const safeUrl = safeExternalUrl(entry.url);
+      if (!safeUrl || !isCommitSha(entry.commit)) continue;
+      const projectId =
+        entry.project_id || repoToProjectId.get(entry.repo.toLowerCase()) || undefined;
+      const baseHref = withDocRoute(doc.route);
+      const docHref = entry.section_slug ? `${baseHref}#${entry.section_slug}` : baseHref;
+      items.push({
+        ...entry,
+        url: safeUrl,
+        ...(projectId ? { project_id: projectId } : {}),
+        doc_id: doc.id,
+        doc_title: doc.title,
+        doc_type: doc.type,
+        doc_route: doc.route,
+        doc_href: docHref,
+      });
+    }
+  }
+
+  return { items, fromBackend };
+}
+
+/**
+ * Resolve all top-level Mermaid diagrams across published docs.
+ * Prefers structured `item.diagrams` emitted by the backend index pipeline,
+ * falling back to read-only Markdown extraction until the backend upgrade lands.
+ */
+export function getDiagramCatalog(bundle = loadKbData()) {
+  const items: ResolvedDiagramItem[] = [];
+  let fromBackend = false;
+
+  for (const doc of bundle.allItems) {
+    let rawDiagrams: DiagramEntry[];
+    if (Array.isArray(doc.diagrams)) {
+      fromBackend = true;
+      rawDiagrams = doc.diagrams;
+    } else {
+      const md = readSourceMarkdown(doc.source_path);
+      rawDiagrams = md ? extractDiagrams(md, doc.title) : [];
+    }
+
+    const relatedProjects =
+      doc.type === 'project' ? [doc.id] : doc.related_projects || [];
+
+    for (const entry of rawDiagrams) {
+      if (!entry.source?.trim()) continue;
+      const baseHref = withDocRoute(doc.route);
+      const docHref = entry.section_slug ? `${baseHref}#${entry.section_slug}` : baseHref;
+      items.push({
+        ...entry,
+        doc_id: doc.id,
+        doc_title: doc.title,
+        doc_type: doc.type,
+        doc_route: doc.route,
+        doc_href: docHref,
+        doc_tags: doc.tags || [],
+        related_projects: relatedProjects,
+      });
+    }
+  }
+
+  return { items, fromBackend };
 }

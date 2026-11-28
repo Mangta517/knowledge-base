@@ -20,6 +20,7 @@ import {
   isSafeSvgUrl,
   shouldRemoveSvgAttribute,
 } from '../src/lib/svg-sanitize.mjs';
+import { extractDiagrams, extractEvidenceLinks } from '../src/lib/kb-extract.mjs';
 import {
   existsExactCase,
   normalizeSiteOrigin,
@@ -314,6 +315,8 @@ test('build-site: exact case, site origin validation, and published asset verifi
   fs.mkdirSync(dataDir, { recursive: true });
   fs.mkdirSync(path.join(distDir, 'adr', 'adr-0001-demo'), { recursive: true });
   fs.mkdirSync(path.join(distDir, 'graph'), { recursive: true });
+  fs.mkdirSync(path.join(distDir, 'evidence'), { recursive: true });
+  fs.mkdirSync(path.join(distDir, 'diagrams'), { recursive: true });
   fs.mkdirSync(path.join(distDir, 'pagefind'), { recursive: true });
   fs.mkdirSync(path.join(distDir, 'data'), { recursive: true });
   fs.mkdirSync(path.join(distDir, 'wiki-assets', 'boards'), { recursive: true });
@@ -337,6 +340,8 @@ test('build-site: exact case, site origin validation, and published asset verifi
     'index.html',
     '404.html',
     'graph/index.html',
+    'evidence/index.html',
+    'diagrams/index.html',
     'robots.txt',
     'sitemap-index.xml',
     'pagefind/pagefind.js',
@@ -568,4 +573,91 @@ test('card hover stability: cards use color-only feedback without layout-shiftin
     files.schematicAstro,
     /:global\(\.kb-project:is\(:hover,\s*:focus-within\)\)[^{]*\{[^}]*\btransform\s*:/s,
   );
+});
+
+test('hero metric cards: all 4 tiles are interactive links backed by exact evidence & diagram counts', () => {
+  const repoRoot = path.resolve(import.meta.dirname, '../../..');
+  const portalSrc = path.resolve(import.meta.dirname, '../src');
+  const homeAstro = fs.readFileSync(path.join(portalSrc, 'components/PortfolioHome.astro'), 'utf-8');
+  const evidenceAstro = fs.readFileSync(
+    path.join(portalSrc, 'components/EvidenceIndexPage.astro'),
+    'utf-8',
+  );
+  const diagramsAstro = fs.readFileSync(
+    path.join(portalSrc, 'components/DiagramsGalleryPage.astro'),
+    'utf-8',
+  );
+
+  // All 4 Hero metric cards must be semantic anchor links to concrete destinations
+  const metricAnchors = homeAstro.match(/<a\s+[^>]*class="kb-metric-card\b/g) || [];
+  assert.equal(metricAnchors.length, 4, 'Expected all 4 hero metric cards to be <a> links');
+  assert.match(homeAstro, /href="#kb-projects"[^>]*data-metric-jump="projects"/s);
+  assert.match(homeAstro, /href=\{withBase\('\/evidence\/'\)\}/);
+  assert.match(homeAstro, /href=\{withBase\('\/diagrams\/'\)\}/);
+  assert.match(homeAstro, /href="#kb-library"[^>]*data-metric-jump="library"/s);
+
+  // New evidence & diagram subpage cards also stay transform-free on hover
+  assert.doesNotMatch(evidenceAstro, /\.kb-ev-card:hover\s*\{[^}]*\btransform\s*:/s);
+  assert.doesNotMatch(diagramsAstro, /\.kb-dg-card:hover\s*\{[^}]*\btransform\s*:/s);
+
+  // Fallback extractors match stats.json counts identically across all published docs
+  const catalog = JSON.parse(fs.readFileSync(path.join(repoRoot, 'data/catalog.json'), 'utf-8'));
+  const stats = JSON.parse(fs.readFileSync(path.join(repoRoot, 'data/stats.json'), 'utf-8'));
+  const repoToProjectId = new Map(catalog.projects.map((p) => [p.repo.toLowerCase(), p.id]));
+  const allDocs = [
+    ...catalog.projects,
+    ...catalog.topics,
+    ...catalog.adrs,
+    ...catalog.troubleshooting,
+    ...catalog.synthesis,
+  ];
+
+  let totalEv = 0;
+  let totalDiagrams = 0;
+  for (const doc of allDocs) {
+    const raw = fs.readFileSync(path.join(repoRoot, doc.source_path), 'utf-8');
+    const ev = extractEvidenceLinks(raw, repoToProjectId);
+    const dg = extractDiagrams(raw, doc.title);
+    assert.equal(ev.length, doc.evidence_count, `evidence_count mismatch for ${doc.id}`);
+    assert.equal(dg.length, doc.mermaid_count, `mermaid_count mismatch for ${doc.id}`);
+    totalEv += ev.length;
+    totalDiagrams += dg.length;
+  }
+  assert.equal(totalEv, stats.counts.total_evidence_links);
+  assert.equal(totalDiagrams, stats.counts.total_mermaids);
+
+  // Extractor ignores links/mermaid inside fenced code, inline code, HTML comments, and non-SHA refs
+  const sha = 'a'.repeat(40);
+  const sampleMd = [
+    '---',
+    'title: demo',
+    '---',
+    '## 真实章节',
+    `[主入口](https://github.com/owner/demo/blob/${sha}/src/main.c#L12)`,
+    '[浮动分支](https://github.com/owner/demo/blob/main/src/ignored.c)',
+    `\`https://github.com/owner/demo/blob/${sha}/src/inline.c\``,
+    `<!-- https://github.com/owner/demo/blob/${sha}/src/comment.c -->`,
+    '```markdown',
+    `https://github.com/owner/demo/blob/${sha}/src/fenced.c`,
+    '```',
+    '```mermaid',
+    'sequenceDiagram',
+    '  A->>B: ping',
+    '```',
+    '> ```mermaid',
+    '> flowchart TD',
+    '>   X --> Y',
+    '> ```',
+  ].join('\n');
+  const parsedEv = extractEvidenceLinks(sampleMd, new Map([['owner/demo', 'demo']]));
+  assert.equal(parsedEv.length, 1);
+  assert.equal(parsedEv[0].project_id, 'demo');
+  assert.equal(parsedEv[0].label, '主入口');
+  assert.equal(parsedEv[0].section, '真实章节');
+  assert.equal(parsedEv[0].path, 'src/main.c');
+
+  const parsedDg = extractDiagrams(sampleMd, 'demo');
+  assert.equal(parsedDg.length, 1);
+  assert.equal(parsedDg[0].diagram_type, 'sequenceDiagram');
+  assert.equal(parsedDg[0].title, '真实章节');
 });

@@ -136,6 +136,8 @@ export default defineConfig({
           items: [
             { label: '知识库总览', link: '/' },
             { label: '知识关系图谱', link: '/graph/' },
+            { label: '源码锚点索引', link: '/evidence/' },
+            { label: '架构时序图画廊', link: '/diagrams/' },
           ],
         },
         {

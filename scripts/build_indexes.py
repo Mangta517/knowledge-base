@@ -4,15 +4,15 @@ import argparse
 import json
 import re
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import date, datetime, timezone
 from urllib.parse import quote, urlsplit
 
 from lint_kb import (
-    COMMENT, COMMON, FIELDS, MARKDOWN, NOTES, OUTPUT_KEYS, RELATED_TYPES, ROOT, SECTIONS, SHA, WIKILINK,
-    VISUAL_FIELDS, check_content, load_notes, load_reading_tracks, load_yaml, mermaid_blocks, redact_secrets,
-    inline_source_positions, line_offsets, markup_chunks, relative_wiki_asset, resolve_wiki_asset, source_links,
-    visible_markup, wikilinks,
+    COMMENT, COMMON, FIELDS, MARKDOWN, NOTES, OUTPUT_KEYS, RELATED_TYPES, ROOT, SECTIONS, WIKILINK,
+    VISUAL_FIELDS, check_content, extract_diagrams, extract_evidence_links, inline_source_positions,
+    line_offsets, load_notes, load_reading_tracks, load_yaml, markup_chunks, redact_secrets,
+    relative_wiki_asset, resolve_wiki_asset, visible_markup, wikilinks,
 )
 
 JSON_PATHS = ["data/catalog.json", "data/graph.json", "data/stats.json"]
@@ -89,6 +89,15 @@ def build_data(notes, owner, reading_tracks=()):
     catalog = {"owner": owner, **{key: [] for key in keys.values()}, "link_map": {}}
     if reading_tracks:
         catalog["reading_tracks"] = reading_tracks
+    repo_names = {}
+    project_ids = {}
+    for note in notes.values():
+        if note.meta["type"] == "project":
+            repo = note.meta["repo"]
+            repo_names[repo.casefold()] = repo
+            project_ids[repo.casefold()] = note.meta["id"]
+    evidence_urls = defaultdict(list)
+    diagram_counts = Counter()
     edges = set()
     for note in notes.values():
         meta = note.meta
@@ -97,13 +106,21 @@ def build_data(notes, owner, reading_tracks=()):
         item = {key: meta[key] for key in COMMON + FIELDS[kind] if key != "draft"}
         item.update({key: meta[key] for key in VISUAL_FIELDS.get(kind, ()) if key in meta})
         words = word_count(note.body)
+        evidence = extract_evidence_links(note, project_ids)
+        diagrams = extract_diagrams(note)
+        for link in evidence:
+            repo = repo_names.setdefault(link["repo"].casefold(), link["repo"])
+            evidence_urls[repo].append(link["url"].split("#", 1)[0])
+        diagram_counts.update(diagram["diagram_type"] for diagram in diagrams)
         item.update(
             route=note.route, source_path=note.path.as_posix(), word_count=words,
             reading_minutes=max(1, round(words / 350)),
-            mermaid_count=sum(1 for _ in mermaid_blocks(note.body)),
+            mermaid_count=len(diagrams),
             table_count=table_count(note.body),
-            evidence_count=sum(1 for link in source_links(note.body) if SHA.fullmatch(link["ref"])),
+            evidence_count=len(evidence),
             has_human_notes=has_human_notes(note.body),
+            evidence_links=evidence,
+            diagrams=diagrams,
         )
         catalog[keys[kind]].append(item)
         catalog["link_map"][source] = note.route
@@ -142,11 +159,17 @@ def build_data(notes, owner, reading_tracks=()):
             "total_mermaids": sum(item["mermaid_count"] for item in items),
             "total_tables": sum(item["table_count"] for item in items),
             "total_evidence_links": sum(item["evidence_count"] for item in items),
+            "unique_evidence_files": len({url for urls in evidence_urls.values() for url in urls}),
         },
         "by_tier": {tier: tier_counts[tier] for tier in ("core", "active", "archive")},
         "by_domain": dict(sorted(Counter(domain for item in projects for domain in item["domains"]).items())),
         "by_tech_stack": dict(sorted(Counter(tech for item in projects for tech in item["tech_stack"]).items())),
         "by_language": dict(sorted(Counter(item["primary_language"] for item in projects).items())),
+        "by_evidence_repo": {
+            repo: {"project_id": project_ids.get(repo.casefold()), "count": len(urls), "unique_files": len(set(urls))}
+            for repo, urls in sorted(evidence_urls.items())
+        },
+        "by_diagram_type": dict(sorted(diagram_counts.items())),
         "recent_updates": [
             {key: item[key] for key in ("id", "title", "type", "updated", "route", "description")}
             for item in sorted(items, key=recent_update_key)[:12]

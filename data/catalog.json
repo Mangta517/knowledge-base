@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-25T09:00:57.644545Z",
+  "generated_at": "2026-11-28T03:21:04.075150Z",
   "owner": "Mangta517",
   "projects": [
     {
@@ -72,6 +72,288 @@
       "table_count": 7,
       "evidence_count": 24,
       "has_human_notes": false,
+      "evidence_links": [
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/MDK-ARM/stm32f407vet6.uvprojx",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6/MDK-ARM/stm32f407vet6.uvprojx",
+          "label": "stm32f407vet6.uvprojx",
+          "section": "项目定位与工程组成",
+          "project_id": "bootloader",
+          "section_slug": "项目定位与工程组成"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6reset/MDK-ARM/stm32f407vet6reset.uvprojx",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6reset/MDK-ARM/stm32f407vet6reset.uvprojx",
+          "label": "stm32f407vet6reset.uvprojx",
+          "section": "项目定位与工程组成",
+          "project_id": "bootloader",
+          "section_slug": "项目定位与工程组成"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led/MDK-ARM/stm32f407vet6led.uvprojx",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6led/MDK-ARM/stm32f407vet6led.uvprojx",
+          "label": "stm32f407vet6led.uvprojx",
+          "section": "项目定位与工程组成",
+          "project_id": "bootloader",
+          "section_slug": "项目定位与工程组成"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/STM32F103CAN/MDK-ARM/STM32F103CAN.uvprojx",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "STM32F103CAN/MDK-ARM/STM32F103CAN.uvprojx",
+          "label": "STM32F103CAN.uvprojx",
+          "section": "项目定位与工程组成",
+          "project_id": "bootloader",
+          "section_slug": "项目定位与工程组成"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led_blink/MDK-ARM/stm32f407vet6led_blink.uvprojx",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6led_blink/MDK-ARM/stm32f407vet6led_blink.uvprojx",
+          "label": "stm32f407vet6led_blink.uvprojx",
+          "section": "项目定位与工程组成",
+          "project_id": "bootloader",
+          "section_slug": "项目定位与工程组成"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/stm32f407vet6.ioc",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6/stm32f407vet6.ioc",
+          "label": "主引导 CubeMX",
+          "section": "硬件资源与外设映射",
+          "project_id": "bootloader",
+          "section_slug": "硬件资源与外设映射"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led/CAN_RECEIVE.md",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6led/CAN_RECEIVE.md",
+          "label": "LED APP 接线",
+          "section": "硬件资源与外设映射",
+          "project_id": "bootloader",
+          "section_slug": "硬件资源与外设映射"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/STM32F103CAN/CAN_README.md",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "STM32F103CAN/CAN_README.md",
+          "label": "F103 CAN 配置",
+          "section": "硬件资源与外设映射",
+          "project_id": "bootloader",
+          "section_slug": "硬件资源与外设映射"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/application/app_bootloader.c",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6/application/app_bootloader.c",
+          "label": "搬运与擦除函数",
+          "section": "架构与执行机制",
+          "project_id": "bootloader",
+          "section_slug": "架构与执行机制"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/application/app_bootloader.h",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6/application/app_bootloader.h",
+          "label": "状态定义",
+          "section": "EEPROM 状态交接",
+          "project_id": "bootloader",
+          "section_slug": "eeprom-状态交接"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/STM32F103CAN/FLASH_RECEIVE.md",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "STM32F103CAN/FLASH_RECEIVE.md",
+          "label": "F103 片内装载",
+          "section": "CAN 更新与 USART1 恢复",
+          "project_id": "bootloader",
+          "section_slug": "can-更新与-usart1-恢复"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6reset/SERIAL_UPGRADE.md",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6reset/SERIAL_UPGRADE.md",
+          "label": "恢复协议",
+          "section": "CAN 更新与 USART1 恢复",
+          "project_id": "bootloader",
+          "section_slug": "can-更新与-usart1-恢复"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/Core/Src/main.c",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6/Core/Src/main.c",
+          "label": "主引导入口",
+          "section": "源码入口与核心调用链",
+          "project_id": "bootloader",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led/application/app_update.c",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6led/application/app_update.c",
+          "label": "更新状态机",
+          "section": "源码入口与核心调用链",
+          "project_id": "bootloader",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/STM32F103CAN/appliaction/app_update.c",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "STM32F103CAN/appliaction/app_update.c",
+          "label": "F103 CAN 发送",
+          "section": "源码入口与核心调用链",
+          "project_id": "bootloader",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6reset/application/app_reset.c",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6reset/application/app_reset.c",
+          "label": "恢复状态机",
+          "section": "源码入口与核心调用链",
+          "project_id": "bootloader",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/interface/int_bootloader.c",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6/interface/int_bootloader.c",
+          "label": "主引导跳转接口",
+          "section": "源码入口与核心调用链",
+          "project_id": "bootloader",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/README.md",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "README.md",
+          "label": "构建与联调记录",
+          "section": "构建方式与验证边界",
+          "project_id": "bootloader",
+          "section_slug": "构建方式与验证边界"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/tools/test_bootloader_jump.py",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6/tools/test_bootloader_jump.py",
+          "label": "test_bootloader_jump.py",
+          "section": "构建方式与验证边界",
+          "project_id": "bootloader",
+          "section_slug": "构建方式与验证边界"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led/tools/test_update_crc.py",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6led/tools/test_update_crc.py",
+          "label": "test_update_crc.py",
+          "section": "构建方式与验证边界",
+          "project_id": "bootloader",
+          "section_slug": "构建方式与验证边界"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6reset/tools/test_uart_ring.py",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6reset/tools/test_uart_ring.py",
+          "label": "test_uart_ring.py",
+          "section": "构建方式与验证边界",
+          "project_id": "bootloader",
+          "section_slug": "构建方式与验证边界"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/STM32F103CAN/tools/test_app_update.py",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "STM32F103CAN/tools/test_app_update.py",
+          "label": "test_app_update.py",
+          "section": "构建方式与验证边界",
+          "project_id": "bootloader",
+          "section_slug": "构建方式与验证边界"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/STM32F103CAN/tools/test_app_flash.py",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "STM32F103CAN/tools/test_app_flash.py",
+          "label": "test_app_flash.py",
+          "section": "构建方式与验证边界",
+          "project_id": "bootloader",
+          "section_slug": "构建方式与验证边界"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led_blink/tools/make_update_bin.py",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6led_blink/tools/make_update_bin.py",
+          "label": "make_update_bin.py",
+          "section": "构建方式与验证边界",
+          "project_id": "bootloader",
+          "section_slug": "构建方式与验证边界"
+        }
+      ],
+      "diagrams": [
+        {
+          "index": 1,
+          "diagram_type": "sequenceDiagram",
+          "title": "CAN 更新与 USART1 恢复",
+          "source": "sequenceDiagram\n    participant H as 串口主机\n    participant A as F407 LED APP\n    participant F as F103 CAN 发送端\n    participant W as W25Q16 与 EEPROM\n    H->>A: cmd\n    A->>F: 标准 ID 0 DLC 3 hyf\n    loop BIN 数据帧\n        F->>A: 标准 ID 1 DLC 1 至 8\n        Note over F,A: 相邻 BIN 帧间隔 10 ms\n    end\n    A-->>H: 1000 ms 无有效数据后报告 CAN receive done,len:\n    F->>A: 最后一帧后 1100 ms 发送独立小端 CRC\n    A->>W: CRC 通过后写正文、元数据和更新标志\n    A-->>H: Update save OK",
+          "section_slug": "can-更新与-usart1-恢复"
+        },
+        {
+          "index": 2,
+          "diagram_type": "sequenceDiagram",
+          "title": "CAN 更新与 USART1 恢复",
+          "source": "sequenceDiagram\n    participant H as 串口主机\n    participant R as F407 串口恢复\n    participant A as APP 分区\n    H->>R: start:实际字节数\n    R->>A: 擦除 APP 覆盖的扇区\n    R-->>H: Flash erased，主机可发送数据\n    H->>R: 原始 BIN 字节\n    R->>A: DMA 环形接收并写入\n    Note over H,R: 达到声明长度后观察 2 s 空闲及多余数据\n    R-->>H: ok,len:\n    R->>A: 检查向量并跳转",
+          "section_slug": "can-更新与-usart1-恢复"
+        }
+      ],
       "related_troubleshooting": [
         "TS-0001-bootloader-update-phase"
       ]
@@ -146,6 +428,268 @@
       "table_count": 7,
       "evidence_count": 22,
       "has_human_notes": false,
+      "evidence_links": [
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/Core/Src/main.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/Core/Src/main.c",
+          "label": "飞控 main",
+          "section": "项目定位与工程组成",
+          "project_id": "flight",
+          "section_slug": "项目定位与工程组成"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_remote_hal/Core/Src/main.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_remote_hal/Core/Src/main.c",
+          "label": "遥控 main",
+          "section": "项目定位与工程组成",
+          "project_id": "flight",
+          "section_slug": "项目定位与工程组成"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/flight_hal.ioc",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/flight_hal.ioc",
+          "label": "飞控 CubeMX",
+          "section": "硬件资源与外设映射",
+          "project_id": "flight",
+          "section_slug": "硬件资源与外设映射"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_remote_hal/filght_remote_hal.ioc",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_remote_hal/filght_remote_hal.ioc",
+          "label": "遥控 CubeMX",
+          "section": "硬件资源与外设映射",
+          "project_id": "flight",
+          "section_slug": "硬件资源与外设映射"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/application/application_freertos_task.h",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/MDK-ARM/application/application_freertos_task.h",
+          "label": "飞控任务参数",
+          "section": "两端任务表",
+          "project_id": "flight",
+          "section_slug": "两端任务表"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_remote_hal/MDK-ARM/application/application_freertos_task.h",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_remote_hal/MDK-ARM/application/application_freertos_task.h",
+          "label": "遥控任务参数",
+          "section": "两端任务表",
+          "project_id": "flight",
+          "section_slug": "两端任务表"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/application/application_flight.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/MDK-ARM/application/application_flight.c",
+          "label": "PID 初始化",
+          "section": "姿态控制、气压定高与限幅",
+          "project_id": "flight",
+          "section_slug": "姿态控制气压定高与限幅"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/README.md",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "README.md",
+          "label": "调参表",
+          "section": "零偏与配平",
+          "project_id": "flight",
+          "section_slug": "零偏与配平"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/application/application_flight.h",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/MDK-ARM/application/application_flight.h",
+          "label": "实际配平宏",
+          "section": "零偏与配平",
+          "project_id": "flight",
+          "section_slug": "零偏与配平"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/application/application_freertos_task.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/MDK-ARM/application/application_freertos_task.c",
+          "label": "任务调度",
+          "section": "源码入口与核心调用链",
+          "project_id": "flight",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/interface/my_mpu6050.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/MDK-ARM/interface/my_mpu6050.c",
+          "label": "MPU 驱动",
+          "section": "源码入口与核心调用链",
+          "project_id": "flight",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/interface/spl006.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/MDK-ARM/interface/spl006.c",
+          "label": "气压驱动",
+          "section": "源码入口与核心调用链",
+          "project_id": "flight",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/interface/timer_motor.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/MDK-ARM/interface/timer_motor.c",
+          "label": "PWM 接口",
+          "section": "源码入口与核心调用链",
+          "project_id": "flight",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/application/application_fixed_height.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/MDK-ARM/application/application_fixed_height.c",
+          "label": "定高模块",
+          "section": "源码入口与核心调用链",
+          "project_id": "flight",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_remote_hal/MDK-ARM/application/application_process_data.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_remote_hal/MDK-ARM/application/application_process_data.c",
+          "label": "处理输入",
+          "section": "源码入口与核心调用链",
+          "project_id": "flight",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_remote_hal/MDK-ARM/application/application_transmit_data.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_remote_hal/MDK-ARM/application/application_transmit_data.c",
+          "label": "打包与回包",
+          "section": "源码入口与核心调用链",
+          "project_id": "flight",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/application/application_recevie_data.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/MDK-ARM/application/application_recevie_data.c",
+          "label": "飞控校验与状态机",
+          "section": "源码入口与核心调用链",
+          "project_id": "flight",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_remote_hal/MDK-ARM/application/application_display.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_remote_hal/MDK-ARM/application/application_display.c",
+          "label": "遥控 OLED",
+          "section": "源码入口与核心调用链",
+          "project_id": "flight",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/interface/nRF24L01P.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/MDK-ARM/interface/nRF24L01P.c",
+          "label": "射频接口",
+          "section": "源码入口与核心调用链",
+          "project_id": "flight",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/flight_hal.uvprojx",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/MDK-ARM/flight_hal.uvprojx",
+          "label": "flight_hal.uvprojx",
+          "section": "构建方式与验证边界",
+          "project_id": "flight",
+          "section_slug": "构建方式与验证边界"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_remote_hal/MDK-ARM/filght_remote_hal.uvprojx",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_remote_hal/MDK-ARM/filght_remote_hal.uvprojx",
+          "label": "filght_remote_hal.uvprojx",
+          "section": "构建方式与验证边界",
+          "project_id": "flight",
+          "section_slug": "构建方式与验证边界"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/tests/test_application_flight.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/MDK-ARM/tests/test_application_flight.c",
+          "label": "test_application_flight.c",
+          "section": "构建方式与验证边界",
+          "project_id": "flight",
+          "section_slug": "构建方式与验证边界"
+        }
+      ],
+      "diagrams": [
+        {
+          "index": 1,
+          "diagram_type": "flowchart",
+          "title": "飞行任务与 I2C1",
+          "source": "flowchart LR\n    T[\"flight_task (每 2 tick)\"] --> I[\"I2C1 由飞行任务串行访问\"]\n    I --> M[\"MPU6050 每拍读数\"]\n    I --> B[\"SPL006 每三拍更新\"]\n    M --> P[\"姿态解算与姿态环\"]\n    B --> H[\"气压补偿与定高环\"]\n    P --> O[\"四路 PWM 混控\"]\n    H -->|定高状态| O",
+          "direction": "LR",
+          "section_slug": "飞行任务与-i2c1"
+        },
+        {
+          "index": 2,
+          "diagram_type": "flowchart",
+          "title": "两端任务表",
+          "source": "flowchart LR\n    J[\"遥控摇杆与按键生产状态\"] --> S[\"锁内复制和清命令位\"]\n    S --> R[\"射频发包与回包窗口\"]\n    R --> F[\"飞控射频任务检查控制帧\"]\n    F --> P[\"飞行任务消费控制状态\"]\n    I[\"同一飞行任务访问两只 I2C 器件\"] --> P\n    P --> M[\"X 布局混控输出四路 PWM\"]\n    F --> O[\"遥控端 OLED 和告警\"]",
+          "direction": "LR",
+          "section_slug": "两端任务表"
+        }
+      ],
       "related_troubleshooting": []
     },
     {
@@ -213,6 +757,62 @@
       "table_count": 5,
       "evidence_count": 4,
       "has_human_notes": false,
+      "evidence_links": [
+        {
+          "url": "https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/01_freertos_template.uvprojx",
+          "repo": "Mangta517/freertos-beginer",
+          "kind": "blob",
+          "commit": "88e3c2fa9133c614d937a5e172fbd0aabd3204b8",
+          "path": "01_freertos_template.uvprojx",
+          "label": "Keil XML",
+          "section": "项目定位与工程组成",
+          "project_id": "freertos-beginer",
+          "section_slug": "项目定位与工程组成"
+        },
+        {
+          "url": "https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/RTE/_01_freertos_template/RTE_Components.h",
+          "repo": "Mangta517/freertos-beginer",
+          "kind": "blob",
+          "commit": "88e3c2fa9133c614d937a5e172fbd0aabd3204b8",
+          "path": "RTE/_01_freertos_template/RTE_Components.h",
+          "label": "RTE_Components.h",
+          "section": "硬件资源与外设映射",
+          "project_id": "freertos-beginer",
+          "section_slug": "硬件资源与外设映射"
+        },
+        {
+          "url": "https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/startup_stm32f103xb.s",
+          "repo": "Mangta517/freertos-beginer",
+          "kind": "blob",
+          "commit": "88e3c2fa9133c614d937a5e172fbd0aabd3204b8",
+          "path": "startup_stm32f103xb.s",
+          "label": "startup_stm32f103xb.s",
+          "section": "启动汇编的可见行为",
+          "project_id": "freertos-beginer",
+          "section_slug": "启动汇编的可见行为"
+        },
+        {
+          "url": "https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/README.md",
+          "repo": "Mangta517/freertos-beginer",
+          "kind": "blob",
+          "commit": "88e3c2fa9133c614d937a5e172fbd0aabd3204b8",
+          "path": "README.md",
+          "label": "README.md",
+          "section": "构建方式与验证边界",
+          "project_id": "freertos-beginer",
+          "section_slug": "构建方式与验证边界"
+        }
+      ],
+      "diagrams": [
+        {
+          "index": 1,
+          "diagram_type": "flowchart",
+          "title": "架构与执行机制",
+          "source": "flowchart LR\n    V[\"向量表提供初始 MSP 与 Reset_Handler\"] --> S[\"SystemInit\"]\n    S --> C[\"ARMCC __main 与 C 运行时\"]\n    C --> M[\"应用 main 依赖上一级 Core\"]\n    M --> R[\"RTOS 配置由缺失的应用与移植源码决定\"]",
+          "direction": "LR",
+          "section_slug": "架构与执行机制"
+        }
+      ],
       "related_troubleshooting": []
     },
     {
@@ -288,6 +888,246 @@
       "table_count": 5,
       "evidence_count": 20,
       "has_human_notes": false,
+      "evidence_links": [
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/ETHERNET/ethernet.h",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Drivers/BSP/ETHERNET/ethernet.h",
+          "label": "ETH 引脚",
+          "section": "硬件资源与外设映射",
+          "project_id": "iwip",
+          "section_slug": "硬件资源与外设映射"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/ETHERNET/ethernet_chip.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Drivers/BSP/ETHERNET/ethernet_chip.c",
+          "label": "PHY 识别和协商",
+          "section": "硬件资源与外设映射",
+          "project_id": "iwip",
+          "section_slug": "硬件资源与外设映射"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/touch/bsp_i2c_touch.h",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Drivers/BSP/touch/bsp_i2c_touch.h",
+          "label": "触摸引脚",
+          "section": "硬件资源与外设映射",
+          "project_id": "iwip",
+          "section_slug": "硬件资源与外设映射"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/sdram/bsp_sdram.h",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Drivers/BSP/sdram/bsp_sdram.h",
+          "label": "SRAM 映射",
+          "section": "硬件资源与外设映射",
+          "project_id": "iwip",
+          "section_slug": "硬件资源与外设映射"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/application/app_task.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "application/app_task.c",
+          "label": "应用线程",
+          "section": "架构与执行机制",
+          "project_id": "iwip",
+          "section_slug": "架构与执行机制"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/sys_arch.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Middlewares/Iwip/arch/sys_arch.c",
+          "label": "lwIP 线程移植",
+          "section": "架构与执行机制",
+          "project_id": "iwip",
+          "section_slug": "架构与执行机制"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Core/Src/main.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Core/Src/main.c",
+          "label": "main.c",
+          "section": "源码入口与核心调用链",
+          "project_id": "iwip",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwip_comm.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Middlewares/Iwip/arch/lwip_comm.c",
+          "label": "lwip_comm_init",
+          "section": "源码入口与核心调用链",
+          "project_id": "iwip",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/ETHERNET/ethernet.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Drivers/BSP/ETHERNET/ethernet.c",
+          "label": "MAC 初始化",
+          "section": "源码入口与核心调用链",
+          "project_id": "iwip",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/ETHERNET/ethernet_chip.h",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Drivers/BSP/ETHERNET/ethernet_chip.h",
+          "label": "PHY 寄存器",
+          "section": "源码入口与核心调用链",
+          "project_id": "iwip",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/ethernetif.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Middlewares/Iwip/arch/ethernetif.c",
+          "label": "以太网适配",
+          "section": "源码入口与核心调用链",
+          "project_id": "iwip",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/touch/gt5xx.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Drivers/BSP/touch/gt5xx.c",
+          "label": "GT5xx",
+          "section": "源码入口与核心调用链",
+          "project_id": "iwip",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/touch/bsp_i2c_touch.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Drivers/BSP/touch/bsp_i2c_touch.c",
+          "label": "软件 I2C",
+          "section": "源码入口与核心调用链",
+          "project_id": "iwip",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/touch/palette.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Drivers/BSP/touch/palette.c",
+          "label": "画板",
+          "section": "源码入口与核心调用链",
+          "project_id": "iwip",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/lcd/bsp_nt35510_lcd.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Drivers/BSP/lcd/bsp_nt35510_lcd.c",
+          "label": "NT35510",
+          "section": "源码入口与核心调用链",
+          "project_id": "iwip",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/sdram/bsp_sdram.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Drivers/BSP/sdram/bsp_sdram.c",
+          "label": "FSMC SRAM",
+          "section": "源码入口与核心调用链",
+          "project_id": "iwip",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/flash/bsp_spi_flash.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Drivers/BSP/flash/bsp_spi_flash.c",
+          "label": "SPI 字库存储",
+          "section": "源码入口与核心调用链",
+          "project_id": "iwip",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/MDK-ARM/lwip.uvprojx",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "MDK-ARM/lwip.uvprojx",
+          "label": "lwip.uvprojx",
+          "section": "构建方式与验证边界",
+          "project_id": "iwip",
+          "section_slug": "构建方式与验证边界"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/README-lwIP.md",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "README-lwIP.md",
+          "label": "BSP 与旧联调说明",
+          "section": "构建方式与验证边界",
+          "project_id": "iwip",
+          "section_slug": "构建方式与验证边界"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/README.md",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "README.md",
+          "label": "README",
+          "section": "构建方式与验证边界",
+          "project_id": "iwip",
+          "section_slug": "构建方式与验证边界"
+        }
+      ],
+      "diagrams": [
+        {
+          "index": 1,
+          "diagram_type": "flowchart",
+          "title": "架构与执行机制",
+          "source": "flowchart TD\n    N[\"板级启动后 start_task 配置网络\"] --> T[\"TCP/IP 核心线程\"]\n    P[\"PHY 协商状态\"] --> L[\"eth_link 轮询与 link callback\"]\n    L --> NIF[\"netif 接口和链路状态\"]\n    D[\"ETH 接收中断给信号量\"] --> R[\"eth_thread 收包并提交\"]\n    R --> T\n    T --> NIF\n    N --> G[\"touch 每轮服务画板\"]\n    N --> LED[\"led 显示状态\"]",
+          "direction": "TD",
+          "section_slug": "架构与执行机制"
+        },
+        {
+          "index": 2,
+          "diagram_type": "flowchart",
+          "title": "lwIP 与 DMA 内存配置",
+          "source": "flowchart LR\n    A[\"TX：lwIP pbuf 链\"] --> B[\"复制到当前 TX 描述符独占 SRAM\"]\n    B --> C[\"提交 DMA，完成中断或等待超时\"]\n    C --> D[\"确认描述符归属后回收\"]\n    E[\"RX：DMA 填入 RX 池缓冲\"] --> F[\"RxLinkCallback 拼接自定义 pbuf\"]\n    F --> G[\"eth_thread 交给 tcpip_input\"]\n    G --> H[\"最后引用释放\"]\n    H --> I[\"pbuf_free_custom 归还 RX 池\"]\n    I --> E",
+          "direction": "LR",
+          "section_slug": "lwip-与-dma-内存配置"
+        }
+      ],
       "related_troubleshooting": [
         "TS-0003-ethernet-link-without-ip"
       ]
@@ -361,6 +1201,213 @@
       "table_count": 7,
       "evidence_count": 17,
       "has_human_notes": false,
+      "evidence_links": [
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/.ccsproject",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": ".ccsproject",
+          "label": "CCS 工程描述",
+          "section": "项目定位与工程组成",
+          "project_id": "mspm0g3507",
+          "section_slug": "项目定位与工程组成"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/.cproject",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": ".cproject",
+          "label": "编译配置",
+          "section": "项目定位与工程组成",
+          "project_id": "mspm0g3507",
+          "section_slug": "项目定位与工程组成"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/main.syscfg",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "main.syscfg",
+          "label": "SysConfig",
+          "section": "项目定位与工程组成",
+          "project_id": "mspm0g3507",
+          "section_slug": "项目定位与工程组成"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/mian.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "mian.c",
+          "label": "mian.c",
+          "section": "项目定位与工程组成",
+          "project_id": "mspm0g3507",
+          "section_slug": "项目定位与工程组成"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/k230_ball_balance.py",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "k230_ball_balance.py",
+          "label": "K230 视觉入口",
+          "section": "项目定位与工程组成",
+          "project_id": "mspm0g3507",
+          "section_slug": "项目定位与工程组成"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/MSPM0/clock.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "MSPM0/clock.c",
+          "label": "毫秒时基",
+          "section": "硬件资源与外设映射",
+          "project_id": "mspm0g3507",
+          "section_slug": "硬件资源与外设映射"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/emmv5.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "interface/emmv5.c",
+          "label": "步进电机串口驱动",
+          "section": "硬件资源与外设映射",
+          "project_id": "mspm0g3507",
+          "section_slug": "硬件资源与外设映射"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/bsp_k230_uart.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "interface/bsp_k230_uart.c",
+          "label": "历史 K230 接口",
+          "section": "K230 像素协议和解析",
+          "project_id": "mspm0g3507",
+          "section_slug": "k230-像素协议和解析"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/bsp_uart0_proto.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "interface/bsp_uart0_proto.c",
+          "label": "默认解析入口",
+          "section": "K230 像素协议和解析",
+          "project_id": "mspm0g3507",
+          "section_slug": "k230-像素协议和解析"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/application/pid_tuning.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "application/pid_tuning.c",
+          "label": "启动参数",
+          "section": "从坐标到 Emm_V5",
+          "project_id": "mspm0g3507",
+          "section_slug": "从坐标到-emm_v5"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/common/pid.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "common/pid.c",
+          "label": "PID 实现",
+          "section": "从坐标到 Emm_V5",
+          "project_id": "mspm0g3507",
+          "section_slug": "从坐标到-emm_v5"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/application/app_stepper_track.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "application/app_stepper_track.c",
+          "label": "跟踪实现",
+          "section": "从坐标到 Emm_V5",
+          "project_id": "mspm0g3507",
+          "section_slug": "从坐标到-emm_v5"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/application/app_line_follow.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "application/app_line_follow.c",
+          "label": "循迹",
+          "section": "源码入口与核心调用链",
+          "project_id": "mspm0g3507",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/application/app_gimbal_track.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "application/app_gimbal_track.c",
+          "label": "云台",
+          "section": "源码入口与核心调用链",
+          "project_id": "mspm0g3507",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/application/lock.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "application/lock.c",
+          "label": "锁控制",
+          "section": "源码入口与核心调用链",
+          "project_id": "mspm0g3507",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/common/common_filter.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "common/common_filter.c",
+          "label": "通用滤波",
+          "section": "源码入口与核心调用链",
+          "project_id": "mspm0g3507",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/common/stall_protect.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "common/stall_protect.c",
+          "label": "编码器堵转保护",
+          "section": "源码入口与核心调用链",
+          "project_id": "mspm0g3507",
+          "section_slug": "源码入口与核心调用链"
+        }
+      ],
+      "diagrams": [
+        {
+          "index": 1,
+          "diagram_type": "flowchart",
+          "title": "从坐标到 Emm_V5",
+          "source": "flowchart LR\n    P[\"K230 输出归一化视图像素\"] --> RX[\"UART0 组帧与坐标检查\"]\n    RX --> G{\"武装且收到新帧\"}\n    G -->|有效| V[\"cx 偏差与速度估计 px/ms\"]\n    V --> C[\"PID 与速度前馈计算目标 mdeg\"]\n    G -->|无球或达到超时| Z[\"按状态保持、预测或回中\"]\n    C --> T[\"StepperTrack 机械限幅和节流\"]\n    Z --> T\n    T --> U[\"UART1 Emm 绝对位置命令\"]\n    U --> A[\"解析接受、到位、故障和位置回执\"]",
+          "direction": "LR",
+          "section_slug": "从坐标到-emm_v5"
+        },
+        {
+          "index": 2,
+          "diagram_type": "flowchart",
+          "title": "丢球、超时和保护状态",
+          "source": "flowchart LR\n    A{\"已武装\"} -->|否| S[\"丢弃新目标，进入时发一次停止\"]\n    A -->|是| F{\"收到新协议帧\"}\n    F -->|坐标有效| T[\"重算跟踪目标\"]\n    F -->|合法无球| L[\"短时预测或保持\"]\n    L -->|累计第 8 个无效帧| Z[\"提交无效零目标\"]\n    F -->|无新帧达 150 ms| Z\n    F -->|尚无新帧且未超时| O[\"推进步进跟踪\"]\n    L -->|未达计数门限| O\n    T --> O\n    Z --> O",
+          "direction": "LR",
+          "section_slug": "丢球超时和保护状态"
+        }
+      ],
       "related_troubleshooting": [
         "TS-0004-k230-vision-timeout"
       ]
@@ -438,6 +1485,377 @@
       "table_count": 6,
       "evidence_count": 32,
       "has_human_notes": false,
+      "evidence_links": [
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/f411ceu6.ioc",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "f411ceu6.ioc",
+          "label": "CubeMX 配置",
+          "section": "硬件资源与外设映射",
+          "project_id": "watch",
+          "section_slug": "硬件资源与外设映射"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/Core/Inc/main.h",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "Core/Inc/main.h",
+          "label": "引脚宏",
+          "section": "硬件资源与外设映射",
+          "project_id": "watch",
+          "section_slug": "硬件资源与外设映射"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_task.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_task.c",
+          "label": "任务与事件",
+          "section": "从姿态快照到屏幕",
+          "project_id": "watch",
+          "section_slug": "从姿态快照到屏幕"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/lcd.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "interface/lcd.c",
+          "label": "LCD DMA 完成回调",
+          "section": "从姿态快照到屏幕",
+          "project_id": "watch",
+          "section_slug": "从姿态快照到屏幕"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_imu_store.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_imu_store.c",
+          "label": "MPU 记录",
+          "section": "BL24C02 校准记录",
+          "project_id": "watch",
+          "section_slug": "bl24c02-校准记录"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_mag_store.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_mag_store.c",
+          "label": "磁力计记录",
+          "section": "BL24C02 校准记录",
+          "project_id": "watch",
+          "section_slug": "bl24c02-校准记录"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/bl24c02.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "interface/bl24c02.c",
+          "label": "页写与等待",
+          "section": "BL24C02 校准记录",
+          "project_id": "watch",
+          "section_slug": "bl24c02-校准记录"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_diag.h",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_diag.h",
+          "label": "诊断枚举",
+          "section": "16 个启动诊断字段",
+          "project_id": "watch",
+          "section_slug": "16-个启动诊断字段"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_diag.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_diag.c",
+          "label": "采集和打包",
+          "section": "16 个启动诊断字段",
+          "project_id": "watch",
+          "section_slug": "16-个启动诊断字段"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/diagnostics.md",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "docs/diagnostics.md",
+          "label": "诊断及 CSV",
+          "section": "16 个启动诊断字段",
+          "project_id": "watch",
+          "section_slug": "16-个启动诊断字段"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/bluetooth.md",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "docs/bluetooth.md",
+          "label": "蓝牙文档",
+          "section": "KT6368A 启动与字节流",
+          "project_id": "watch",
+          "section_slug": "kt6368a-启动与字节流"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/startup-optimization.md",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "docs/startup-optimization.md",
+          "label": "启动优化记录",
+          "section": "KT6368A 启动与字节流",
+          "project_id": "watch",
+          "section_slug": "kt6368a-启动与字节流"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/Core/Src/main.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "Core/Src/main.c",
+          "label": "main.c",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_display.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_display.c",
+          "label": "app_display.c",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_ui.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_ui.c",
+          "label": "app_ui.c",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/mpu6050.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "interface/mpu6050.c",
+          "label": "mpu6050.c",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/lsm303dlhc.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "interface/lsm303dlhc.c",
+          "label": "lsm303dlhc.c",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_imu.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_imu.c",
+          "label": "app_imu.c",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_baro.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_baro.c",
+          "label": "app_baro.c",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_aht21.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_aht21.c",
+          "label": "app_aht21.c",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_heart.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_heart.c",
+          "label": "app_heart.c",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_battery.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_battery.c",
+          "label": "app_battery.c",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/watch_rtc.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "interface/watch_rtc.c",
+          "label": "watch_rtc.c",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/kt6368a.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "interface/kt6368a.c",
+          "label": "kt6368a.c",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_clock.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_clock.c",
+          "label": "app_clock.c",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/watch-ui.md",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "docs/watch-ui.md",
+          "label": "watch-ui.md",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/imu-eeprom.md",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "docs/imu-eeprom.md",
+          "label": "imu-eeprom.md",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/magnetometer.md",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "docs/magnetometer.md",
+          "label": "magnetometer.md",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/aht21.md",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "docs/aht21.md",
+          "label": "aht21.md",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/em7028.md",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "docs/em7028.md",
+          "label": "em7028.md",
+          "section": "源码入口与核心调用链",
+          "project_id": "watch",
+          "section_slug": "源码入口与核心调用链"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/MDK-ARM/f411ceu6.uvprojx",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "MDK-ARM/f411ceu6.uvprojx",
+          "label": "f411ceu6.uvprojx",
+          "section": "构建方式与验证边界",
+          "project_id": "watch",
+          "section_slug": "构建方式与验证边界"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/tests/sensors/run.py",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "tests/sensors/run.py",
+          "label": "传感器主机测试",
+          "section": "构建方式与验证边界",
+          "project_id": "watch",
+          "section_slug": "构建方式与验证边界"
+        }
+      ],
+      "diagrams": [
+        {
+          "index": 1,
+          "diagram_type": "flowchart",
+          "title": "从姿态快照到屏幕",
+          "source": "flowchart LR\n    I[\"SENSOR I2C (IMU、磁力计)\"] --> S[\"sensor 任务采样与解算\"]\n    S --> M[\"互斥区内发布完整 IMU 快照\"]\n    M --> U[\"LVGL 任务复制快照并更新页面\"]\n    T[\"触摸软件 I2C\"] --> U\n    U --> D[\"SPI1 DMA 提交像素\"]\n    D --> R[\"传输完成回调通知 LVGL\"]",
+          "direction": "LR",
+          "section_slug": "从姿态快照到屏幕"
+        },
+        {
+          "index": 2,
+          "diagram_type": "sequenceDiagram",
+          "title": "从姿态快照到屏幕",
+          "source": "sequenceDiagram\n    participant M as main\n    participant L as LVGL 任务\n    participant D as SPI DMA 中断\n    participant S as sensor 任务\n    participant B as RTC 与 KT6368A\n    M->>M: PA3 自保持及板级外设初始化\n    M->>L: 创建 LVGL 并启动调度器\n    L->>L: 初始化显示与 UI\n    L->>D: 提交首帧并记录 FIRST_FRAME_MS\n    L->>S: 创建 sensor\n    par DMA 传输独立完成\n        D-->>L: SPI TxCplt 报告 flush 完成\n    and 任务初始化及后台推进\n        L->>B: 开始 RTC LSE 与模块上电配置\n        S->>S: 初始化总线、传感器、EEPROM 恢复与采样\n        loop LVGL 服务循环\n            L->>B: 检查就绪或超时并继续运行\n        end\n    end",
+          "section_slug": "从姿态快照到屏幕"
+        }
+      ],
       "related_troubleshooting": [
         "TS-0002-watch-startup-latency"
       ]
@@ -470,7 +1888,63 @@
       "mermaid_count": 1,
       "table_count": 4,
       "evidence_count": 4,
-      "has_human_notes": false
+      "has_human_notes": false,
+      "evidence_links": [
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led/application/app_update.c",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6led/application/app_update.c",
+          "label": "CAN 分阶段接收",
+          "section": "跨项目实现对比",
+          "project_id": "bootloader",
+          "section_slug": "跨项目实现对比"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6reset/application/app_reset.c",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6reset/application/app_reset.c",
+          "label": "恢复命令",
+          "section": "跨项目实现对比",
+          "project_id": "bootloader",
+          "section_slug": "跨项目实现对比"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/bsp_uart0_proto.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "interface/bsp_uart0_proto.c",
+          "label": "视觉串流",
+          "section": "跨项目实现对比",
+          "project_id": "mspm0g3507",
+          "section_slug": "跨项目实现对比"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/kt6368a.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "interface/kt6368a.c",
+          "label": "蓝牙 UART 与 AT",
+          "section": "跨项目实现对比",
+          "project_id": "watch",
+          "section_slug": "跨项目实现对比"
+        }
+      ],
+      "diagrams": [
+        {
+          "index": 1,
+          "diagram_type": "flowchart",
+          "title": "核心机制模型",
+          "source": "flowchart TD\n    I[\"IDLE 等待输入\"] --> S[\"SYNC 确认会话或同步字\"]\n    S --> P[\"PAYLOAD 按协议收集\"]\n    P -->|终止符或声明长度| C[\"CHECK 校验格式与完整性\"]\n    C -->|合法| M[\"COMMIT 发布新消息与业务状态\"]\n    C -->|失败| R[\"RESYNC 清除当前候选帧\"]\n    P -->|溢出或结束条件超时| R\n    R --> S\n    M --> I",
+          "direction": "TD",
+          "section_slug": "核心机制模型"
+        }
+      ]
     },
     {
       "title": "从以太网链路到 IPv4 可达",
@@ -495,7 +1969,74 @@
       "mermaid_count": 1,
       "table_count": 3,
       "evidence_count": 5,
-      "has_human_notes": false
+      "has_human_notes": false,
+      "evidence_links": [
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/ETHERNET/ethernet_chip.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Drivers/BSP/ETHERNET/ethernet_chip.c",
+          "label": "PHY 层",
+          "section": "跨项目实现对比",
+          "project_id": "iwip",
+          "section_slug": "跨项目实现对比"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/ethernetif.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Middlewares/Iwip/arch/ethernetif.c",
+          "label": "MAC 与网络数据交接",
+          "section": "跨项目实现对比",
+          "project_id": "iwip",
+          "section_slug": "跨项目实现对比"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwip_comm.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Middlewares/Iwip/arch/lwip_comm.c",
+          "label": "地址管理",
+          "section": "跨项目实现对比",
+          "project_id": "iwip",
+          "section_slug": "跨项目实现对比"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwipopts.h",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Middlewares/Iwip/arch/lwipopts.h",
+          "label": "lwipopts.h",
+          "section": "可复用模式与常见反模式",
+          "project_id": "iwip",
+          "section_slug": "可复用模式与常见反模式"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/sys_arch.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Middlewares/Iwip/arch/sys_arch.c",
+          "label": "移植层",
+          "section": "可复用模式与常见反模式",
+          "project_id": "iwip",
+          "section_slug": "可复用模式与常见反模式"
+        }
+      ],
+      "diagrams": [
+        {
+          "index": 1,
+          "diagram_type": "flowchart",
+          "title": "核心机制模型",
+          "source": "flowchart LR\n    H[\"线缆与交换机\"] --> P[\"PHY：RMII 时钟与 MDIO 协商\"]\n    P --> M[\"MAC：速度、双工、DMA 描述符\"]\n    M --> L[\"lwIP：netif、ARP、静态地址或 DHCP\"]\n    L --> A[\"ICMP、Netconn 或已启用的 Socket\"]\n    A --> E[\"应用响应与实际端口\"]\n    L -->|发送 pbuf| M",
+          "direction": "LR",
+          "section_slug": "核心机制模型"
+        }
+      ]
     },
     {
       "title": "传感器反馈链路的单位与时序",
@@ -523,7 +2064,52 @@
       "mermaid_count": 1,
       "table_count": 3,
       "evidence_count": 3,
-      "has_human_notes": false
+      "has_human_notes": false,
+      "evidence_links": [
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/application/application_flight.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/MDK-ARM/application/application_flight.c",
+          "label": "飞控控制环",
+          "section": "跨项目实现对比",
+          "project_id": "flight",
+          "section_slug": "跨项目实现对比"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_imu.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_imu.c",
+          "label": "姿态生产及磁有效性",
+          "section": "跨项目实现对比",
+          "project_id": "watch",
+          "section_slug": "跨项目实现对比"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/mian.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "mian.c",
+          "label": "视觉到角度命令",
+          "section": "跨项目实现对比",
+          "project_id": "mspm0g3507",
+          "section_slug": "跨项目实现对比"
+        }
+      ],
+      "diagrams": [
+        {
+          "index": 1,
+          "diagram_type": "flowchart",
+          "title": "核心机制模型",
+          "source": "flowchart LR\n    R[\"原始寄存器或视觉消息\"] --> U[\"校准与单位换算\"]\n    U --> C[\"对齐坐标系和方向\"]\n    C --> V{\"质量与新鲜度成立\"}\n    V -->|可用| S[\"计算、显示或控制\"]\n    V -->|无效或过期| X[\"按策略保留、降级或回中\"]\n    S --> L[\"执行器限幅与单位转换\"]\n    L --> A[\"PWM 或串口位置命令\"]\n    A --> F[\"实物轨迹或回执\"]",
+          "direction": "LR",
+          "section_slug": "核心机制模型"
+        }
+      ]
     },
     {
       "title": "嵌入式任务与外设所有权",
@@ -551,7 +2137,73 @@
       "mermaid_count": 1,
       "table_count": 3,
       "evidence_count": 5,
-      "has_human_notes": false
+      "has_human_notes": false,
+      "evidence_links": [
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/application/application_freertos_task.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/MDK-ARM/application/application_freertos_task.c",
+          "label": "飞控任务",
+          "section": "跨项目实现对比",
+          "project_id": "flight",
+          "section_slug": "跨项目实现对比"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_task.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_task.c",
+          "label": "手表任务",
+          "section": "跨项目实现对比",
+          "project_id": "watch",
+          "section_slug": "跨项目实现对比"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_imu.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_imu.c",
+          "label": "快照保护",
+          "section": "跨项目实现对比",
+          "project_id": "watch",
+          "section_slug": "跨项目实现对比"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/ethernetif.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Middlewares/Iwip/arch/ethernetif.c",
+          "label": "网络驱动",
+          "section": "跨项目实现对比",
+          "project_id": "iwip",
+          "section_slug": "跨项目实现对比"
+        },
+        {
+          "url": "https://github.com/Mangta517/freertos-beginer/blob/88e3c2fa9133c614d937a5e172fbd0aabd3204b8/01_freertos_template.uvprojx",
+          "repo": "Mangta517/freertos-beginer",
+          "kind": "blob",
+          "commit": "88e3c2fa9133c614d937a5e172fbd0aabd3204b8",
+          "path": "01_freertos_template.uvprojx",
+          "label": "F103 工程清单",
+          "section": "跨项目实现对比",
+          "project_id": "freertos-beginer",
+          "section_slug": "跨项目实现对比"
+        }
+      ],
+      "diagrams": [
+        {
+          "index": 1,
+          "diagram_type": "sequenceDiagram",
+          "title": "核心机制模型",
+          "source": "sequenceDiagram\n    participant I as 外设中断\n    participant T as 总线拥有者任务\n    participant H as I2C/SPI 或 DMA\n    participant C as 消费者任务\n    I-->>T: 置标志或发送 FromISR 通知\n    T->>H: 读快设备，低频设备按计数进入\n    H-->>T: 数据、未就绪或错误\n    T->>T: 锁内发布同一序列的快照\n    C->>T: 在同一保护下复制最新快照\n    C->>C: 锁外计算、编码或刷屏",
+          "section_slug": "核心机制模型"
+        }
+      ]
     }
   ],
   "adrs": [
@@ -579,7 +2231,63 @@
       "mermaid_count": 1,
       "table_count": 3,
       "evidence_count": 4,
-      "has_human_notes": false
+      "has_human_notes": false,
+      "evidence_links": [
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led/application/app_update.c",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6led/application/app_update.c",
+          "label": "CAN CRC 与提交顺序",
+          "section": "源码证据",
+          "project_id": "bootloader",
+          "section_slug": "源码证据"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/application/app_bootloader.c",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6/application/app_bootloader.c",
+          "label": "启动分流、擦除和搬运",
+          "section": "源码证据",
+          "project_id": "bootloader",
+          "section_slug": "源码证据"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/interface/int_bootloader.c",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6/interface/int_bootloader.c",
+          "label": "最终向量检验",
+          "section": "源码证据",
+          "project_id": "bootloader",
+          "section_slug": "源码证据"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6reset/SERIAL_UPGRADE.md",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6reset/SERIAL_UPGRADE.md",
+          "label": "恢复协议",
+          "section": "源码证据",
+          "project_id": "bootloader",
+          "section_slug": "源码证据"
+        }
+      ],
+      "diagrams": [
+        {
+          "index": 1,
+          "diagram_type": "flowchart",
+          "title": "决策与落地机制",
+          "source": "flowchart LR\n    C[\"CAN 接收与 CRC 确认\"] --> W[\"W25Q16 正文落盘\"]\n    W --> M[\"八字节元数据落盘\"]\n    M --> E[\"EEPROM 提交并读回\"]\n    E --> B[\"复位后检查镜像与向量\"]\n    B --> F[\"单一内部 APP 区擦写\"]\n    F --> D[\"更新状态清除\"]\n    B -->|检查或搬运失败| R[\"选择串口恢复\"]",
+          "direction": "LR",
+          "section_slug": "决策与落地机制"
+        }
+      ]
     },
     {
       "title": "ADR-0002 · 传感器总线交由单任务访问",
@@ -606,7 +2314,98 @@
       "mermaid_count": 0,
       "table_count": 4,
       "evidence_count": 8,
-      "has_human_notes": false
+      "has_human_notes": false,
+      "evidence_links": [
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/application/application_freertos_task.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/MDK-ARM/application/application_freertos_task.c",
+          "label": "飞行任务与分频",
+          "section": "源码证据",
+          "project_id": "flight",
+          "section_slug": "源码证据"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/Core/Src/i2c.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/Core/Src/i2c.c",
+          "label": "400 kHz 配置",
+          "section": "源码证据",
+          "project_id": "flight",
+          "section_slug": "源码证据"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/interface/my_mpu6050.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/MDK-ARM/interface/my_mpu6050.c",
+          "label": "MPU 读时限",
+          "section": "源码证据",
+          "project_id": "flight",
+          "section_slug": "源码证据"
+        },
+        {
+          "url": "https://github.com/Mangta517/flight/blob/8b05c39baa1731cf4873d2caaa0db34a61b63e2c/flight_hal/MDK-ARM/interface/spl006.c",
+          "repo": "Mangta517/flight",
+          "kind": "blob",
+          "commit": "8b05c39baa1731cf4873d2caaa0db34a61b63e2c",
+          "path": "flight_hal/MDK-ARM/interface/spl006.c",
+          "label": "气压读时限",
+          "section": "源码证据",
+          "project_id": "flight",
+          "section_slug": "源码证据"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_task.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_task.c",
+          "label": "手表任务体",
+          "section": "源码证据",
+          "project_id": "watch",
+          "section_slug": "源码证据"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/common/my_i2c.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "common/my_i2c.c",
+          "label": "软件总线时序",
+          "section": "源码证据",
+          "project_id": "watch",
+          "section_slug": "源码证据"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/bl24c02.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "interface/bl24c02.c",
+          "label": "EEPROM ACK 等待",
+          "section": "源码证据",
+          "project_id": "watch",
+          "section_slug": "源码证据"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_imu.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_imu.c",
+          "label": "快照互斥",
+          "section": "源码证据",
+          "project_id": "watch",
+          "section_slug": "源码证据"
+        }
+      ],
+      "diagrams": []
     },
     {
       "title": "ADR-0003 · 运行 lwIP 的 OS 模式",
@@ -632,7 +2431,85 @@
       "mermaid_count": 1,
       "table_count": 3,
       "evidence_count": 6,
-      "has_human_notes": false
+      "has_human_notes": false,
+      "evidence_links": [
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwipopts.h",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Middlewares/Iwip/arch/lwipopts.h",
+          "label": "模式、邮箱和 API",
+          "section": "源码证据",
+          "project_id": "iwip",
+          "section_slug": "源码证据"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/sys_arch.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Middlewares/Iwip/arch/sys_arch.c",
+          "label": "FreeRTOS 适配",
+          "section": "源码证据",
+          "project_id": "iwip",
+          "section_slug": "源码证据"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/application/app_task.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "application/app_task.c",
+          "label": "业务任务调度",
+          "section": "源码证据",
+          "project_id": "iwip",
+          "section_slug": "源码证据"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/ethernetif.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Middlewares/Iwip/arch/ethernetif.c",
+          "label": "ETH 收包及核心锁",
+          "section": "源码证据",
+          "project_id": "iwip",
+          "section_slug": "源码证据"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwip_comm.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Middlewares/Iwip/arch/lwip_comm.c",
+          "label": "netif 和 DHCP",
+          "section": "源码证据",
+          "project_id": "iwip",
+          "section_slug": "源码证据"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/README.md",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "README.md",
+          "label": "历史入口说明",
+          "section": "源码证据",
+          "project_id": "iwip",
+          "section_slug": "源码证据"
+        }
+      ],
+      "diagrams": [
+        {
+          "index": 1,
+          "diagram_type": "flowchart",
+          "title": "决策与落地机制",
+          "source": "flowchart LR\n    IRQ[\"ETH IRQ 指示完成\"] --> R[\"输入线程取 pbuf\"]\n    R --> Q[\"TCP/IP 邮箱\"]\n    Q --> CORE[\"核心处理协议与定时器\"]\n    LINK[\"链路任务读取 PHY\"] --> CORE\n    START[\"启动任务完成创建\"] --> UI[\"Goodix 与 LCD 任务\"]",
+          "direction": "LR",
+          "section_slug": "决策与落地机制"
+        }
+      ]
     }
   ],
   "troubleshooting": [
@@ -669,7 +2546,85 @@
       "mermaid_count": 1,
       "table_count": 3,
       "evidence_count": 6,
-      "has_human_notes": false
+      "has_human_notes": false,
+      "evidence_links": [
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/README.md#L192-L200",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "README.md",
+          "label": "固定快照中的联调记录",
+          "section": "定位过程与关键证据",
+          "project_id": "bootloader",
+          "section_slug": "定位过程与关键证据"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6led/application/app_update.c",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6led/application/app_update.c",
+          "label": "CAN 接收 APP",
+          "section": "关键源码测点",
+          "project_id": "bootloader",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/STM32F103CAN/appliaction/app_update.c",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "STM32F103CAN/appliaction/app_update.c",
+          "label": "CAN 发送端",
+          "section": "关键源码测点",
+          "project_id": "bootloader",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/application/app_bootloader.c",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6/application/app_bootloader.c",
+          "label": "启动状态机",
+          "section": "关键源码测点",
+          "project_id": "bootloader",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6/interface/int_bootloader.c",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6/interface/int_bootloader.c",
+          "label": "向量跳转",
+          "section": "关键源码测点",
+          "project_id": "bootloader",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/bootloader/blob/6d5aebc586133f383908581183b44e6572b7be06/stm32f407vet6reset/application/app_reset.c",
+          "repo": "Mangta517/bootloader",
+          "kind": "blob",
+          "commit": "6d5aebc586133f383908581183b44e6572b7be06",
+          "path": "stm32f407vet6reset/application/app_reset.c",
+          "label": "恢复状态机",
+          "section": "关键源码测点",
+          "project_id": "bootloader",
+          "section_slug": "关键源码测点"
+        }
+      ],
+      "diagrams": [
+        {
+          "index": 1,
+          "diagram_type": "flowchart",
+          "title": "故障定位决策树",
+          "source": "flowchart TD\n    S{\"运行在 LED APP、主引导还是恢复\"}\n    S -->|LED APP| CAN[\"发送 cmd 后捕获 hyf 与 ID 1\"]\n    CAN --> C{\"有 CAN receive done,len: 吗\"}\n    C -->|否| B[\"检查 CAN 接线、ID、DLC 与接收窗口\"]\n    C -->|是| V{\"CRC OK 及保存成功\"}\n    V -->|否| F[\"检查 CRC 时序、外部写入和 EEPROM 读回\"]\n    V -->|是| E[\"复位后确认 01 5A 6B 进入搬运\"]\n    S -->|主引导| E\n    E --> W{\"外部元数据与向量合法\"}\n    W -->|否| M[\"记录拒绝字段和恢复落点\"]\n    W -->|是| A[\"测擦写和片内 APP 向量\"]\n    S -->|USART 恢复| R[\"发送 start:字节数并等擦除与 DMA 就绪\"]\n    R --> X{\"出现 ok,len: 吗\"}\n    X -->|否| U[\"看 DMA 消费量、尾部和两秒窗口\"]\n    X -->|是| J[\"检查内部向量、VTOR 和复位入口\"]\n    A --> J",
+          "direction": "TD",
+          "section_slug": "故障定位决策树"
+        }
+      ]
     },
     {
       "title": "TS-0002 · 手表首帧或正常采集延迟",
@@ -705,7 +2660,173 @@
       "mermaid_count": 1,
       "table_count": 3,
       "evidence_count": 14,
-      "has_human_notes": false
+      "has_human_notes": false,
+      "evidence_links": [
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/Core/Inc/stm32f4xx_hal_conf.h",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "Core/Inc/stm32f4xx_hal_conf.h",
+          "label": "LSE 配置",
+          "section": "错误原因与触发机理",
+          "project_id": "watch",
+          "section_slug": "错误原因与触发机理"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/kt6368a.h",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "interface/kt6368a.h",
+          "label": "AT 时序定义",
+          "section": "错误原因与触发机理",
+          "project_id": "watch",
+          "section_slug": "错误原因与触发机理"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_diag.h",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_diag.h",
+          "label": "诊断开关与字段",
+          "section": "定位过程与关键证据",
+          "project_id": "watch",
+          "section_slug": "定位过程与关键证据"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/Core/Src/main.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "Core/Src/main.c",
+          "label": "启动入口",
+          "section": "关键源码测点",
+          "project_id": "watch",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_task.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_task.c",
+          "label": "任务启动",
+          "section": "关键源码测点",
+          "project_id": "watch",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/lcd.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "interface/lcd.c",
+          "label": "LCD SPI",
+          "section": "关键源码测点",
+          "project_id": "watch",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_diag.h",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_diag.h",
+          "label": "字段定义",
+          "section": "关键源码测点",
+          "project_id": "watch",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_diag.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_diag.c",
+          "label": "打包服务",
+          "section": "关键源码测点",
+          "project_id": "watch",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/watch_rtc.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "interface/watch_rtc.c",
+          "label": "RTC 服务",
+          "section": "关键源码测点",
+          "project_id": "watch",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/interface/kt6368a.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "interface/kt6368a.c",
+          "label": "AT 推进",
+          "section": "关键源码测点",
+          "project_id": "watch",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/application/app_imu_store.c",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "application/app_imu_store.c",
+          "label": "EEPROM 记录",
+          "section": "关键源码测点",
+          "project_id": "watch",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/imu-eeprom.md",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "docs/imu-eeprom.md",
+          "label": "保存细分状态",
+          "section": "关键源码测点",
+          "project_id": "watch",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/startup-optimization.md",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "docs/startup-optimization.md",
+          "label": "旧启动流程与测量口径",
+          "section": "验证闭环与边界",
+          "project_id": "watch",
+          "section_slug": "验证闭环与边界"
+        },
+        {
+          "url": "https://github.com/Mangta517/watch/blob/fbd89280178acf4a51e80f919e7f96468b4967f0/docs/diagnostics.md",
+          "repo": "Mangta517/watch",
+          "kind": "blob",
+          "commit": "fbd89280178acf4a51e80f919e7f96468b4967f0",
+          "path": "docs/diagnostics.md",
+          "label": "当前诊断协议及 CSV",
+          "section": "验证闭环与边界",
+          "project_id": "watch",
+          "section_slug": "验证闭环与边界"
+        }
+      ],
+      "diagrams": [
+        {
+          "index": 1,
+          "diagram_type": "flowchart",
+          "title": "故障定位决策树",
+          "source": "flowchart TD\n    A{\"PA3 和供电稳定\"}\n    A -->|否| P[\"测电源锁存、复位与板电源\"]\n    A -->|是| B{\"FIRST_FRAME_MS 已记录\"}\n    B -->|否| UI[\"追 LVGL 创建、屏初始化和刷新\"]\n    B -->|是| C{\"SPI DMA 完成且画面可见\"}\n    C -->|否| D[\"用示波器及 LCD 回调定位屏路径\"]\n    C -->|是| S{\"sensor 已置 ready 且有成功采样\"}\n    S -->|否| I[\"核对 SENSOR 总线和各器件诊断\"]\n    S -->|是| G{\"RTC 或蓝牙有超时\"}\n    G -->|是| T[\"看 LSE 和 AT 分段时间、结果\"]\n    G -->|否| E[\"核对 MPU 校准、EEPROM 与诊断导出\"]",
+          "direction": "TD",
+          "section_slug": "故障定位决策树"
+        }
+      ]
     },
     {
       "title": "TS-0003 · 以太网插线后仍无 IP",
@@ -740,7 +2861,85 @@
       "mermaid_count": 1,
       "table_count": 3,
       "evidence_count": 6,
-      "has_human_notes": false
+      "has_human_notes": false,
+      "evidence_links": [
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/ETHERNET/ethernet.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Drivers/BSP/ETHERNET/ethernet.c",
+          "label": "DMA 描述符分配",
+          "section": "错误原因与触发机理",
+          "project_id": "iwip",
+          "section_slug": "错误原因与触发机理"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwipopts.h",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Middlewares/Iwip/arch/lwipopts.h",
+          "label": "编译配置",
+          "section": "关键源码测点",
+          "project_id": "iwip",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Drivers/BSP/ETHERNET/ethernet_chip.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Drivers/BSP/ETHERNET/ethernet_chip.c",
+          "label": "PHY 识别与链路",
+          "section": "关键源码测点",
+          "project_id": "iwip",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/ethernetif.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Middlewares/Iwip/arch/ethernetif.c",
+          "label": "输入和链路状态",
+          "section": "关键源码测点",
+          "project_id": "iwip",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/Middlewares/Iwip/arch/lwip_comm.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "Middlewares/Iwip/arch/lwip_comm.c",
+          "label": "地址状态机",
+          "section": "关键源码测点",
+          "project_id": "iwip",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/Iwip/blob/eb966f2289c240fd18d5b670aea3057d5f73e3f8/application/app_task.c",
+          "repo": "Mangta517/Iwip",
+          "kind": "blob",
+          "commit": "eb966f2289c240fd18d5b670aea3057d5f73e3f8",
+          "path": "application/app_task.c",
+          "label": "网络启动与应用并行",
+          "section": "关键源码测点",
+          "project_id": "iwip",
+          "section_slug": "关键源码测点"
+        }
+      ],
+      "diagrams": [
+        {
+          "index": 1,
+          "diagram_type": "flowchart",
+          "title": "故障定位决策树",
+          "source": "flowchart TD\n    A{\"实际编译的 LWIP_DHCP\"}\n    A -->|0| S[\"确认静态 IP 与同网段测试主机\"]\n    A -->|1| T[\"确认租约环境与状态日志\"]\n    S --> P{\"RMII 时钟、PHY 协商和 MAC 启动通过\"}\n    T --> P\n    P -->|否| H[\"测 PA1，读 PHY 寄存器和 MAC 启动结果\"]\n    P -->|是| M{\"RX 描述符与输入线程有活动\"}\n    M -->|否| R[\"检查 ETH 启动、DMA 内存、IRQ 与信号量\"]\n    M -->|是| N{\"netif 的 link、up 和地址符合预期\"}\n    N -->|否| L[\"检查链路回调、DHCP 或静态回退\"]\n    N -->|是| C[\"按 DHCP、ARP、ICMP 和应用协议观察响应\"]",
+          "direction": "TD",
+          "section_slug": "故障定位决策树"
+        }
+      ]
     },
     {
       "title": "TS-0004 · K230 无目标、超时与电机回执",
@@ -776,7 +2975,96 @@
       "mermaid_count": 1,
       "table_count": 3,
       "evidence_count": 7,
-      "has_human_notes": false
+      "has_human_notes": false,
+      "evidence_links": [
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/application/app_stepper_track.h",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "application/app_stepper_track.h",
+          "label": "节流与死区定义",
+          "section": "错误原因与触发机理",
+          "project_id": "mspm0g3507",
+          "section_slug": "错误原因与触发机理"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/k230_ball_balance.py",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "k230_ball_balance.py",
+          "label": "视觉脚本",
+          "section": "关键源码测点",
+          "project_id": "mspm0g3507",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/bsp_uart0_proto.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "interface/bsp_uart0_proto.c",
+          "label": "UART0 IRQ 与组帧",
+          "section": "关键源码测点",
+          "project_id": "mspm0g3507",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/bsp_k230_uart.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "interface/bsp_k230_uart.c",
+          "label": "历史 K230 接口",
+          "section": "关键源码测点",
+          "project_id": "mspm0g3507",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/mian.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "mian.c",
+          "label": "主循环",
+          "section": "关键源码测点",
+          "project_id": "mspm0g3507",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/application/app_stepper_track.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "application/app_stepper_track.c",
+          "label": "角度跟踪",
+          "section": "关键源码测点",
+          "project_id": "mspm0g3507",
+          "section_slug": "关键源码测点"
+        },
+        {
+          "url": "https://github.com/Mangta517/MSPM0G3507/blob/d0232ccc9a7e31693e8fa0d1f234f242cd282856/interface/emmv5.c",
+          "repo": "Mangta517/MSPM0G3507",
+          "kind": "blob",
+          "commit": "d0232ccc9a7e31693e8fa0d1f234f242cd282856",
+          "path": "interface/emmv5.c",
+          "label": "驱动协议",
+          "section": "关键源码测点",
+          "project_id": "mspm0g3507",
+          "section_slug": "关键源码测点"
+        }
+      ],
+      "diagrams": [
+        {
+          "index": 1,
+          "diagram_type": "flowchart",
+          "title": "故障定位决策树",
+          "source": "flowchart TD\n    A{\"g_system_armed 已置真\"}\n    A -->|否| P[\"确认 PA13 停止，观察一次 FE\"]\n    A -->|是| F{\"持续收到可解析的新帧\"}\n    F -->|否| T[\"记录到最后合法帧的年龄和 TO\"]\n    F -->|是| V{\"本帧 valid 为真\"}\n    V -->|否| L[\"记录无球计数、短预测及第八帧回中\"]\n    V -->|是| C[\"观察 cx 与目标毫度及限幅\"]\n    T --> R[\"达到 150 ms 后确认无效零目标\"]\n    C --> U{\"UART1 发出了位置命令\"}\n    R --> U\n    L --> U\n    U -->|否| S[\"查看跟踪锁存、节流、死区和目标位置\"]\n    U -->|是| E[\"解码接受、到位、错误和位置回执\"]",
+          "direction": "TD",
+          "section_slug": "故障定位决策树"
+        }
+      ]
     }
   ],
   "synthesis": [
@@ -814,7 +3102,18 @@
       "mermaid_count": 1,
       "table_count": 3,
       "evidence_count": 0,
-      "has_human_notes": false
+      "has_human_notes": false,
+      "evidence_links": [],
+      "diagrams": [
+        {
+          "index": 1,
+          "diagram_type": "flowchart",
+          "title": "六个项目的架构复杂度",
+          "source": "flowchart LR\n    F[\"F103 FreeRTOS 模板：启动和工程分组\"] --> C[\"flight：周期任务与实时控制\"]\n    F --> W[\"watch：双任务与诊断\"]\n    C --> W\n    F --> N[\"Iwip：网络栈、驱动与应用上下文\"]\n    B[\"bootloader：分区与跨复位状态\"] --> W\n    B --> M[\"MSPM0：串流状态与执行器反馈\"]\n    C --> M\n    W --> N",
+          "direction": "LR",
+          "section_slug": "六个项目的架构复杂度"
+        }
+      ]
     }
   ],
   "link_map": {
