@@ -10,6 +10,7 @@ from urllib.parse import unquote, urlsplit
 
 import yaml
 from markdown_it import MarkdownIt
+from markdown_it.rules_inline import backtick, image, link
 
 ROOT = Path(__file__).resolve().parents[1]
 SECTIONS = {
@@ -53,16 +54,9 @@ SLUG = r"[a-z0-9]+(?:-[a-z0-9]+)*"
 SHA = re.compile(r"[0-9a-f]{40}", re.I)
 NOTES = re.compile(r"<!-- HUMAN-NOTES:START -->(.*?)<!-- HUMAN-NOTES:END -->", re.S)
 COMMENT = re.compile(r"<!--.*?-->", re.S)
-BLOCKS = re.compile(
-    COMMENT.pattern + r"|^ {0,3}(?P<fence>(?P<marker>[`~])(?P=marker){2,})"
-    r"(?P<info>[^\n]*)\n(?P<code>.*?)(?:^ {0,3}(?P=fence)(?P=marker)*[ \t]*$|\Z)",
-    re.M | re.S,
-)
-INLINE_CODE = re.compile(r"(?<!`)(?P<ticks>`+)(?!`)[^\n]+?(?<!`)(?P=ticks)(?!`)")
 FENCE_LANGUAGE = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.+#-]*")
 CALLOUT = re.compile(r"^\[![\w-]+\][+-]?(?P<title>.*)$")
-WIKILINK = re.compile(r"(?P<embed>!)?\[\[(?P<target>[^]\n|]+)(?P<label>\|[^]\n]+)?\]\]")
-IMAGE = re.compile(r'!\[[^]\n]*\]\(\s*(?:<([^>\n]+)>|((?:\\[()]|[^()\s]|\([^()\n]*\))+))(?=\s|\))')
+WIKILINK = re.compile(r"(?P<embed>!)?\[\[(?P<target>[^]\n|]+)(?P<label>\|[^\n]+?)?\]\](?!\])")
 SOURCE_LINK = re.compile(
     r"https://github\.com/(?P<repo>[\w-]+/[\w.-]+)/(?P<kind>blob|tree)/"
     r"(?P<ref>[^/\s<>()\[\]`\"'?#、，。；：！？]+)"
@@ -107,11 +101,94 @@ def read_note(path):
     meta = yaml.safe_load(header)
     if not delimiter or not isinstance(meta, dict):
         raise ValueError("frontmatter 必须是 YAML 映射")
-    return Note(path.relative_to(ROOT), meta, body.strip())
+    return Note(path.relative_to(ROOT), meta, body.strip("\n"))
+
+
+def record_code_span(state, silent):
+    start, count = state.pos, len(state.tokens)
+    matched = backtick(state, silent)
+    if len(state.tokens) > count and state.tokens[-1].type == "code_inline":
+        state.tokens[-1].meta["span"] = (start, state.pos)
+    return matched
+
+
+MARKDOWN.inline.ruler.at("backticks", record_code_span)
+
+
+def line_offsets(lines):
+    offsets = [0]
+    for line in lines:
+        offsets.append(offsets[-1] + len(line) + 1)
+    return offsets
+
+
+def inline_source_positions(token, lines, offsets):
+    # Inline content drops quote/list prefixes. Map each line back to its original suffix.
+    positions = []
+    for index, line in enumerate(token.content.split("\n"), start=token.map[0]):
+        part = line.lstrip(" \t")
+        prefix = lines[index].rfind(part) - (len(line) - len(part))
+        positions.extend(range(offsets[index] + prefix, offsets[index] + prefix + len(line) + 1))
+    return positions
+
+
+def record_resource_destination(rule, tag, marker_offset):
+    def parse(state, silent):
+        start, count = state.pos, len(state.tokens)
+        matched = rule(state, silent)
+        if not matched or silent or not state.env.get("resource_destinations"):
+            return matched
+
+        label_end = state.md.helpers.parseLinkLabel(state, start + marker_offset, tag == "a")
+        if state.src[label_end + 1:label_end + 2] != "(":
+            return matched
+        pos = label_end + 2
+        while pos < state.pos and state.src[pos] in " \t\n":
+            pos += 1
+        destination = state.md.helpers.parseLinkDestination(state.src, pos, state.pos)
+        token = next(token for token in state.tokens[count:] if token.tag == tag)
+        if destination.ok and not token.meta.get("label"):
+            token.meta["destination_span"] = (pos, destination.pos)
+        return matched
+
+    return parse
+
+
+MARKDOWN.options["store_labels"] = True
+MARKDOWN.inline.ruler.at("link", record_resource_destination(link, "a", 0))
+MARKDOWN.inline.ruler.at("image", record_resource_destination(image, "img", 1))
+
+
+def markup_chunks(body):
+    """Yield (is_code, source) chunks without normalizing Markdown indentation."""
+    lines = body.split("\n")
+    offsets = line_offsets(lines)
+
+    end = 0
+    for token in MARKDOWN.parse(body):
+        if token.type in {"code_block", "fence"}:
+            first, last = token.map
+            start = offsets[first]
+            yield False, body[end:start]
+            end = min(len(body), offsets[last])
+            yield True, body[start:end]
+        elif token.type == "inline":
+            spans = [child.meta["span"] for child in token.children if child.type == "code_inline"]
+            if not spans:
+                continue
+            positions = inline_source_positions(token, lines, offsets)
+            for start, stop in spans:
+                yield False, body[end:positions[start]]
+                end = positions[stop - 1] + 1
+                yield True, body[positions[start]:end]
+    yield False, body[end:]
 
 
 def visible_markup(body):
-    return INLINE_CODE.sub("", BLOCKS.sub("\n", body))
+    return "".join(
+        re.sub(r"[^\n]", " ", chunk) if is_code else COMMENT.sub("\n", chunk)
+        for is_code, chunk in markup_chunks(body)
+    )
 
 
 def wikilinks(body):
@@ -123,9 +200,9 @@ def source_links(body):
 
 
 def mermaid_blocks(body):
-    for block in BLOCKS.finditer(body):
-        if block["info"] is not None and block["info"].strip().split()[:1] == ["mermaid"]:
-            yield block["code"]
+    for token in MARKDOWN.parse(body):
+        if token.type == "fence" and token.level == 0 and token.info.split()[:1] == ["mermaid"]:
+            yield token.content
 
 
 def secret_hits(content):
@@ -304,12 +381,32 @@ def load_reading_tracks(notes):
     return tracks, errors
 
 
+def relative_wiki_asset(note, pathname):
+    pathname = unquote(pathname)
+    if not pathname or pathname.startswith("/") or "\\" in pathname or "\0" in pathname:
+        return None
+    assets = ROOT / "wiki" / "assets"
+    candidate = Path(os.path.abspath(ROOT / note.path.parent / pathname))
+    if not candidate.is_relative_to(assets) or candidate == assets:
+        return None
+    return candidate
+
+
+def markdown_images(body):
+    for token in MARKDOWN.parse(body):
+        if token.type != "inline":
+            continue
+        for child in token.children:
+            if child.type == "image":
+                yield child.attrs["src"]
+
+
 def check_image(note, target):
-    parsed = urlsplit(target.replace("\\(", "(").replace("\\)", ")"))
+    parsed = urlsplit(target)
     if parsed.scheme or parsed.netloc:
         return True
-    path = (ROOT / note.path.parent / unquote(parsed.path)).resolve()
-    return path.is_relative_to(ROOT / "wiki") and path.is_file()
+    path = relative_wiki_asset(note, parsed.path)
+    return path is not None and path.is_file() and path.resolve().as_posix() == path.as_posix()
 
 
 def resolve_wiki_asset(note, target):
@@ -346,10 +443,9 @@ def check_links(notes):
             if not target or match["label"] is None or "#" in match["target"] or "/" in target:
                 errors.append(f"{note.path}: 使用 [[id|显示文本]] 链接页面 ({match['target']})")
             references.append((target, None))
-        for a, b in IMAGE.findall(visible_markup(note.body)):
-            target = a or b
+        for target in markdown_images(note.body):
             if not check_image(note, target):
-                errors.append(f"{note.path}: 图片不存在 {target}")
+                errors.append(f"{note.path}: 本地图片必须是 wiki/assets 下存在的文件 {target}")
         for key, kind in RELATED_TYPES.items():
             if isinstance(meta.get(key), list):
                 references.extend((target, kind) for target in meta[key] if isinstance(target, str))
@@ -381,8 +477,25 @@ def check_links(notes):
     return errors, warnings
 
 
+def snapshot_inventory_errors(repos):
+    root = ROOT / "raw" / "snapshots"
+    if not root.exists():
+        return
+    for directory in sorted(root.iterdir()):
+        if not directory.is_dir():
+            continue
+        relative = directory.relative_to(ROOT)
+        item = repos.get(directory.name)
+        if item is None:
+            yield f"{relative}: 快照目录未登记在 registry.yaml"
+            continue
+        snapshot = item.get("snapshot_commit")
+        if not isinstance(snapshot, str) or not SHA.fullmatch(snapshot):
+            yield f"{relative}: 快照目录必须登记有效的 40 位 snapshot_commit"
+
+
 def check_registry(notes, repos):
-    errors = []
+    errors = list(snapshot_inventory_errors(repos))
     trees = {}
     for stem, note in notes.items():
         if note.meta.get("type") != "project" or note.meta.get("draft") is not False:
@@ -391,6 +504,9 @@ def check_registry(notes, repos):
         if item is None:
             errors.append(f"{note.path}: 项目未登记在 registry.yaml")
             continue
+        snapshot = item.get("snapshot_commit")
+        if not isinstance(snapshot, str) or not SHA.fullmatch(snapshot):
+            errors.append(f"{note.path}: 公开档案的 snapshot_commit 必须是 40 位 Git SHA")
         for field in REGISTRY_FIELDS:
             if field not in item or note.meta.get(field) != item[field]:
                 errors.append(f"{note.path}: {field} 与 registry.yaml 不一致")
@@ -410,7 +526,7 @@ def check_registry(notes, repos):
         if item.get("tier") in {"core", "active"} and synced:
             if note is None or note.meta.get("draft") is not False or note.meta.get("type") != "project":
                 errors.append(f"registry.yaml: {key} 缺少对应的公开项目档案")
-        if item.get("tier") == "ignore" or not snapshot:
+        if not snapshot:
             continue
         for name in SNAPSHOT_FILES:
             if not (directory / name).is_file():

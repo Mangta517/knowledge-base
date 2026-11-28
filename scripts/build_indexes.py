@@ -6,25 +6,26 @@ import re
 import sys
 from collections import Counter
 from datetime import date, datetime, timezone
+from urllib.parse import quote, urlsplit
 
 from lint_kb import (
-    BLOCKS, COMMENT, COMMON, FIELDS, INLINE_CODE, NOTES, OUTPUT_KEYS, RELATED_TYPES, ROOT, SECTIONS, SHA, WIKILINK,
+    COMMENT, COMMON, FIELDS, MARKDOWN, NOTES, OUTPUT_KEYS, RELATED_TYPES, ROOT, SECTIONS, SHA, WIKILINK,
     VISUAL_FIELDS, check_content, load_notes, load_reading_tracks, load_yaml, mermaid_blocks, redact_secrets,
-    resolve_wiki_asset, source_links, visible_markup, wikilinks,
+    inline_source_positions, line_offsets, markup_chunks, relative_wiki_asset, resolve_wiki_asset, source_links,
+    visible_markup, wikilinks,
 )
 
 JSON_PATHS = ["data/catalog.json", "data/graph.json", "data/stats.json"]
 RECENT_TYPE_ORDER = ("troubleshooting", "adr", "topic", "synthesis", "project")
 EMPTY_REVIEW_LINES = re.compile(r"(?m)^[ \t]*(?:##[ \t]+个人复盘与后续思考|（由人工补充与维护）)[ \t]*$")
-BODY_MARKUP = BLOCKS.pattern + "|" + INLINE_CODE.pattern
-BODY_BLOCKS = re.compile(BODY_MARKUP, BLOCKS.flags)
 INLINE_MARKUP = re.compile(
-    BODY_MARKUP + r"|!?\[(?P<label>(?:[^\[\]\n]|\[[^\[\]\n]*\])*)\]\(\s*"
+    r"!?\[(?P<label>(?:[^\[\]\n]|\[[^\[\]\n]*\])*)\]\(\s*"
     r'(?:<[^>\n]*>|(?:\\.|[^()\s\\]|\([^()\n]*\))*)'
-    r'''(?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^()\n]*\)))?[ \t]*\)''', BLOCKS.flags
+    r'''(?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^()\n]*\)))?[ \t]*\)'''
 )
-CORPUS_MARKUP = re.compile(BODY_MARKUP + "|" + WIKILINK.pattern, BLOCKS.flags)
 TABLE_SEPARATOR = re.compile(r"\|?\s*:?-+:?(?:\s*\|\s*:?-+:?)*\s*\|?")
+REFERENCE_LABEL = re.compile(r"\[(?:\\.|[^\\\[\]])+]:[ \t]*(?:\n[ \t>]*)?", re.S)
+LABEL_ESCAPE = re.compile(r"([\\\[\]])")
 
 
 def json_text(data):
@@ -35,24 +36,38 @@ def has_human_notes(text):
     return any(EMPTY_REVIEW_LINES.sub("", COMMENT.sub("", block)).strip() for block in NOTES.findall(text))
 
 
-def clean_body(text):
-    def strip_comment(block):
-        if block["fence"] or block["ticks"]:
-            return block[0]
-        return ""
+def clean_chunks(text):
+    keep_human_notes = has_human_notes(text)
+    for is_code, chunk in markup_chunks(text):
+        if is_code:
+            yield True, chunk
+        else:
+            if not keep_human_notes:
+                chunk = NOTES.sub("", chunk)
+            yield False, COMMENT.sub("", chunk)
 
-    if not has_human_notes(text):
-        text = NOTES.sub("", text)
-    return BODY_BLOCKS.sub(strip_comment, text).strip()
+
+def trim_blank_lines(text):
+    return re.sub(r"^(?:[ \t]*\n)*", "", text).rstrip("\n")
+
+
+def clean_body(text):
+    return trim_blank_lines("".join(chunk for _, chunk in clean_chunks(text)))
 
 
 def word_count(text):
-    def keep_label(match):
-        if match["label"] is not None:
-            return match["label"]
-        return match[0]
-
-    text = INLINE_MARKUP.sub(keep_label, clean_body(text))
+    chunks = list(clean_chunks(text))
+    body = "".join(chunk for _, chunk in chunks)
+    # Keep code in link labels while ignoring Markdown examples inside code.
+    markup = "".join(re.sub(r"[^\n]", "~", chunk) if is_code else chunk for is_code, chunk in chunks)
+    parts = []
+    end = 0
+    for match in INLINE_MARKUP.finditer(markup):
+        start, stop = match.span("label")
+        parts.extend((body[end:match.start()], body[start:stop]))
+        end = match.end()
+    parts.append(body[end:])
+    text = "".join(parts)
     return len(re.findall(r"[\u3400-\u9fff]|[^\W\u3400-\u9fff]+", text))
 
 
@@ -144,17 +159,71 @@ def public_link(note):
     return "." + note.route
 
 
+def resource_spans(body):
+    env = {"resource_destinations": True}
+    lines = body.split("\n")
+    offsets = line_offsets(lines)
+    used_references = set()
+    for token in MARKDOWN.parse(body, env):
+        if token.type != "inline":
+            continue
+        positions = None
+        for child in token.children:
+            if child.type not in {"link_open", "image"}:
+                continue
+            if "label" in child.meta:
+                used_references.add(child.meta["label"])
+            if "destination_span" not in child.meta:
+                continue
+            if positions is None:
+                positions = inline_source_positions(token, lines, offsets)
+            start, end = child.meta["destination_span"]
+            target = child.attrs.get("src", child.attrs.get("href", ""))
+            yield positions[start], positions[end - 1] + 1, target
+
+    for label in used_references:
+        reference = env["references"][label]
+        first, last = reference["map"]
+        source = body[offsets[first]:offsets[last]]
+        match = REFERENCE_LABEL.search(source)
+        if match is None:
+            continue
+        destination = MARKDOWN.helpers.parseLinkDestination(source, match.end(), len(source))
+        if destination.ok and MARKDOWN.normalizeLink(destination.str) == reference["href"]:
+            yield offsets[first] + match.end(), offsets[first] + destination.pos, reference["href"]
+
+
+def rebase_corpus_assets(note, body):
+    parts = []
+    cursor = 0
+    for start, end, target in sorted(resource_spans(body)):
+        parsed = urlsplit(target)
+        if parsed.scheme or parsed.netloc:
+            continue
+        path = relative_wiki_asset(note, parsed.path)
+        if path is None:
+            continue
+        relative = path.relative_to(ROOT / "wiki" / "assets").as_posix()
+        suffix = target[len(parsed.path):].replace("&", "&amp;")
+        parts.extend((body[cursor:start], f"<./wiki-assets/{quote(relative)}{suffix}>"))
+        cursor = end
+    parts.append(body[cursor:])
+    return "".join(parts)
+
+
 def corpus_body(note, notes):
     def render(match):
-        if match["target"] is None:
-            return match[0]
         target = notes.get(match["target"])
         label = (match["label"] or "|" + match["target"])[1:]
         if target is None or match["embed"]:
             return label
+        label = LABEL_ESCAPE.sub(r"\\\1", label)
         return f"[{label}]({public_link(target)})"
 
-    return CORPUS_MARKUP.sub(render, clean_body(note.body))
+    body = trim_blank_lines("".join(
+        chunk if is_code else WIKILINK.sub(render, chunk) for is_code, chunk in clean_chunks(note.body)
+    ))
+    return rebase_corpus_assets(note, body)
 
 
 def build_text(notes):

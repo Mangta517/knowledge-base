@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import { checkBuiltPages, prepareDevAssets } from './scripts/check-built-pages.mjs';
 
 function normalizeBase(raw = '') {
   const trimmed = raw.trim().replace(/^\/+|\/+$/g, '');
@@ -17,6 +18,37 @@ function normalizeSiteUrl(raw = 'https://mangta517.github.io') {
 
 const siteUrl = normalizeSiteUrl(process.env.SITE_URL);
 const base = normalizeBase(process.env.SITE_BASE || '');
+const siteRoot = new URL(`${siteUrl}${base || ''}/`);
+
+// These synchronous scripts run before the theme, shortcut and sidebar controls paint.
+const inlineScripts = [
+  "'sha256-+xF0M8GFq7VkWiEItkiv4YbcP/xcmYMVKvpQwtweWD0='", // CustomThemeProvider
+  "'sha256-f/zAUE74ucc3JYp4r4QQvkJofoQdkOIhHYK+jeZ6eko='", // Starlight search shortcut
+  "'sha256-yiTapURQAzVYqJIJXL03Gepg/022hHZUVvS4f8isCN8='", // Starlight theme selector
+  "'sha256-wX2yOADeV+NMngflD5uYi3vl50SHC4sfM1EmylVjlX4='", // Sidebar state
+  "'sha256-7eCV4jtsr4t4knb3c4FCRPeu7GGZeOUGE3XvWix0XOQ='", // Sidebar scroll position
+];
+
+const productionHead = [];
+if (process.env.NODE_ENV !== 'development') {
+  productionHead.push({
+    tag: 'meta',
+    attrs: {
+      'http-equiv': 'Content-Security-Policy',
+      content: [
+        "default-src 'self'",
+        `script-src 'self' 'wasm-unsafe-eval' ${inlineScripts.join(' ')}`, // Pagefind uses WebAssembly.
+        "style-src 'self' 'unsafe-inline'", // Mermaid and syntax highlighting generate styles.
+        "font-src 'self' data:",
+        "img-src 'self' https: data:",
+        "base-uri 'none'",
+        "object-src 'none'",
+        "form-action 'none'",
+        "frame-src 'none'",
+      ].join('; '),
+    },
+  });
+}
 
 export default defineConfig({
   site: siteUrl,
@@ -24,6 +56,11 @@ export default defineConfig({
   outDir: '../../dist',
   vite: {
     build: {
+      assetsInlineLimit(file) {
+        if (/\.m?js$/.test(file)) {
+          return false;
+        }
+      },
       // Mermaid splits optional ELK layout into an on-demand lazy chunk (~1.46 MB) that is never loaded on standard pages
       chunkSizeWarningLimit: 1600,
     },
@@ -35,11 +72,23 @@ export default defineConfig({
     },
   },
   integrations: [
+    {
+      name: 'kb-check-built-pages',
+      hooks: {
+        'astro:config:setup': async ({ command, config }) => {
+          if (command === 'dev') {
+            await prepareDevAssets(config, siteRoot);
+          }
+        },
+        'astro:build:done': (output) => checkBuiltPages(output, siteRoot),
+      },
+    },
     starlight({
       title: 'Mangta 工程知识库',
       description: '基于 Mangta517 全部公开 GitHub 项目的嵌入式固件、架构决策与排障知识库。',
       disable404Route: true,
       head: [
+        ...productionHead,
         {
           tag: 'meta',
           attrs: {

@@ -95,7 +95,7 @@ function shortTitle(title: string, id: string, type: string): string {
             class={`kb-mini-node kb-type-${n.item.type}`}
             data-mini-node={n.item.id}
             aria-label={`${TYPE_SHORT_LABELS[n.item.type]}：${n.item.title}`}
-            transform={`translate(${n.x.toFixed(1)}, ${n.y.toFixed(1)})`}
+            style={`transform: translate(${n.x.toFixed(1)}px, ${n.y.toFixed(1)}px);`}
           >
             <circle r="5.2" />
             <title>{`[${TYPE_SHORT_LABELS[n.item.type]}] ${n.item.title}`}</title>

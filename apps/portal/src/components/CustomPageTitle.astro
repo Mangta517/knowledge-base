@@ -812,10 +812,10 @@ const tsRelatedProjects: ProjectItem[] =
       const headers = headCells
         .map((th) => (th.textContent || '').replace(/[⇅↑↓]/g, '').trim())
         .join('\t');
-      const lines = cardItems
-        .filter((item) => !item.tr.hidden)
-        .map((item) =>
-          Array.from(item.tr.cells)
+      const lines = Array.from(tbody?.rows ?? [])
+        .filter((row) => !row.hidden)
+        .map((row) =>
+          Array.from(row.cells)
             .map((td) => (td.textContent || '').replace(/\s+/g, ' ').trim())
             .join('\t'),
         );

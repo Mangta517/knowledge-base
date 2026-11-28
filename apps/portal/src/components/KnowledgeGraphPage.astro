@@ -270,8 +270,7 @@ const summary = `${nodes.length} NODES · ${edges.length} LINKS`;
                   aria-label={`${TYPE_LABELS[node.type]}：${node.title}`}
                   data-node-id={node.id}
                   data-node-type={node.type}
-                  style={`--node-delay: ${Math.min(nIdx * 24, 360)}ms;`}
-                  transform={`translate(${node.x.toFixed(1)}, ${node.y.toFixed(1)})`}
+                  style={`--node-delay: ${Math.min(nIdx * 24, 360)}ms; transform: translate(${node.x.toFixed(1)}px, ${node.y.toFixed(1)}px);`}
                 >
                   <circle r={(radius + 5.5).toFixed(1)} class="kb-node-ring" />
                   <circle r={radius.toFixed(1)} class="kb-node-core" />
@@ -435,12 +434,28 @@ const summary = `${nodes.length} NODES · ${edges.length} LINKS`;
     let scale = 1;
     let tx = 0;
     let ty = 0;
-    let panning = false;
-    let panMoved = false;
-    let panStartX = 0;
-    let panStartY = 0;
+    let pan: {
+      pointerId: number;
+      screenX: number;
+      screenY: number;
+      svgStart: DOMPoint;
+      tx: number;
+      ty: number;
+      moved: boolean;
+    } | null = null;
     let tweenRaf = 0;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function screenToSvg(x: number, y: number) {
+      const matrix = svgEl.getScreenCTM();
+      if (!matrix) {
+        return undefined;
+      }
+      const point = svgEl.createSVGPoint();
+      point.x = x;
+      point.y = y;
+      return point.matrixTransform(matrix.inverse());
+    }
 
     function updateTransform() {
       viewport.setAttribute(
@@ -736,10 +751,6 @@ const summary = `${nodes.length} NODES · ${edges.length} LINKS`;
         updateGraphState();
       });
       node.addEventListener('click', (e) => {
-        if (panMoved) {
-          e.preventDefault();
-          return;
-        }
         if (e.metaKey || e.ctrlKey || pinnedId === id) {
           return;
         }
@@ -783,10 +794,8 @@ const summary = `${nodes.length} NODES · ${edges.length} LINKS`;
       (e) => {
         e.preventDefault();
         const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-        const rect = svgEl.getBoundingClientRect();
-        const fx = rect.width > 0 ? ((e.clientX - rect.left) / rect.width) * 960 : 480;
-        const fy = rect.height > 0 ? ((e.clientY - rect.top) / rect.height) * 540 : 270;
-        zoomAround(scale * factor, fx, fy);
+        const focal = screenToSvg(e.clientX, e.clientY);
+        zoomAround(scale * factor, focal?.x, focal?.y);
       },
       { passive: false },
     );
@@ -800,45 +809,51 @@ const summary = `${nodes.length} NODES · ${edges.length} LINKS`;
     });
 
     stage.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0) return;
-      if ((e.target as Element).closest('[data-node-id]')) {
-        panMoved = false;
+      if (e.button !== 0 || pan || !(e.target instanceof Element) || e.target.closest('[data-node-id]')) {
         return;
       }
-      panning = true;
-      panMoved = false;
-      panStartX = e.clientX - tx;
-      panStartY = e.clientY - ty;
+      const svgStart = screenToSvg(e.clientX, e.clientY);
+      if (!svgStart) {
+        return;
+      }
+      cancelAnimationFrame(tweenRaf);
+      pan = { pointerId: e.pointerId, screenX: e.clientX, screenY: e.clientY, svgStart, tx, ty, moved: false };
       stage.setPointerCapture(e.pointerId);
       stage.classList.add('is-panning');
     });
 
     stage.addEventListener('pointermove', (e) => {
-      if (!panning) return;
-      const nx = e.clientX - panStartX;
-      const ny = e.clientY - panStartY;
-      if (Math.hypot(nx - tx, ny - ty) > 3) {
-        panMoved = true;
+      if (!pan || e.pointerId !== pan.pointerId) {
+        return;
       }
-      tx = nx;
-      ty = ny;
+      const distance = Math.hypot(e.clientX - pan.screenX, e.clientY - pan.screenY);
+      if (!pan.moved && distance <= 3) {
+        return;
+      }
+      const point = screenToSvg(e.clientX, e.clientY);
+      if (!point) {
+        return;
+      }
+      pan.moved = true;
+      tx = pan.tx + point.x - pan.svgStart.x;
+      ty = pan.ty + point.y - pan.svgStart.y;
       updateTransform();
     });
 
     const stopPan = (e: PointerEvent) => {
-      if (panning && !panMoved && !(e.target as Element).closest('[data-node-id]')) {
+      if (!pan || e.pointerId !== pan.pointerId) {
+        return;
+      }
+      if (e.type === 'pointerup' && !pan.moved) {
         pinnedId = null;
         syncUrlNode(null);
         updateGraphState();
       }
-      panning = false;
+      pan = null;
       stage.classList.remove('is-panning');
     };
     stage.addEventListener('pointerup', stopPan);
-    stage.addEventListener('pointercancel', () => {
-      panning = false;
-      stage.classList.remove('is-panning');
-    });
+    stage.addEventListener('lostpointercapture', stopPan);
 
     updateGraphState();
   }
