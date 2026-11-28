@@ -209,6 +209,18 @@ const thirdStatLabel =
       </div>
 
       <div class="kb-ev-search-wrap">
+        {hasAnyInlineCode && (
+          <button
+            type="button"
+            class="kb-ev-bulk-btn"
+            data-c-toggle-all
+            data-bulk-state="closed"
+            aria-pressed="false"
+            title="一键展开或收起当前筛选结果中的所有 C 代码块"
+          >
+            展开全部代码
+          </button>
+        )}
         <input
           type="search"
           class="kb-ev-search"
@@ -368,8 +380,12 @@ const thirdStatLabel =
 </div>
 
 <script>
+  import { handleCCodeClick, setCodeBoxOpen, syncBulkToggle } from '../lib/c-code-controls';
+
   const page = document.querySelector<HTMLElement>('[data-evidence-page]');
   if (page) {
+    const scopeEl: HTMLElement = page;
+    scopeEl.dataset.cBound = '1';
     const modeBtns = Array.from(page.querySelectorAll<HTMLButtonElement>('[data-ev-mode]'));
     const extBtns = Array.from(page.querySelectorAll<HTMLButtonElement>('[data-ev-ext]'));
     const repoBtns = Array.from(page.querySelectorAll<HTMLButtonElement>('[data-ev-repo-btn]'));
@@ -477,6 +493,7 @@ const thirdStatLabel =
       countEl.textContent = `显示 ${visible} / ${list.length}`;
       resetBtn.hidden = !isFiltered;
       emptyEl.hidden = visible > 0;
+      syncBulkToggle(scopeEl);
 
       if (syncUrl) {
         const url = new URL(window.location.href);
@@ -548,8 +565,8 @@ const thirdStatLabel =
       applyFilters(true);
     });
 
-    // Delegated C code copy, fold, and file-to-walkthrough jump toggles
-    page.addEventListener('click', async (event) => {
+    // Delegated C code toggle, bulk toggle, copy, and file-to-walkthrough jump handlers
+    page.addEventListener('click', (event) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
 
@@ -570,6 +587,11 @@ const thirdStatLabel =
             searchInput.value = '';
             applyFilters(true);
           }
+          const codeBox = card.querySelector<HTMLElement>('[data-c-code-box]');
+          if (codeBox) {
+            setCodeBoxOpen(codeBox, true);
+            syncBulkToggle(scopeEl);
+          }
           card.scrollIntoView({ behavior: 'smooth', block: 'center' });
           card.classList.add('is-jump-flash');
           window.setTimeout(() => card.classList.remove('is-jump-flash'), 1600);
@@ -577,42 +599,7 @@ const thirdStatLabel =
         return;
       }
 
-      const copyBtn = target.closest<HTMLButtonElement>('[data-c-copy]');
-      if (copyBtn) {
-        const box = copyBtn.closest<HTMLElement>('[data-c-code-box]');
-        if (!box) return;
-        const rawCode = Array.from(box.querySelectorAll<HTMLElement>('.kb-c-line-code'))
-          .map((el) => (el.textContent || '').replace(/\u200B/g, ''))
-          .join('\n');
-        if (!rawCode) return;
-        const original = copyBtn.dataset.origLabel || copyBtn.textContent || '复制 C 代码';
-        copyBtn.dataset.origLabel = original;
-        try {
-          await navigator.clipboard.writeText(rawCode);
-          copyBtn.textContent = '已复制 ✓';
-          copyBtn.classList.add('is-copied');
-          window.setTimeout(() => {
-            copyBtn.textContent = original;
-            copyBtn.classList.remove('is-copied');
-          }, 1800);
-        } catch {
-          copyBtn.textContent = '复制失败';
-          window.setTimeout(() => {
-            copyBtn.textContent = original;
-          }, 1600);
-        }
-        return;
-      }
-
-      const foldBtn = target.closest<HTMLButtonElement>('[data-c-fold-toggle]');
-      if (foldBtn) {
-        const box = foldBtn.closest<HTMLElement>('[data-c-code-box]');
-        if (!box) return;
-        const collapsed = box.classList.toggle('is-collapsed');
-        const total = foldBtn.dataset.totalLines || '';
-        foldBtn.setAttribute('aria-expanded', String(!collapsed));
-        foldBtn.textContent = collapsed ? `展开完整 ${total} 行 C 源码 ↓` : '收起代码 ↑';
-      }
+      handleCCodeClick(scopeEl, target);
     });
 
     applyFilters(false);
@@ -920,6 +907,29 @@ const thirdStatLabel =
     align-items: center;
     gap: 0.45rem;
     margin-left: auto;
+  }
+
+  .kb-ev-bulk-btn {
+    padding: 0.24rem 0.62rem;
+    border-radius: 0.44rem;
+    border: 1px solid color-mix(in srgb, var(--kb-accent) 44%, var(--kb-border));
+    background: var(--kb-project-soft);
+    color: var(--kb-project-ink);
+    font: inherit;
+    font-size: var(--sl-text-xs);
+    font-weight: 650;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color 0.16s ease, background-color 0.16s ease;
+  }
+
+  .kb-ev-bulk-btn:hover {
+    border-color: var(--kb-accent);
+    background: color-mix(in srgb, var(--kb-project-soft) 75%, var(--kb-accent));
+  }
+
+  .kb-ev-bulk-btn[hidden] {
+    display: none !important;
   }
 
   .kb-ev-search {

@@ -625,10 +625,16 @@ test('hero metric cards: all 4 tiles are interactive links backed by C-only evid
   assert.doesNotMatch(docSourceAnchorsAstro, /<script\s+is:inline/);
   const customCss = fs.readFileSync(path.join(portalSrc, 'styles/custom.css'), 'utf-8');
   assert.match(cSourceCardAstro, /data-c-copy/);
-  assert.match(cSourceCardAstro, /data-c-fold-toggle/);
+  assert.match(cSourceCardAstro, /data-c-toggle/);
+  assert.match(cSourceCardAstro, /data-c-code-body/);
+  assert.match(cSourceCardAstro, /aria-expanded="false"/);
+  assert.match(cSourceCardAstro, /aria-controls=\{codePanelId\}/);
+  assert.match(evidenceAstro, /data-c-toggle-all/);
+  assert.match(docSourceAnchorsAstro, /data-c-toggle-all/);
   assert.match(cSourceCardAstro, /\.kb-cs-pre\s*\{[^}]*white-space:\s*normal;/s);
   assert.match(customCss, /\.kb-c-line\s*\{[^}]*white-space:\s*normal;/s);
   assert.match(customCss, /\.kb-c-line-code\s*\{[^}]*white-space:\s*pre;/s);
+  assert.match(customCss, /\.kb-cs-code-body\[hidden\]\s*\{[^}]*display:\s*block !important;/s);
 
   // Extractors match published C-only evidence subset and exact diagram counts across all published docs
   const catalog = JSON.parse(fs.readFileSync(path.join(repoRoot, 'data/catalog.json'), 'utf-8'));
